@@ -1,25 +1,12 @@
-name = "portail-cashflow"
+name = "systemeprompt"
 main = "_worker.js"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Fichiers statiques (HTML, CSS, JS, images) à la racine du projet
 [assets]
 directory = "."
 binding = "ASSETS"
-# Si une URL ne correspond pas à un fichier, on laisse le Worker gérer
-not_found_handling = "none"
 
-# KV — sessions, clients, cache TTS, etc.
 [[kv_namespaces]]
 binding = "CASHFLOW_KV"
 id = "106db6da016d49d2b480452f19bad695"
-
-# Décommente si tu utilises Vectorize (cerveau des livres)
-# [[vectorize]]
-# binding = "VECTORIZE_INDEX"
-# index_name = "univers-livres"
-
-# Décommente si tu utilises Workers AI (embeddings bge-m3)
-# [ai]
-# binding = "AI"
