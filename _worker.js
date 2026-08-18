@@ -558,27 +558,49 @@ async function handleAdminListClients(request, env) {
 
 async function handleAdminCreateClient(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
-  const body = await request.json();
+
+  if (!env.CASHFLOW_KV) {
+    return json({ error: 'KV non configuré (binding CASHFLOW_KV manquant sur ce Worker).' }, 500);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ error: 'Corps de requête invalide.' }, 400);
+  }
+
   const email = (body.email || '').toLowerCase().trim();
   if (!email || !body.password) return json({ error: 'Email et mot de passe requis.' }, 400);
+  if (String(body.password).length < 6) return json({ error: 'Mot de passe : minimum 6 caractères.' }, 400);
 
-  const existing = await env.CASHFLOW_KV.get(`client:${email}`);
-  if (existing) return json({ error: 'Ce courriel existe déjà.' }, 400);
+  try {
+    const existing = await env.CASHFLOW_KV.get(`client:${email}`);
+    if (existing) return json({ error: 'Ce courriel existe déjà.' }, 400);
 
-  const salt = randomSalt();
-  const passwordHash = await hashPassword(body.password, salt);
+    const salt = randomSalt();
+    const passwordHash = await hashPassword(body.password, salt);
 
-  const client = {
-    firstName: body.firstName || '',
-    lastName: body.lastName || '',
-    name: body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim(),
-    email, passwordHash, salt,
-    role: body.role || 'client',
-    products: body.products || [],
-    createdAt: new Date().toISOString()
-  };
-  await env.CASHFLOW_KV.put(`client:${email}`, JSON.stringify(client));
-  return json({ success: true });
+    const client = {
+      firstName: body.firstName || '',
+      lastName: body.lastName || '',
+      name: body.name || `${body.firstName || ''} ${body.lastName || ''}`.trim(),
+      email,
+      password: body.password, // conservé pour affichage Super Admin
+      passwordHash,
+      salt,
+      role: body.role || 'client',
+      products: Array.isArray(body.products) ? body.products : [],
+      active: true,
+      createdAt: new Date().toISOString()
+    };
+
+    await env.CASHFLOW_KV.put(`client:${email}`, JSON.stringify(client));
+    return json({ success: true, email, products: client.products });
+  } catch (e) {
+    console.error('handleAdminCreateClient', e);
+    return json({ error: 'Erreur KV : ' + (e.message || String(e)) }, 500);
+  }
 }
 
 async function handleAdminUpdateClient(request, env) {
