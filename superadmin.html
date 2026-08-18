@@ -961,18 +961,22 @@ async function createAccount(e) {
   var email = document.getElementById('new-email').value.trim().toLowerCase();
   var password = document.getElementById('new-password').value;
   var products = [];
-  if (document.getElementById('new-pro-systemeprompt').checked) products.push('systemeprompt');
-  if (document.getElementById('new-pro-cashflow').checked) products.push('cashflow');
-  if (document.getElementById('new-pro-spirituel').checked) products.push('spirituel');
-  if (document.getElementById('new-pro-praticienne').checked) products.push('praticienne');
-  if (document.getElementById('new-pro-conquerir').checked) products.push('conquerir');
-  if (document.getElementById('new-pro-miroir_accompagnement').checked) products.push('miroir_accompagnement');
-  if (document.getElementById('new-pro-edition_ia').checked) products.push('edition_ia');
-  if (document.getElementById('new-pro-marketplace').checked) products.push('marketplace');
-  if (document.getElementById('new-pro-affiliation').checked) products.push('affiliation');
+  function pushIfChecked(id, value) {
+    var el = document.getElementById(id);
+    if (el && el.checked) products.push(value);
+  }
+  pushIfChecked('new-pro-systemeprompt', 'systemeprompt');
+  pushIfChecked('new-pro-cashflow', 'cashflow');
+  pushIfChecked('new-pro-spirituel', 'spirituel');
+  pushIfChecked('new-pro-praticienne', 'praticienne');
+  pushIfChecked('new-pro-conquerir', 'conquerir');
+  pushIfChecked('new-pro-miroir_accompagnement', 'miroir_accompagnement');
+  pushIfChecked('new-pro-edition_ia', 'edition_ia');
+  pushIfChecked('new-pro-marketplace', 'marketplace');
+  pushIfChecked('new-pro-affiliation', 'affiliation');
 
   if (!firstname || !lastname || !email || !password) { showError('Tous les champs sont requis'); return false; }
-  if (products.length === 0) { showError('Sélectionnez au moins un produit'); return false; }
+  if (products.length === 0) { showError('Sélectionnez au moins un produit (ex. ⚡ Portail Système Prompt)'); return false; }
   if (password.length < 6) { showError('Min. 6 caractères'); return false; }
 
   var btn = document.getElementById('btn-create');
