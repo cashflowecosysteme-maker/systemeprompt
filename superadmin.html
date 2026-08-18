@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="NyXia-FavIcon.png">
+<title>NyXia · Super Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#0F1C3F;--bg2:#1A2554;--bg3:#2A3A6E;--p:#7B5CFF;--p2:#5A6CFF;--p3:#4FA3FF;--glow:rgba(123,92,255,0.4);--t:#FFFFFF;--t2:#D6D9F0;--t3:#8891B8;--green:#00E676;--red:#ff6b6b}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Outfit',sans-serif;background:var(--bg1);color:var(--t);line-height:1.65}
+button{font-family:'Space Grotesk',sans-serif;cursor:pointer}
+input,textarea,select{font-family:'Outfit',sans-serif}
+
+/* ═══════ LOGIN GATE ═══════ */
+.login-gate{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg1);
+}
+.login-gate.hidden{display:none}
+.login-card{
+  width:100%;max-width:420px;margin:20px;
+  background:var(--bg2);border:1px solid rgba(123,92,255,0.25);
+  border-radius:24px;padding:40px;
+  box-shadow:0 32px 80px rgba(0,0,0,0.5);
+}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo img{width:56px;height:56px;border-radius:50%;border:2px solid rgba(123,92,255,0.5);box-shadow:0 0 30px rgba(123,92,255,0.4);margin-bottom:12px}
+.login-logo h2{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;background:linear-gradient(135deg,#a78bfa,var(--p3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.login-logo p{font-size:13px;color:var(--t3);margin-top:6px}
+.login-field{margin-bottom:20px}
+.login-field label{display:block;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.login-field input{
+  width:100%;padding:14px 16px;border-radius:12px;
+  border:1px solid rgba(123,92,255,0.25);background:rgba(15,28,63,0.7);
+  color:var(--t);font-size:15px;outline:none;transition:all .2s;
+}
+.login-field input:focus{border-color:var(--p);box-shadow:0 0 20px rgba(123,92,255,0.2)}
+.login-field input::placeholder{color:rgba(136,145,184,0.5)}
+.login-btn{
+  width:100%;padding:14px;border-radius:12px;border:none;
+  background:linear-gradient(135deg,var(--p),var(--p2));
+  color:#fff;font-size:15px;font-weight:700;
+  box-shadow:0 0 24px rgba(123,92,255,0.4);
+  transition:all .25s;
+}
+.login-btn:hover{box-shadow:0 0 40px rgba(123,92,255,0.6);transform:translateY(-1px)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.login-error{
+  margin-top:16px;padding:10px 14px;border-radius:10px;
+  background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.3);
+  color:var(--red);font-size:13px;text-align:center;display:none;
+}
+.login-error.visible{display:block}
+.login-attempts{
+  margin-top:12px;text-align:center;font-size:11px;color:var(--t3);
+}
+
+/* ═══════ ADMIN PANEL ═══════ */
+.admin-panel{display:none;height:100vh;overflow:hidden;flex-direction:column}
+.admin-panel.visible{display:flex}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;background:rgba(15,28,63,0.9);border-bottom:1px solid rgba(123,92,255,0.2);backdrop-filter:blur(10px);flex-shrink:0}
+.header-logo{display:flex;align-items:center;gap:12px}
+.header-logo img{width:40px;height:40px;border-radius:50%;filter:drop-shadow(0 0 10px rgba(123,92,255,0.5))}
+.header-logo h1{font-family:'Orbitron',monospace;font-size:18px;font-weight:700;letter-spacing:1px}
+.header-logo span{color:var(--p3);font-size:12px;font-weight:600;background:rgba(123,92,255,0.15);padding:4px 10px;border-radius:50px;margin-left:8px}
+.header-right{display:flex;align-items:center;gap:12px}
+.header-user{font-size:13px;color:var(--t2)}
+.btn-logout{padding:8px 16px;border-radius:8px;border:1px solid rgba(255,82,82,0.3);background:rgba(255,82,82,0.1);color:var(--red);font-size:12px;font-weight:600;transition:all .2s}
+.btn-logout:hover{background:rgba(255,82,82,0.2)}
+.btn-back{padding:8px 16px;border-radius:8px;border:1px solid rgba(123,92,255,0.3);background:rgba(123,92,255,0.1);color:var(--p3);font-size:12px;font-weight:600;transition:all .2s;text-decoration:none;display:flex;align-items:center;gap:6px}
+.btn-back:hover{background:rgba(123,92,255,0.2)}
+
+/* Main */
+.main{flex:1;overflow-y:auto;max-width:1200px;margin:0 auto;padding:24px;width:100%}
+
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:rgba(26,37,84,0.5);border:1px solid rgba(123,92,255,0.15);border-radius:16px;padding:20px;text-align:center}
+.stat-value{font-family:'Orbitron',monospace;font-size:32px;font-weight:700;color:var(--p3)}
+.stat-label{font-size:12px;color:var(--t3);margin-top:4px;text-transform:uppercase;letter-spacing:1px}
+
+/* Panel */
+.panel{background:rgba(26,37,84,0.5);border:1px solid rgba(123,92,255,0.15);border-radius:16px;padding:24px;margin-bottom:24px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(123,92,255,0.1)}
+.panel-title{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;color:var(--t)}
+.panel-subtitle{font-size:12px;color:var(--t3);margin-top:2px}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
+.field input,.field select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(123,92,255,0.2);background:rgba(15,28,63,0.6);color:var(--t);font-size:14px;outline:none;transition:border-color .2s}
+.field input:focus,.field select:focus{border-color:var(--p)}
+.field input::placeholder{color:rgba(136,145,184,0.5)}
+.form-actions{display:flex;gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(123,92,255,0.1)}
+.btn-primary{padding:12px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-size:14px;font-weight:700;transition:all .2s;box-shadow:0 0 20px rgba(123,92,255,0.3)}
+.btn-primary:hover{box-shadow:0 0 32px rgba(123,92,255,0.5);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-secondary{padding:12px 24px;border-radius:10px;border:1px solid rgba(123,92,255,0.3);background:transparent;color:var(--t2);font-size:14px;font-weight:600;transition:all .2s}
+.btn-secondary:hover{background:rgba(123,92,255,0.1)}
+
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid rgba(123,92,255,0.1)}
+th{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;background:rgba(15,28,63,0.4)}
+td{font-size:13px;color:var(--t2)}
+tr:hover td{background:rgba(123,92,255,0.05)}
+.badge{display:inline-block;padding:4px 10px;border-radius:50px;font-size:10px;font-weight:700;text-transform:uppercase}
+.badge.cashflow{background:rgba(255,140,60,0.18);color:#ff9c42}
+.badge.systemeprompt{background:rgba(123,92,255,0.22);color:#c4b5fd}
+.badge.miroir_accompagnement{background:rgba(123,92,255,0.15);color:#a78bfa}
+.badge.praticienne{background:rgba(255,140,190,0.15);color:#ff8cbe}
+.badge.clone_ia{background:rgba(79,163,255,0.15);color:#4fa3ff}
+.badge.edition_ia{background:rgba(0,230,118,0.15);color:#00e676}
+.badge.spirituel{background:rgba(147,112,219,0.18);color:#c9a3ff}
+.badge.conquerir{background:rgba(255,75,110,0.15);color:#ff8fab}
+.badge.gardienne{background:rgba(180,120,255,0.18);color:#c4b5fd}
+.badge.marketplace{background:rgba(255,180,60,0.18);color:#ffb43c}
+.badge.affiliation{background:rgba(255,215,0,0.18);color:#ffd700}
+.badge.active{background:rgba(0,230,118,0.15);color:var(--green)}
+.badge.suspended{background:rgba(255,82,82,0.15);color:var(--red)}
+
+/* Actions */
+.action-btns{display:flex;gap:6px}
+.btn-icon{width:32px;height:32px;border-radius:8px;border:1px solid rgba(123,92,255,0.2);background:rgba(15,28,63,0.4);color:var(--t3);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.btn-icon:hover{border-color:rgba(123,92,255,0.4);color:var(--t)}
+.btn-icon.edit:hover{border-color:var(--p3);color:var(--p3)}
+.btn-icon.delete:hover{border-color:var(--red);color:var(--red);background:rgba(255,82,82,0.1)}
+
+/* Password */
+.password-wrap{position:relative}
+.password-wrap input{padding-right:40px}
+.password-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);cursor:pointer;padding:4px;font-size:12px}
+.password-toggle:hover{color:var(--t)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+.modal-overlay.visible{display:flex}
+.modal{background:var(--bg2);border:1px solid rgba(123,92,255,0.2);border-radius:20px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700}
+.modal-close{width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,82,82,0.2);background:transparent;color:var(--red);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+
+/* Messages */
+.msg{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none}
+.msg.visible{display:block}
+.msg.success{background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);color:var(--green)}
+.msg.error{background:rgba(255,82,82,0.1);border:1px solid rgba(255,82,82,0.3);color:var(--red)}
+
+/* Empty */
+.empty{text-align:center;padding:40px 20px;color:var(--t3)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.5}
+.loading{text-align:center;padding:20px;color:var(--t3)}
+
+/* Password display */
+.pwd-code{font-family:monospace;font-size:11px;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;color:#FFD700}
+.btn-copy-pwd{background:none;border:none;cursor:pointer;font-size:12px;margin-left:4px;opacity:0.7;transition:opacity .2s}
+.btn-copy-pwd:hover{opacity:1}
+
+/* Products checkboxes */
+.products-checkboxes{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+.checkbox-label{display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:rgba(123,92,255,0.1);border-radius:8px;border:1px solid rgba(123,92,255,0.2);transition:all .2s}
+.checkbox-label:hover{background:rgba(123,92,255,0.15)}
+.checkbox-label input[type="checkbox"]{width:18px;height:18px;accent-color:#7B5CFF}
+.checkbox-label span{font-size:14px}
+
+/* Session expired overlay */
+.session-expired{
+  position:fixed;inset:0;z-index:9998;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);
+}
+.session-expired.visible{display:flex}
+.session-expired-card{
+  background:var(--bg2);border:1px solid rgba(255,82,82,0.3);
+  border-radius:20px;padding:40px;text-align:center;max-width:400px;
+}
+
+@media(max-width:768px){
+  .header{padding:12px 16px}
+  .header-logo h1{font-size:14px}
+  .main{padding:16px}
+  .form-grid{grid-template-columns:1fr}
+  th,td{padding:10px 12px;font-size:12px}
+  .action-btns{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════ LOGIN GATE — Protection admin ═══════ -->
+<div class="login-gate" id="loginGate">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="NyXia.png" alt="NyXia">
+      <h2>NyXia Admin</h2>
+      <p>Accès réservé aux administrateurs</p>
+    </div>
+    <div class="login-field">
+      <label>Mot de passe administrateur</label>
+      <input type="password" id="adminPassword" placeholder="Entrez le mot de passe admin"
+             autocomplete="off" autofocus>
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doAdminLogin()">🔓 Accéder à l'administration</button>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-attempts" id="loginAttempts"></div>
+  </div>
+</div>
+
+<!-- ═══════ SESSION EXPIRED ═══════ -->
+<div class="session-expired" id="sessionExpired">
+  <div class="session-expired-card">
+    <div style="font-size:48px;margin-bottom:16px">🔒</div>
+    <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Session expirée</h3>
+    <p style="color:var(--t3);font-size:14px;margin-bottom:24px">Reconnectez-vous pour continuer.</p>
+    <button class="login-btn" onclick="location.reload()">🔄 Se reconnecter</button>
+  </div>
+</div>
+
+<!-- ═══════ ADMIN PANEL ═══════ -->
+<div class="admin-panel" id="adminPanel">
+  <div class="header">
+    <div class="header-logo">
+      <img src="NyXia.png" alt="NyXia">
+      <h1>NyXia</h1>
+      <span>Super Admin</span>
+    </div>
+    <div class="header-right">
+      <span class="header-user" id="user-name">Administrateur</span>
+      <button class="btn-back" style="border-color:rgba(123,92,255,0.3);color:var(--p3);background:rgba(123,92,255,0.1);text-decoration:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid;cursor:pointer" onclick="openChangePwdModal()">🔑 Mot de passe</button>
+      <a href="dashbord.html" class="btn-back">← Dashboard</a>
+      <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Messages -->
+    <div id="msg-success" class="msg success"></div>
+    <div id="msg-error" class="msg error"></div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-clients">—</div>
+        <div class="stat-label">Clients</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-active">—</div>
+        <div class="stat-label">Comptes actifs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-today">—</div>
+        <div class="stat-label">Créés aujourd'hui</div>
+      </div>
+    </div>
+
+    <!-- Create Account -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">+ Créer un compte client</div>
+          <div class="panel-subtitle">Créez un nouveau compte avec un ou plusieurs produits</div>
+        </div>
+      </div>
+      <form id="create-form" onsubmit="return createAccount(event)">
+        <div class="form-grid">
+          <div class="field">
+            <label>Prénom *</label>
+            <input type="text" id="new-firstname" placeholder="Jean" required>
+          </div>
+          <div class="field">
+            <label>Nom *</label>
+            <input type="text" id="new-lastname" placeholder="Tremblay" required>
+          </div>
+          <div class="field">
+            <label>Courriel *</label>
+            <input type="email" id="new-email" placeholder="jean@exemple.com" required>
+          </div>
+          <div class="field">
+            <label>Mot de passe *</label>
+            <div class="password-wrap">
+              <input type="text" id="new-password" placeholder="MotDePasse123" required minlength="6">
+              <button type="button" class="password-toggle" onclick="togglePwd('new-password',this)">🙈</button>
+            </div>
+            <span style="font-size:11px;color:var(--t3);margin-top:4px">Min. 6 caractères — visible pour le donner au client</span>
+          </div>
+        </div>
+        <div class="field" style="margin-top:16px">
+          <label>Produits *</label>
+          <div class="products-checkboxes">
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-systemeprompt" value="systemeprompt">
+              <span>⚡ Portail Système Prompt</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-cashflow" value="cashflow">
+              <span>🔥 Portail Cashflow</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-spirituel" value="spirituel">
+              <span>🔮 Portail Vibratoire Spirituel</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-praticienne" value="praticienne">
+              <span>🌸 Portail Praticiens|Praticiennes</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-conquerir" value="conquerir">
+              <span>💔 Portail Relationnel</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-miroir_accompagnement" value="miroir_accompagnement">
+              <span>🪞 Portail Ami Miroir</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-edition_ia" value="edition_ia">
+              <span>✍️ Portail Devenir Auteur</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-marketplace" value="marketplace">
+              <span>🛍️ MarketPlace</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="new-pro-affiliation" value="affiliation">
+              <span>💰 Affiliation</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="btn-create">Créer le compte</button>
+          <button type="reset" class="btn-secondary">Réinitialiser</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Messagerie interne -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">💌 Messagerie</div>
+          <div class="panel-subtitle">Envoie un message à une Gardienne précise, ou une diffusion à toutes</div>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Destinataire</label>
+          <select id="msg-admin-recipient">
+            <option value="">— Choisir une Gardienne —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="checkbox-label" style="margin-top:28px">
+            <input type="checkbox" id="msg-admin-broadcast" onchange="toggleBroadcastMode(this)">
+            <span>📢 Diffusion à toutes les Gardiennes (ignore le destinataire ci-dessus)</span>
+          </label>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Sujet (optionnel)</label>
+        <input type="text" id="msg-admin-subject" placeholder="Un mot du Cercle...">
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>Message *</label>
+        <textarea id="msg-admin-body" rows="4" placeholder="Ton message..." style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(123,92,255,0.2);background:rgba(15,28,63,0.5);color:#fff;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-primary" onclick="sendAdminMessage()" id="btn-send-admin-msg">Envoyer</button>
+      </div>
+      <div id="msg-admin-status" style="margin-top:10px;font-size:13px"></div>
+    </div>
+
+    <!-- Setup Vectorize (cerveaux Éric & NyXia) -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">🧠 Cerveaux vectoriels (Vectorize)</div>
+          <div class="panel-subtitle">À faire UNE fois, sans terminal. Ajoute d'abord les variables <b>CF_API_TOKEN</b> et <b>CF_ACCOUNT_ID</b> sur ton Worker, puis clique.</div>
+        </div>
+        <button class="btn-primary" onclick="setupVectorize(this)">⚙️ Créer l'index Vectorize</button>
+      </div>
+      <div id="vectorize-status" style="font-size:13px;color:var(--t3);margin-top:6px"></div>
+    </div>
+
+    <!-- Accounts List -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">📋 Liste des comptes clients</div>
+          <div class="panel-subtitle">Cliquez sur ✏️ pour modifier un compte</div>
+        </div>
+        <button class="btn-secondary" onclick="loadAccounts()">↻ Actualiser</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Courriel</th>
+              <th>Mot de passe</th>
+              <th>Produits</th>
+              <th>Statut</th>
+              <th>Créé le</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="accounts-body">
+            <tr><td colspan="7" class="loading">Chargement...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Modifier le compte</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <form id="edit-form" onsubmit="return saveEdit(event)">
+      <input type="hidden" id="edit-email-original">
+      <div class="form-grid">
+        <div class="field">
+          <label>Prénom</label>
+          <input type="text" id="edit-firstname">
+        </div>
+        <div class="field">
+          <label>Nom</label>
+          <input type="text" id="edit-lastname">
+        </div>
+        <div class="field">
+          <label>Courriel</label>
+          <input type="email" id="edit-email">
+        </div>
+        <div class="field">
+          <label>Nouveau mot de passe</label>
+          <div class="password-wrap">
+            <input type="text" id="edit-password" placeholder="Laisser vide pour ne pas changer">
+            <button type="button" class="password-toggle" onclick="togglePwd('edit-password',this)">🙈</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Produits</label>
+          <div class="products-checkboxes">
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-systemeprompt" value="systemeprompt"><span>⚡ Portail Système Prompt</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-cashflow" value="cashflow"><span>🔥 Portail Cashflow</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-spirituel" value="spirituel"><span>🔮 Portail Vibratoire Spirituel</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-praticienne" value="praticienne"><span>🌸 Portail Praticiens|Praticiennes</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-conquerir" value="conquerir"><span>💔 Portail Relationnel</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-miroir_accompagnement" value="miroir_accompagnement"><span>🪞 Portail Ami Miroir</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-edition_ia" value="edition_ia"><span>✍️ Portail Devenir Auteur</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-marketplace" value="marketplace"><span>🛍️ MarketPlace</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-affiliation" value="affiliation"><span>💰 Affiliation</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Statut</label>
+          <select id="edit-status">
+            <option value="active">Actif</option>
+            <option value="suspended">Suspendu</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">Enregistrer</button>
+        <button type="button" class="btn-secondary" onclick="closeModal()">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Change Admin Password Modal -->
+<div class="modal-overlay" id="change-pwd-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔑 Changer le mot de passe admin</div>
+      <button class="modal-close" onclick="closeChangePwdModal()">×</button>
+    </div>
+    <div id="change-pwd-msg" class="msg" style="display:none"></div>
+    <form id="change-pwd-form" onsubmit="return saveAdminPassword(event)">
+      <div class="field" style="margin-bottom:16px">
+        <label>Mot de passe actuel</label>
+        <div class="password-wrap">
+          <input type="password" id="cpwd-current" placeholder="Votre mot de passe actuel" autocomplete="current-password">
+          <button type="button" class="password-toggle" onclick="togglePwd('cpwd-current',this)">👁️</button>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:16px">
+        <label>Nouveau mot de passe</label>
+        <div class="password-wrap">
+          <input type="password" id="cpwd-new" placeholder="Min. 8 caractères" autocomplete="new-password">
+          <button type="button" class="password-toggle" onclick="togglePwd('cpwd-new',this)">👁️</button>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:20px">
+        <label>Confirmer le nouveau mot de passe</label>
+        <div class="password-wrap">
+          <input type="password" id="cpwd-confirm" placeholder="Répéter le nouveau mot de passe" autocomplete="new-password">
+          <button type="button" class="password-toggle" onclick="togglePwd('cpwd-confirm',this)">👁️</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:16px;padding:10px;background:rgba(123,92,255,0.08);border-radius:8px">
+        ⚠️ Si <code>ADMIN_PASSWORD</code> est défini comme secret Cloudflare, ce changement s'applique uniquement dans KV et prend priorité. Pour une mise à jour permanente, utilisez aussi <code>wrangler secret put ADMIN_PASSWORD</code>.
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" id="btn-save-pwd">Changer le mot de passe</button>
+        <button type="button" class="btn-secondary" onclick="closeChangePwdModal()">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⚠️ Confirmer la suppression</div>
+      <button class="modal-close" onclick="closeDeleteModal()">×</button>
+    </div>
+    <p style="margin-bottom:20px;color:var(--t2)">Voulez-vous vraiment supprimer le compte de <strong id="delete-name"></strong> ?</p>
+    <p style="margin-bottom:20px;color:var(--red);font-size:13px">Cette action est irréversible.</p>
+    <input type="hidden" id="delete-email">
+    <div class="form-actions">
+      <button class="btn-primary" style="background:linear-gradient(135deg,var(--red),#cc4444)" onclick="confirmDelete()">Supprimer définitivement</button>
+      <button class="btn-secondary" onclick="closeDeleteModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   SÉCURITÉ — Admin Authentication
+   ═══════════════════════════════════════════════ */
+
+var ADMIN_SESSION_KEY = 'nyxia_admin_session';
+var ADMIN_SESSION_TOKEN = null;
+var LOGIN_ATTEMPTS = 0;
+var MAX_ATTEMPTS = 5;
+var LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
+var LOCKOUT_UNTIL = 0;
+
+// Vérifier session existante au chargement
+(function checkExistingSession() {
+  var stored = sessionStorage.getItem(ADMIN_SESSION_KEY);
+  if (stored) {
+    try {
+      var session = JSON.parse(stored);
+      // Vérifier que la session n'est pas trop vieille (max 4h)
+      if (session.token && Date.now() - session.created < 4 * 60 * 60 * 1000) {
+        ADMIN_SESSION_TOKEN = session.token;
+        showAdminPanel();
+        loadAccounts();
+        return;
+      }
+    } catch(e) {}
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  }
+  showLoginGate();
+})();
+
+// Empêcher le retour arrière sans session
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted && !ADMIN_SESSION_TOKEN) {
+    showLoginGate();
+  }
+});
+
+function showLoginGate() {
+  document.getElementById('loginGate').classList.remove('hidden');
+  document.getElementById('adminPanel').classList.remove('visible');
+
+  // Vérifier le lockout
+  if (Date.now() < LOCKOUT_UNTIL) {
+    var remaining = Math.ceil((LOCKOUT_UNTIL - Date.now()) / 60000);
+    document.getElementById('loginError').textContent = 'Trop de tentatives. Réessayez dans ' + remaining + ' min.';
+    document.getElementById('loginError').classList.add('visible');
+    document.getElementById('loginBtn').disabled = true;
+    setTimeout(function() {
+      LOCKOUT_UNTIL = 0;
+      LOGIN_ATTEMPTS = 0;
+      document.getElementById('loginBtn').disabled = false;
+      document.getElementById('loginError').classList.remove('visible');
+    }, LOCKOUT_UNTIL - Date.now());
+  } else {
+    document.getElementById('loginBtn').disabled = false;
+  }
+
+  // Focus sur le champ mot de passe
+  setTimeout(function() {
+    document.getElementById('adminPassword').focus();
+  }, 100);
+}
+
+function showAdminPanel() {
+  document.getElementById('loginGate').classList.add('hidden');
+  document.getElementById('adminPanel').classList.add('visible');
+  document.getElementById('user-name').textContent = 'Administrateur';
+}
+
+// Tentative de login admin
+async function doAdminLogin() {
+  var password = document.getElementById('adminPassword').value;
+
+  if (!password) {
+    showLoginError('Entrez le mot de passe administrateur.');
+    return;
+  }
+
+  // Vérifier le lockout
+  if (Date.now() < LOCKOUT_UNTIL) {
+    return;
+  }
+
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'Vérification…';
+  hideLoginError();
+
+  try {
+    // Appel au Worker — vérifie le mot de passe admin
+    var res = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password })
+    });
+
+    if (res.ok) {
+      var data = await res.json();
+      if (data.success && data.token) {
+        ADMIN_SESSION_TOKEN = data.token;
+        sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({
+          token: data.token,
+          created: Date.now()
+        }));
+        LOGIN_ATTEMPTS = 0;
+        showAdminPanel();
+        loadAccounts();
+        return;
+      }
+    }
+
+    // Si le Worker renvoie une erreur
+    if (res.status === 401) {
+      handleFailedAttempt();
+      return;
+    }
+
+    handleFailedAttempt();
+
+  } catch(e) {
+    var btn = document.getElementById('loginBtn');
+    btn.disabled = false;
+    btn.textContent = '🔓 Accéder à l\'administration';
+    showLoginError('Impossible de joindre le Worker Cloudflare. Vérifie que le Worker est déployé et relié au domaine.');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🔓 Accéder à l\'administration';
+}
+
+function handleFailedAttempt() {
+  LOGIN_ATTEMPTS++;
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = false;
+  btn.textContent = '🔓 Accéder à l\'administration';
+
+  if (LOGIN_ATTEMPTS >= MAX_ATTEMPTS) {
+    LOCKOUT_UNTIL = Date.now() + LOCKOUT_TIME;
+    var remaining = Math.ceil(LOCKOUT_TIME / 60000);
+    showLoginError('Trop de tentatives. Compte bloqué pour ' + remaining + ' minutes.');
+    btn.disabled = true;
+    document.getElementById('adminPassword').value = '';
+  } else {
+    showLoginError('Mot de passe incorrect. (' + LOGIN_ATTEMPTS + '/' + MAX_ATTEMPTS + ')');
+    document.getElementById('adminPassword').value = '';
+    document.getElementById('adminPassword').focus();
+  }
+}
+
+function showLoginError(msg) {
+  var el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function hideLoginError() {
+  document.getElementById('loginError').classList.remove('visible');
+}
+
+function doLogout() {
+  ADMIN_SESSION_TOKEN = null;
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  document.getElementById('adminPassword').value = '';
+  LOGIN_ATTEMPTS = 0;
+  showLoginGate();
+}
+
+// Vérifier le token admin avant chaque action
+function requireAdminSession() {
+  if (!ADMIN_SESSION_TOKEN) {
+    document.getElementById('sessionExpired').classList.add('visible');
+    return false;
+  }
+  return true;
+}
+
+// Entrée pour soumettre le mot de passe
+document.getElementById('adminPassword').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); doAdminLogin(); }
+});
+
+/* ═══════════════════════════════════════════════
+   API — Appels au Worker
+   ═══════════════════════════════════════════════ */
+
+var accounts = [];
+
+async function setupVectorize(btn) {
+  var statusEl = document.getElementById('vectorize-status');
+  if (!confirm("Créer l'index Vectorize « univers-livres » (1024, cosine) ? À ne faire qu'une seule fois.")) return;
+  btn.disabled = true; var old = btn.textContent; btn.textContent = 'Création…';
+  statusEl.style.color = 'var(--t3)'; statusEl.textContent = 'Appel à Cloudflare…';
+  try {
+    var res = await apiCall('/api/admin/setup-vectorize', { method: 'POST', body: '{}' });
+    if (res.success) {
+      statusEl.style.color = 'var(--green)';
+      statusEl.textContent = res.message;
+    } else {
+      var extra = (res.error && res.error.toLowerCase().indexOf('already') > -1) ? " — l'index existe déjà, tu peux passer à l'étape suivante." : '';
+      statusEl.style.color = 'var(--red)';
+      statusEl.textContent = '⚠️ ' + (res.error || 'Erreur') + extra;
+    }
+  } catch (e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '⚠️ ' + (e.message || 'Erreur réseau');
+  }
+  btn.disabled = false; btn.textContent = old;
+}
+
+async function apiCall(endpoint, options) {
+  if (!requireAdminSession()) throw new Error('Session expirée');
+
+  var headers = {
+    'Content-Type': 'application/json',
+    'X-Admin-Token': ADMIN_SESSION_TOKEN,
+  };
+  if (options && options.headers) {
+    for (var k in options.headers) headers[k] = options.headers[k];
+  }
+
+  var res = await fetch(endpoint, {
+    method: options && options.method || 'GET',
+    headers: headers,
+    body: options && options.body || undefined,
+  });
+
+  var data;
+  try {
+    data = await res.json();
+  } catch(e) {
+    throw new Error('Réponse invalide du Worker');
+  }
+
+  if (res.status === 401) {
+    document.getElementById('sessionExpired').classList.add('visible');
+    throw new Error(data.error || 'Non autorisé');
+  }
+
+  if (!res.ok || data.error) {
+    throw new Error(data.error || ('Erreur Worker ' + res.status));
+  }
+
+  return data;
+}
+
+async function loadAccounts() {
+  if (!requireAdminSession()) return;
+
+  var tbody = document.getElementById('accounts-body');
+  tbody.innerHTML = '<tr><td colspan="7" class="loading">Chargement...</td></tr>';
+
+  try {
+    var res = await apiCall('/api/admin/clients');
+
+    if (res.clients) {
+      accounts = res.clients;
+      renderAccounts();
+      populateMessageRecipients();
+      // Stats
+      var clientAccounts = accounts.filter(function(a) {
+        return (a.role || 'client') !== 'superadmin';
+      });
+      document.getElementById('stat-clients').textContent = clientAccounts.length;
+      document.getElementById('stat-active').textContent = clientAccounts.filter(function(a){return a.active !== false;}).length;
+      var today = new Date().toISOString().split('T')[0];
+      document.getElementById('stat-today').textContent = clientAccounts.filter(function(a){return (a.createdAt||'').startsWith(today);}).length;
+    } else {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun compte trouvé</td></tr>';
+    }
+  } catch(e) {
+    accounts = [];
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">⚠️ Impossible de charger les comptes depuis le Worker/KV.<br><small>' + escapeHtml(e.message || 'Erreur réseau') + '</small></td></tr>';
+    document.getElementById('stat-clients').textContent = '0';
+    document.getElementById('stat-active').textContent = '0';
+    document.getElementById('stat-today').textContent = '0';
+    showError('Connexion au Worker impossible. Aucun compte local ne sera utilisé. Vérifie le déploiement Cloudflare/KV.');
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   MESSAGERIE
+   ═══════════════════════════════════════════════ */
+
+function populateMessageRecipients() {
+  var sel = document.getElementById('msg-admin-recipient');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="">— Choisir une Gardienne —</option>';
+  accounts.filter(function(a) { return (a.role || 'client') !== 'superadmin'; }).forEach(function(a) {
+    var opt = document.createElement('option');
+    opt.value = a.email;
+    opt.textContent = (a.firstName || a.name || a.email) + ' (' + a.email + ')';
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+function toggleBroadcastMode(checkbox) {
+  document.getElementById('msg-admin-recipient').disabled = checkbox.checked;
+}
+
+async function sendAdminMessage() {
+  if (!requireAdminSession()) return;
+
+  var broadcast = document.getElementById('msg-admin-broadcast').checked;
+  var toEmail = document.getElementById('msg-admin-recipient').value;
+  var subject = document.getElementById('msg-admin-subject').value.trim();
+  var body = document.getElementById('msg-admin-body').value.trim();
+  var status = document.getElementById('msg-admin-status');
+  var btn = document.getElementById('btn-send-admin-msg');
+
+  if (!broadcast && !toEmail) { status.textContent = '⚠️ Choisis une destinataire ou active la diffusion.'; status.style.color = 'var(--red)'; return; }
+  if (!body) { status.textContent = '⚠️ Écris un message.'; status.style.color = 'var(--red)'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Envoi en cours…';
+  status.style.color = 'var(--t3)';
+
+  try {
+    var res = await apiCall('/api/admin/messages/send', {
+      method: 'POST',
+      body: JSON.stringify({
+        toEmail: broadcast ? undefined : toEmail,
+        broadcast: broadcast,
+        subject: subject,
+        body: body
+      })
+    });
+
+    if (res.success) {
+      status.textContent = '✅ Envoyé à ' + res.sentTo + (res.sentTo > 1 ? ' Gardiennes' : ' Gardienne') + '.';
+      status.style.color = 'var(--green)';
+      document.getElementById('msg-admin-subject').value = '';
+      document.getElementById('msg-admin-body').value = '';
+    } else {
+      status.textContent = '❌ ' + (res.error || 'Erreur lors de l\'envoi.');
+      status.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    status.textContent = '❌ Impossible de joindre le Worker : ' + (e.message || 'erreur réseau');
+    status.style.color = 'var(--red)';
+  }
+  btn.disabled = false;
+}
+
+function renderAccounts() {
+  var tbody = document.getElementById('accounts-body');
+
+  // Filtrer les superadmins
+  var clientAccounts = accounts.filter(function(a) {
+    return (a.role || 'client') !== 'superadmin';
+  });
+
+  if (clientAccounts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty"><div class="empty-icon">📭</div>Aucun compte client</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = clientAccounts.map(function(acc) {
+    var products = acc.products || [];
+    var productBadges = products.map(function(p) {
+      if (p === 'systemeprompt') return '<span class="badge systemeprompt">⚡ Système Prompt</span>';
+      if (p === 'cashflow') return '<span class="badge cashflow">🔥 CashFlow</span>';
+      if (p === 'spirituel') return '<span class="badge spirituel">🔮 Spirituel</span>';
+      if (p === 'praticienne') return '<span class="badge praticienne">🌸 Praticiens</span>';
+      if (p === 'conquerir') return '<span class="badge conquerir">💔 Relationnel</span>';
+      if (p === 'miroir_accompagnement') return '<span class="badge miroir_accompagnement">🪞 Ami Miroir</span>';
+      if (p === 'edition_ia') return '<span class="badge edition_ia">✍️ Auteur</span>';
+      if (p === 'marketplace') return '<span class="badge marketplace">🛍️ MarketPlace</span>';
+      if (p === 'affiliation') return '<span class="badge affiliation">💰 Affiliation</span>';
+      return '<span class="badge">' + p + '</span>';
+    }).join(' ');
+
+    var pwd = acc.password || '—';
+    var pwdDisplay = pwd !== '—'
+      ? '<code class="pwd-code">' + escapeHtml(pwd) + '</code><button class="btn-copy-pwd" onclick="copyPwd(\'' + escapeAttr(pwd) + '\',this)" title="Copier">📋</button>'
+      : '—';
+
+    return '<tr>' +
+      '<td><strong>' + escapeHtml(acc.name || (acc.firstName||'') + ' ' + (acc.lastName||'')) + '</strong></td>' +
+      '<td>' + escapeHtml(acc.email) + '</td>' +
+      '<td>' + pwdDisplay + '</td>' +
+      '<td>' + (productBadges || '<span class="badge">Aucun</span>') + '</td>' +
+      '<td><span class="badge ' + (acc.active !== false ? 'active' : 'suspended') + '">' + (acc.active !== false ? 'Actif' : 'Suspendu') + '</span></td>' +
+      '<td>' + formatDate(acc.createdAt) + '</td>' +
+      '<td><div class="action-btns">' +
+        '<button class="btn-icon edit" title="Modifier" onclick="openEdit(\'' + escapeAttr(acc.email) + '\')">✏️</button>' +
+        '<button class="btn-icon delete" title="Supprimer" onclick="openDelete(\'' + escapeAttr(acc.email) + '\', \'' + escapeAttr(acc.name || acc.email) + '\')">🗑️</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"');
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-CA', { year:'numeric', month:'short', day:'numeric' });
+}
+
+function copyPwd(pwd, btn) {
+  navigator.clipboard.writeText(pwd).then(function() {
+    btn.textContent = '✓';
+    setTimeout(function() { btn.textContent = '📋'; }, 1000);
+  });
+}
+
+async function createAccount(e) {
+  e.preventDefault();
+  if (!requireAdminSession()) return false;
+
+  var firstname = document.getElementById('new-firstname').value.trim();
+  var lastname = document.getElementById('new-lastname').value.trim();
+  var email = document.getElementById('new-email').value.trim().toLowerCase();
+  var password = document.getElementById('new-password').value;
+  var products = [];
+  if (document.getElementById('new-pro-systemeprompt').checked) products.push('systemeprompt');
+  if (document.getElementById('new-pro-cashflow').checked) products.push('cashflow');
+  if (document.getElementById('new-pro-spirituel').checked) products.push('spirituel');
+  if (document.getElementById('new-pro-praticienne').checked) products.push('praticienne');
+  if (document.getElementById('new-pro-conquerir').checked) products.push('conquerir');
+  if (document.getElementById('new-pro-miroir_accompagnement').checked) products.push('miroir_accompagnement');
+  if (document.getElementById('new-pro-edition_ia').checked) products.push('edition_ia');
+  if (document.getElementById('new-pro-marketplace').checked) products.push('marketplace');
+  if (document.getElementById('new-pro-affiliation').checked) products.push('affiliation');
+
+  if (!firstname || !lastname || !email || !password) { showError('Tous les champs sont requis'); return false; }
+  if (products.length === 0) { showError('Sélectionnez au moins un produit'); return false; }
+  if (password.length < 6) { showError('Min. 6 caractères'); return false; }
+
+  var btn = document.getElementById('btn-create');
+  btn.disabled = true;
+  btn.textContent = 'Création…';
+  hideMessages();
+
+  var accountData = {
+    firstName: firstname,
+    lastName: lastname,
+    name: firstname + ' ' + lastname,
+    email: email,
+    password: password,
+    role: 'client',
+    products: products
+  };
+
+  try {
+    // Appel au Worker — création via KV
+    var res = await apiCall('/api/admin/clients', {
+      method: 'POST',
+      body: JSON.stringify(accountData)
+    });
+
+    if (res.success) {
+      showSuccess('✅ Compte créé : ' + firstname + ' ' + lastname + ' (' + email + ') — mot de passe : ' + password);
+      document.getElementById('create-form').reset();
+      loadAccounts();
+    } else {
+      showError(res.error || 'Erreur lors de la création');
+    }
+  } catch(e) {
+    showError('❌ Compte NON créé : impossible de joindre le Worker/KV. Détail : ' + (e.message || 'erreur réseau'));
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Créer le compte';
+  return false;
+}
+
+function openEdit(email) {
+  var acc = accounts.find(function(a){return a.email === email;});
+  if (!acc) return;
+  document.getElementById('edit-firstname').value = acc.firstName || (acc.name || '').split(' ')[0] || '';
+  document.getElementById('edit-lastname').value = acc.lastName || (acc.name || '').split(' ').slice(1).join(' ') || '';
+  document.getElementById('edit-email').value = acc.email;
+  document.getElementById('edit-email-original').value = acc.email;
+  document.getElementById('edit-password').value = '';
+  document.getElementById('edit-status').value = acc.active !== false ? 'active' : 'suspended';
+  var products = acc.products || [];
+  document.getElementById('edit-pro-systemeprompt').checked = products.includes('systemeprompt');
+  document.getElementById('edit-pro-cashflow').checked = products.includes('cashflow');
+  document.getElementById('edit-pro-spirituel').checked = products.includes('spirituel');
+  document.getElementById('edit-pro-praticienne').checked = products.includes('praticienne');
+  document.getElementById('edit-pro-conquerir').checked = products.includes('conquerir');
+  document.getElementById('edit-pro-miroir_accompagnement').checked = products.includes('miroir_accompagnement');
+  document.getElementById('edit-pro-edition_ia').checked = products.includes('edition_ia');
+  document.getElementById('edit-pro-marketplace').checked = products.includes('marketplace');
+  document.getElementById('edit-pro-affiliation').checked = products.includes('affiliation');
+  document.getElementById('edit-modal').classList.add('visible');
+}
+
+function closeModal() { document.getElementById('edit-modal').classList.remove('visible'); }
+
+async function saveEdit(e) {
+  e.preventDefault();
+  if (!requireAdminSession()) return false;
+  hideMessages();
+
+  var originalEmail = document.getElementById('edit-email-original').value;
+  var products = [];
+  if (document.getElementById('edit-pro-systemeprompt').checked) products.push('systemeprompt');
+  if (document.getElementById('edit-pro-cashflow').checked) products.push('cashflow');
+  if (document.getElementById('edit-pro-spirituel').checked) products.push('spirituel');
+  if (document.getElementById('edit-pro-praticienne').checked) products.push('praticienne');
+  if (document.getElementById('edit-pro-conquerir').checked) products.push('conquerir');
+  if (document.getElementById('edit-pro-miroir_accompagnement').checked) products.push('miroir_accompagnement');
+  if (document.getElementById('edit-pro-edition_ia').checked) products.push('edition_ia');
+  if (document.getElementById('edit-pro-marketplace').checked) products.push('marketplace');
+  if (document.getElementById('edit-pro-affiliation').checked) products.push('affiliation');
+
+  var updateData = {
+    email: originalEmail,
+    firstName: document.getElementById('edit-firstname').value.trim(),
+    lastName: document.getElementById('edit-lastname').value.trim(),
+    name: document.getElementById('edit-firstname').value.trim() + ' ' + document.getElementById('edit-lastname').value.trim(),
+    newEmail: document.getElementById('edit-email').value.trim().toLowerCase(),
+    status: document.getElementById('edit-status').value,
+    products: products
+  };
+
+  var newPwd = document.getElementById('edit-password').value;
+  if (newPwd && newPwd.length >= 6) {
+    updateData.password = newPwd;
+  } else if (newPwd && newPwd.length < 6) {
+    showError('Le mot de passe doit avoir au moins 6 caractères');
+    return false;
+  }
+
+  try {
+    var res = await apiCall('/api/admin/clients/update', {
+      method: 'POST',
+      body: JSON.stringify(updateData)
+    });
+
+    if (res.success) {
+      showSuccess('✅ Compte modifié avec succès');
+      closeModal();
+      loadAccounts();
+    } else {
+      showError(res.error || 'Erreur lors de la modification');
+    }
+  } catch(e2) {
+    showError('❌ Modification NON enregistrée : impossible de joindre le Worker/KV. Détail : ' + (e2.message || 'erreur réseau'));
+  }
+
+  return false;
+}
+
+function openDelete(email, name) {
+  document.getElementById('delete-email').value = email;
+  document.getElementById('delete-name').textContent = name;
+  document.getElementById('delete-modal').classList.add('visible');
+}
+
+function closeDeleteModal() { document.getElementById('delete-modal').classList.remove('visible'); }
+
+async function confirmDelete() {
+  if (!requireAdminSession()) return;
+  var email = document.getElementById('delete-email').value;
+  hideMessages();
+
+  try {
+    var res = await apiCall('/api/admin/clients/delete', {
+      method: 'POST',
+      body: JSON.stringify({ email: email })
+    });
+
+    if (res.success) {
+      showSuccess('✅ Compte supprimé');
+      closeDeleteModal();
+      loadAccounts();
+    } else {
+      showError(res.error || 'Erreur lors de la suppression');
+    }
+  } catch(e) {
+    showError('❌ Suppression NON enregistrée : impossible de joindre le Worker/KV. Détail : ' + (e.message || 'erreur réseau'));
+  }
+}
+
+function togglePwd(id, btn) {
+  var input = document.getElementById(id);
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '👁️' : '🙈';
+}
+
+function showSuccess(msg) {
+  var el = document.getElementById('msg-success');
+  el.textContent = msg; el.classList.add('visible');
+  setTimeout(function(){el.classList.remove('visible');}, 8000);
+}
+function showError(msg) {
+  var el = document.getElementById('msg-error');
+  el.textContent = msg; el.classList.add('visible');
+  setTimeout(function(){el.classList.remove('visible');}, 8000);
+}
+function hideMessages() {
+  document.getElementById('msg-success').classList.remove('visible');
+  document.getElementById('msg-error').classList.remove('visible');
+}
+
+/* ═══ CHANGEMENT MOT DE PASSE ADMIN ═══ */
+function openChangePwdModal() {
+  document.getElementById('cpwd-current').value = '';
+  document.getElementById('cpwd-new').value = '';
+  document.getElementById('cpwd-confirm').value = '';
+  var msg = document.getElementById('change-pwd-msg');
+  msg.style.display = 'none';
+  document.getElementById('change-pwd-modal').classList.add('visible');
+}
+
+function closeChangePwdModal() {
+  document.getElementById('change-pwd-modal').classList.remove('visible');
+}
+
+function showChangePwdMsg(text, type) {
+  var el = document.getElementById('change-pwd-msg');
+  el.textContent = text;
+  el.className = 'msg ' + type + ' visible';
+  el.style.display = 'block';
+}
+
+async function saveAdminPassword(e) {
+  e.preventDefault();
+  if (!requireAdminSession()) return false;
+
+  var current = document.getElementById('cpwd-current').value;
+  var newPwd  = document.getElementById('cpwd-new').value;
+  var confirm = document.getElementById('cpwd-confirm').value;
+
+  if (!current || !newPwd || !confirm) {
+    showChangePwdMsg('Tous les champs sont requis.', 'error');
+    return false;
+  }
+  if (newPwd.length < 8) {
+    showChangePwdMsg('Le nouveau mot de passe doit avoir au moins 8 caractères.', 'error');
+    return false;
+  }
+  if (newPwd !== confirm) {
+    showChangePwdMsg('Les mots de passe ne correspondent pas.', 'error');
+    return false;
+  }
+
+  var btn = document.getElementById('btn-save-pwd');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement…';
+
+  try {
+    var res = await apiCall('/api/admin/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: current, newPassword: newPwd })
+    });
+
+    if (res.success) {
+      showChangePwdMsg('✅ Mot de passe modifié avec succès ! Reconnectez-vous pour confirmer.', 'success');
+      // Mettre à jour la session locale avec le nouveau token si renvoyé
+      document.getElementById('cpwd-current').value = '';
+      document.getElementById('cpwd-new').value = '';
+      document.getElementById('cpwd-confirm').value = '';
+      setTimeout(function() { closeChangePwdModal(); }, 3000);
+    } else {
+      showChangePwdMsg(res.error || 'Erreur lors du changement.', 'error');
+    }
+  } catch(err) {
+    showChangePwdMsg('❌ Impossible de joindre le Worker : ' + (err.message || 'erreur réseau'), 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Changer le mot de passe';
+  return false;
+}
+</script>
+</body>
+</html>
