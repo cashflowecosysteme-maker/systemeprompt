@@ -249,8 +249,10 @@
     renderStoredMessages()
     var hasMsgs = (chatHistories.eric || []).length > 0
     var videoUrl = AGENT_WELCOME_VIDEO.eric
-    if (videoUrl && !hasMsgs && !hasSeenWelcomeVideo('eric')) {
-      addVideoMessage(videoUrl, 'eric', { autoplay: true })
+    if (videoUrl && !hasMsgs) {
+      var first = !hasSeenWelcomeVideo('eric')
+      addVideoMessage(videoUrl, 'eric', { autoplay: first })
+      if (first) markWelcomeVideoSeen('eric')
     }
     // Vidéo : autoplay uniquement à la première visite ; ensuite play manuel
 
@@ -308,9 +310,8 @@
 
   function addVideoMessage(videoUrl, agentKey, opts) {
     opts = opts || {}
-    var autoplay = opts.autoplay !== false // défaut: true seulement si on le demande explicitement via opts
-    if (opts.autoplay === false) autoplay = false
-    if (opts.autoplay === true) autoplay = true
+    // autoplay UNIQUEMENT si opts.autoplay === true (première visite)
+    var autoplay = opts.autoplay === true
 
     var msgs = document.getElementById('chat-messages-' + agentKey)
     if (!msgs) return
