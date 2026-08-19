@@ -297,7 +297,7 @@ tr:hover td{background:rgba(123,92,255,0.05)}
           <div class="products-checkboxes">
             <label class="checkbox-label">
               <input type="checkbox" id="new-pro-systemeprompt" value="systemeprompt">
-              <span>⚡ Portail Système Prompt</span>
+              <span>⚡ Studio Prompt</span>
             </label>
             <label class="checkbox-label">
               <input type="checkbox" id="new-pro-cashflow" value="cashflow">
@@ -411,9 +411,14 @@ tr:hover td{background:rgba(123,92,255,0.05)}
       <div class="panel-header">
         <div>
           <div class="panel-title">🧠 Cerveaux vectoriels (Vectorize)</div>
-          <div class="panel-subtitle">À faire UNE fois, sans terminal. Ajoute d'abord les variables <b>CF_API_TOKEN</b> et <b>CF_ACCOUNT_ID</b> sur ton Worker, puis clique.</div>
+          <div class="panel-subtitle">À faire UNE fois, sans terminal — après avoir configuré les secrets du Worker.</div>
         </div>
         <button class="btn-primary" onclick="setupVectorize(this)">⚙️ Créer l'index Vectorize</button>
+      </div>
+      <div style="margin-bottom:16px;padding:14px 16px;border-radius:12px;background:rgba(244,200,66,0.1);border:1px solid rgba(244,200,66,0.35);color:#F4C842;font-size:13px;line-height:1.55">
+        ⚠️ <strong>Obligatoire avant de cliquer :</strong> ajoute d'abord les variables
+        <b>CF_API_TOKEN</b> et <b>CF_ACCOUNT_ID</b> sur ton Worker.<br>
+        <span style="color:var(--t3)">Cloudflare Dashboard → Workers → <b>systemeprompt</b> → Settings → Variables and Secrets → Add.</span>
       </div>
       <div id="vectorize-status" style="font-size:13px;color:var(--t3);margin-top:6px"></div>
     </div>
@@ -481,7 +486,7 @@ tr:hover td{background:rgba(123,92,255,0.05)}
         <div class="field">
           <label>Produits</label>
           <div class="products-checkboxes">
-            <label class="checkbox-label"><input type="checkbox" id="edit-pro-systemeprompt" value="systemeprompt"><span>⚡ Portail Système Prompt</span></label>
+            <label class="checkbox-label"><input type="checkbox" id="edit-pro-systemeprompt" value="systemeprompt"><span>⚡ Studio Prompt</span></label>
             <label class="checkbox-label"><input type="checkbox" id="edit-pro-cashflow" value="cashflow"><span>🔥 Portail Cashflow</span></label>
             <label class="checkbox-label"><input type="checkbox" id="edit-pro-spirituel" value="spirituel"><span>🔮 Portail Vibratoire Spirituel</span></label>
             <label class="checkbox-label"><input type="checkbox" id="edit-pro-praticienne" value="praticienne"><span>🌸 Portail Praticiens|Praticiennes</span></label>
@@ -929,7 +934,7 @@ function renderAccounts() {
   tbody.innerHTML = clientAccounts.map(function(acc) {
     var products = acc.products || [];
     var productBadges = products.map(function(p) {
-      if (p === 'systemeprompt') return '<span class="badge systemeprompt">⚡ Système Prompt</span>';
+      if (p === 'systemeprompt') return '<span class="badge systemeprompt">⚡ Studio Prompt</span>';
       if (p === 'cashflow') return '<span class="badge cashflow">🔥 CashFlow</span>';
       if (p === 'spirituel') return '<span class="badge spirituel">🔮 Spirituel</span>';
       if (p === 'praticienne') return '<span class="badge praticienne">🌸 Praticiens</span>';
@@ -1007,7 +1012,7 @@ async function createAccount(e) {
   pushIfChecked('new-pro-affiliation', 'affiliation');
 
   if (!firstname || !lastname || !email || !password) { showError('Tous les champs sont requis'); return false; }
-  if (products.length === 0) { showError('Sélectionnez au moins un produit (ex. ⚡ Portail Système Prompt)'); return false; }
+  if (products.length === 0) { showError('Sélectionnez au moins un produit (ex. ⚡ Studio Prompt)'); return false; }
   if (password.length < 6) { showError('Min. 6 caractères'); return false; }
 
   var btn = document.getElementById('btn-create');
