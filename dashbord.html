@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/png" href="/FavIcon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NyXia IA — Portail Système Prompt</title>
+  <title>NyXia IA — Mon Espace</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -158,10 +158,10 @@
       </div>
     </div>
     <div class="header-center">
-      <div class="welcome-text">Bienvenue sur le Portail Système Prompt ✦ <strong id="header-username"></strong></div>
+      <div class="welcome-text">Bienvenue sur le Portail CashFlow ✦ <strong id="header-username"></strong></div>
     </div>
     <div class="header-actions">
-      <span class="btn-header btn-pro">⭐ Portail Système Prompt</span>
+      <span class="btn-header btn-pro">⭐ Portail CashFlow</span>
       <button class="btn-header btn-logout" onclick="logout()">Déconnexion</button>
     </div>
   </header>
@@ -169,7 +169,7 @@
 
   <div class="app-body">
     <aside>
-      <!-- SECTION : MON ESPACE — Diane (formatrice) en premier -->
+      <!-- SECTION : MON ESPACE -->
       <div class="sidebar-section">
         <div class="sidebar-label">Mes Conversations</div>
         <div class="nav-item" id="nav-diane" onclick="openAgentTab('diane')">
@@ -181,18 +181,6 @@
         <div class="nav-item" id="nav-eric" onclick="openAgentTab('eric')">
           <span class="nav-icon">🔥</span> Éric <span class="nav-arrow">›</span>
         </div>
-        <div class="nav-item" id="nav-kael" onclick="openAgentTab('kael')">
-          <span class="nav-icon">💔</span> Kael <span class="nav-arrow">›</span>
-        </div>
-        <div class="nav-item" id="nav-lena" onclick="openAgentTab('lena')">
-          <span class="nav-icon">🔮</span> Léna <span class="nav-arrow">›</span>
-        </div>
-        <div class="nav-item" id="nav-selena" onclick="openAgentTab('selena')">
-          <span class="nav-icon">🪞</span> Séléna <span class="nav-arrow">›</span>
-        </div>
-        <div class="nav-item" id="nav-alex" onclick="openAgentTab('alex')">
-          <span class="nav-icon">✍️</span> Alex <span class="nav-arrow">›</span>
-        </div>
       </div>
       
       <div class="sidebar-divider"></div>
@@ -201,11 +189,11 @@
       <div class="sidebar-section">
         <div class="sidebar-label">Mon Parcours</div>
         <div class="nav-item" id="nav-miroir" onclick="showPanel('miroir')">
-          <span class="nav-icon">🪞</span> Mon Espace <span class="nav-arrow">›</span>
+          <span class="nav-icon">🪞</span> Mon Espace CashFlow <span class="nav-arrow">›</span>
         </div>
-        <a class="nav-item" id="nav-groupe" href="https://www.facebook.com/groups/letravailadomicile/" target="_blank" rel="noopener">
-          <span class="nav-icon">👥</span> Accès au groupe <span class="nav-arrow">↗</span>
-        </a>
+        <div class="nav-item" id="nav-journal" onclick="showPanel('journal')">
+          <span class="nav-icon">📖</span> Journal CashFlow <span class="nav-arrow">›</span>
+        </div>
         <div class="nav-item" id="nav-messages" onclick="showPanel('messages'); loadMessages()">
           <span class="nav-icon">💌</span> Messages du Cercle <span class="nav-arrow">›</span> <span id="unread-badge" style="display:none;background:#ff4b6e;color:#fff;border-radius:50px;font-size:10px;font-weight:700;padding:2px 7px;margin-left:4px"></span>
         </div>
@@ -213,17 +201,17 @@
 
       <div class="sidebar-divider"></div>
 
-      <!-- SECTION : OUTILS -->
+      <!-- SECTION : OUTILS CASHFLOW -->
       <div class="sidebar-section">
-        <div class="sidebar-label">Outils</div>
+        <div class="sidebar-label">Outils CashFlow</div>
         <div class="nav-item" id="nav-medias" onclick="showPanel('medias')">
           <span class="nav-icon">✨</span> Banque d'images - Sons et Vidéos <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-audiobooks" onclick="showPanel('audiobooks')">
-          <span class="nav-icon">🎬</span> Mini-formation TikTok <span class="nav-arrow">›</span>
+          <span class="nav-icon">🎧</span> Livres de la formation <span class="nav-arrow">›</span>
         </div>
-        <div class="nav-item" id="nav-studio" onclick="showPanel('studio')">
-          <span class="nav-icon">⚡</span> Studio Prompt <span class="nav-arrow">›</span>
+        <div class="nav-item" id="nav-templates" onclick="showPanel('templates')">
+          <span class="nav-icon">🎨</span> Templates & Ressources <span class="nav-arrow">›</span>
         </div>
       </div>
       
@@ -232,21 +220,46 @@
           <div class="user-avatar" id="sidebar-avatar">D</div>
           <div class="user-info">
             <div class="user-name" id="sidebar-username">Chargement...</div>
-            <div class="user-plan">✦ Portail Système Prompt</div>
+            <div class="user-plan">✦ Portail CashFlow</div>
           </div>
         </div>
       </div>
     </aside>
 
     <div class="main-content">
-      <!-- Panel Chat — charge la page individuelle du personnage en iframe -->
-      <div class="panel active" id="panel-chat" style="flex-direction:column">
-        <iframe id="agent-iframe" src="/chat-nyxia.html" style="width:100%;height:100%;border:none;display:block" title="Conversation"></iframe>
+      <div class="panel active" id="panel-chat">
+        <div class="chat-area">
+          <div class="chat-header">
+            <span id="chat-header-avatar"><img src="/NyXia.png" alt="NyXia"></span>
+            <div class="chat-header-info">
+              <div class="chat-header-name" id="chat-header-name">NyXia</div>
+              <div class="chat-header-sub" id="chat-header-sub">NyXia, L'Architecte des Portails</div>
+            </div>
+            <button class="btn-speak" id="btn-speak" onclick="jouerMessageDiane()">🔊 Message d'accueil</button>
+          </div>
+          <div class="chat-messages active-chat" id="chat-messages-nyxia"></div>
+          <div class="chat-messages" id="chat-messages-diane"></div>
+          <div class="chat-messages" id="chat-messages-eric"></div>
+          <div class="suggestions" id="suggestions"></div>
+          <div id="attach-bar" style="display:none;padding:6px 20px;background:rgba(123,92,255,0.08);border-top:1px solid rgba(123,92,255,0.1);align-items:center;gap:8px;flex-shrink:0;font-size:12px;color:var(--t3)">
+            <span id="attach-name"></span>
+            <button id="btn-clear-attach" style="background:none;border:none;color:var(--t4);cursor:pointer;font-size:14px">✕</button>
+          </div>
+          <div class="chat-input-wrap">
+            <label title="PDF, image ou ZIP" style="flex-shrink:0;width:36px;height:36px;border-radius:9px;border:1px solid rgba(123,92,255,0.2);background:rgba(123,92,255,0.06);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px">
+              📎<input type="file" id="chat-file" accept=".pdf,.zip,image/*" style="display:none">
+            </label>
+            <button id="btn-mic" onclick="toggleMic()" title="Parler" style="flex-shrink:0;width:36px;height:36px;border-radius:9px;border:1px solid rgba(123,92,255,0.2);background:rgba(123,92,255,0.06);color:var(--t3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:15px">🎤</button>
+            <textarea class="chat-input" id="chat-input" placeholder="Partage ce qui te traverse l'esprit..." rows="1"></textarea>
+            <button class="btn-send" id="btn-send" onclick="sendMessage()">➤</button>
+          </div>
+          <div class="chat-hint">Entrée pour envoyer · Shift+Entrée pour un retour à la ligne</div>
+        </div>
       </div>
 
-      <!-- Panel Mon Espace — Miroir NyXia -->
+      <!-- Panel Mon Espace CashFlow -->
       <div class="panel" id="panel-miroir" style="flex-direction:column">
-        <iframe src="https://www.lemiroirnyxia.com/fr/login" style="width:100%;height:100%;border:none;display:block" title="Mon Espace" allow="fullscreen" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <iframe src="/espace_cashflow.html" style="width:100%;height:100%;border:none;display:block" title="Mon Espace CashFlow"></iframe>
       </div>
 
       <!-- Panel Journal de la cashflow — iframe -->
@@ -307,14 +320,14 @@
         </div>
       </div>
 
-      <!-- Panel Livres Audio / Mini-formation TikTok -->
+      <!-- Panel Livres Audio -->
       <div class="panel" id="panel-audiobooks" style="flex-direction:column">
-        <iframe src="/livres.html" style="width:100%;height:100%;border:none;display:block" title="Mini-formation TikTok"></iframe>
+        <iframe src="/livres.html" style="width:100%;height:100%;border:none;display:block" title="Livres de la formation"></iframe>
       </div>
 
-      <!-- Panel Studio Prompt — multi-modèles (OpenRouter) -->
-      <div class="panel" id="panel-studio" style="flex-direction:column">
-        <iframe src="/studio-prompt.html" style="width:100%;height:100%;border:none;display:block" title="Studio Prompt"></iframe>
+      <!-- Templates & Ressources — page séparée éditable -->
+      <div class="panel" id="panel-templates" style="flex-direction:column">
+        <iframe src="/templates.html" style="width:100%;height:100%;border:none;display:block" title="Templates & Ressources"></iframe>
       </div>
 
     </div>
@@ -356,29 +369,22 @@
     var sessionToken = sessionStorage.getItem('nyxia_token') || ''
     var clientEmail  = '', clientName = ''
     ;(function checkAuth() {
-      // Protection login — identique aux pages chat-*.html
-      if (!sessionToken) { window.location.href = '/login.html'; return }
-      fetch('/api/check-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: sessionToken })
-      })
-      .then(function(r) { return r.json() })
-      .then(function(data) {
-        if (!data.valid) { window.location.href = '/login.html'; return }
+      if (!sessionToken) { window.location.href = '/'; return }
+      fetch('/api/check-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: sessionToken }) })
+      .then(r => r.json()).then(data => {
+        if (!data.valid) { window.location.href = '/'; return }
         clientEmail = data.email || ''
-        clientName = localStorage.getItem('nyxia_username') || data.firstname || ''
+        clientName = localStorage.getItem('nyxia_username') || ''
         initUI()
-      })
-      .catch(function() { window.location.href = '/login.html' })
+      }).catch(() => { window.location.href = '/' })
     })()
 
     function initUI() {
       document.getElementById('header-username').textContent = clientName
       document.getElementById('sidebar-username').textContent = clientName
-      document.getElementById('sidebar-avatar').textContent = (clientName || 'U').charAt(0).toUpperCase()
-      // Charge NyXia par défaut (cohérent avec le nav actif + iframe initiale)
-      openAgentTab('nyxia')
+      document.getElementById('sidebar-avatar').textContent = clientName.charAt(0).toUpperCase()
+      sendWelcome()
+      openAgentTab('diane')
       refreshUnreadBadge()
       var voiceToggle = document.getElementById('nyxia-voice-toggle')
       if (voiceToggle) voiceToggle.style.display = 'flex'
@@ -386,11 +392,7 @@
 
     function logout() {
       fetch('/api/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: sessionToken }) })
-      .finally(function() {
-        sessionStorage.removeItem('nyxia_token')
-        localStorage.removeItem('nyxia_username')
-        window.location.href = '/login.html'
-      })
+      .finally(() => { sessionStorage.removeItem('nyxia_token'); localStorage.removeItem('nyxia_username'); window.location.href = '/' })
     }
 
     /* ═══════ MESSAGERIE INTERNE ═══════ */
@@ -458,25 +460,22 @@
       var status = document.getElementById('msg-send-status')
       if (!toEmail) { status.textContent = 'Choisis un destinataire d\'abord.'; return }
       if (!body) { status.textContent = 'Écris ton mot avant d\'envoyer.'; return }
-      if (!sessionToken) { status.textContent = 'Session expirée — reconnecte-toi.'; return }
 
       status.textContent = 'Envoi...'
       fetch('/api/messages/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: sessionToken, toEmail: toEmail, subject: subject, body: body })
       })
-      .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data } }) })
-      .then(function(res) {
-        if (res.data && res.data.success) {
+      .then(r => r.json()).then(data => {
+        if (data.success) {
           status.textContent = '✓ Envoyé 💜'
           document.getElementById('msg-subject').value = ''
           document.getElementById('msg-body').value = ''
           setTimeout(function() { status.textContent = '' }, 3000)
         } else {
-          status.textContent = (res.data && res.data.error) || ('Erreur ' + res.status + ' lors de l\'envoi.')
+          status.textContent = data.error || 'Erreur lors de l\'envoi.'
         }
-      })
-      .catch(function() { status.textContent = 'Petite interruption... réessaie.' })
+      }).catch(() => { status.textContent = 'Petite interruption... réessaie.' })
     }
 
     function escapeHtmlMsg(s) {
@@ -576,11 +575,14 @@
       document.getElementById('mobile-menu-backdrop').classList.remove('mobile-open')
     }
 
-    /* ═══════ MESSAGES DES IFRAMES → personnage ═══════ */
+    /* ═══════ MESSAGES DES IFRAMES → NyXia ═══════ */
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'nyxia_suggest' && e.data.text) {
-        // Ouvre NyXia et laisse l'iframe gérer (le chat est maintenant dans l'iframe)
-        openAgentTab('nyxia')
+        showPanel('chat')
+        setTimeout(function() {
+          document.getElementById('suggestions').style.display = 'none'
+          sendMessageText(e.data.text)
+        }, 300)
       }
     })
 
@@ -743,40 +745,41 @@
       div.innerHTML = avatarHtmlFor(agentKey)
       div.appendChild(wrapper)
       msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight
-      video.play().catch(function() { /* lecture auto bloquée par le navigateur — le membre peut cliquer play elle-même */ })
+      video.play().catch(function() {
+        // Lecture auto bloquée (pas encore de clic) : on lance au tout premier geste du membre.
+        var go = function() {
+          video.play().catch(function(){})
+          document.removeEventListener('click', go)
+          document.removeEventListener('keydown', go)
+          document.removeEventListener('touchstart', go)
+        }
+        document.addEventListener('click', go)
+        document.addEventListener('keydown', go)
+        document.addEventListener('touchstart', go)
+      })
     }
 
-    // Accès direct depuis la barre latérale — charge la page individuelle du personnage en iframe.
-    // Chaque personnage a sa propre page (chat-eric.html, chat-diane.html, chat-nyxia.html…).
-    var AGENT_PAGES = {
-      nyxia:  '/chat-nyxia.html',
-      diane:  '/chat-diane.html',
-      eric:   '/chat-eric.html',
-      kael:   '/chat-kael.html',
-      lena:   '/chat-lena.html',
-      selena: '/chat-selena.html',
-      alex:   '/chat-alex.html'
-    }
-
+    // Accès direct depuis la barre latérale ("Mon Espace") — fonctionne peu importe
+    // où on se trouve, pas seulement via les boutons du message d'accueil de NyXia.
+    // Chaque personnage garde son propre espace de conversation, jamais mélangé.
     function openAgentTab(key) {
-      // Affiche le panel chat
-      document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active') })
-      document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active') })
+      showPanel('chat')
 
-      var panelEl = document.getElementById('panel-chat')
-      if (panelEl) panelEl.classList.add('active')
-
-      var navEl = document.getElementById('nav-' + key)
-      if (navEl) navEl.classList.add('active')
-
-      // Charge la page du personnage dans l'iframe
-      var iframe = document.getElementById('agent-iframe')
-      var page = AGENT_PAGES[key] || AGENT_PAGES.nyxia
-      if (iframe && iframe.src.indexOf(page) === -1) {
-        iframe.src = page
+      if (key === 'nyxia') {
+        switchToAgentContainer('nyxia')
+        document.getElementById('chat-header-name').textContent = 'NyXia'
+        document.getElementById('chat-header-sub').textContent = "NyXia, L'Architecte des Portails"
+        updateHeaderAvatar('nyxia')
+        document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active') })
+        var nyxiaNavEl = document.getElementById('nav-chat')
+        if (nyxiaNavEl) nyxiaNavEl.classList.add('active')
+        var nyxiaNavEl2 = document.getElementById('nav-nyxia')
+        if (nyxiaNavEl2) nyxiaNavEl2.classList.add('active')
+        var msgs = currentMsgsEl()
+        if (msgs) msgs.scrollTop = msgs.scrollHeight
+      } else {
+        chooseAlpha(key)
       }
-
-      closeMobileMenu()
     }
 
     function sendSuggestion(text) {
@@ -1060,6 +1063,8 @@
     // Vidéos d'accueil (Alexya.ia) — jouées UNE fois à la première visite de chaque
     // personnage, toujours EN PLUS du texte de bienvenue, jamais à sa place.
     var AGENT_WELCOME_VIDEO = {
+      diane: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a765551306090.43866729_VideoBienvenueDiane_CF.mp4',
+  nyxia: 'COLLE_ICI_URL_VIDEO_NYXIA',
       eric: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a7606ee6619d0.98160655_VideoBienvenueEric.mp4'   // hébergée en externe (CloudFront) car trop lourde pour GitHub
     }
 
@@ -1118,10 +1123,8 @@
     })
 
     var chatInput = document.getElementById('chat-input')
-    if (chatInput) {
-      chatInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px' })
-      chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } })
-    }
+    chatInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px' })
+    chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } })
 
     function cleanMarkdown(str) {
       return str
