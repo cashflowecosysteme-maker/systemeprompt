@@ -223,11 +223,48 @@
   var currentModel = 'openai/gpt-5.6-luna'
   var chatHistory = []
   var MODEL_LABELS = {}
+  var STUDIO_STORAGE_KEY = 'nyxia_studio_chat'
+  var STUDIO_MODEL_KEY = 'nyxia_studio_model'
+
+  function saveStudioChat() {
+    try {
+      sessionStorage.setItem(STUDIO_STORAGE_KEY, JSON.stringify({
+        messages: chatHistory.slice(-40),
+        model: currentModel,
+        updated: Date.now()
+      }))
+      sessionStorage.setItem(STUDIO_MODEL_KEY, currentModel || '')
+    } catch (e) {}
+  }
+
+  function loadStudioChat() {
+    try {
+      var raw = sessionStorage.getItem(STUDIO_STORAGE_KEY)
+      if (!raw) return
+      var data = JSON.parse(raw)
+      if (!data || !Array.isArray(data.messages)) return
+      chatHistory = data.messages.slice(-40)
+      if (data.model) {
+        currentModel = data.model
+        var sel = document.getElementById('model-select')
+        if (sel) {
+          try { sel.value = data.model } catch (e) {}
+        }
+      }
+      chatHistory.forEach(function(item) {
+        if (!item || !item.content) return
+        if (item.role === 'user') addUserMessage(item.content)
+        else if (item.role === 'assistant') addBotMessage(item.content, item.model || currentModel)
+      })
+    } catch (e) {}
+  }
+
 
   function selectModel(key) {
     currentModel = key || currentModel
     var sel = document.getElementById('model-select')
     if (sel && key) sel.value = key
+    saveStudioChat()
   }
 
   ;(function checkAuth() {
@@ -240,8 +277,12 @@
     .then(function(r) { return r.json() })
     .then(function(data) {
       if (!data.valid) window.location.href = '/login.html'
+      else loadStudioChat()
     })
-    .catch(function() { window.location.href = '/login.html' })
+    .catch(function() {
+      // Même hors auth check, tenter de restaurer l'affichage local
+      try { loadStudioChat() } catch (e) {}
+    })
   })()
 
     var input = document.getElementById('chat-input')
@@ -322,6 +363,7 @@
 
     addUserMessage(text)
     chatHistory.push({ role: 'user', content: text })
+    saveStudioChat()
 
     var btn = document.getElementById('btn-send')
     btn.disabled = true
@@ -355,8 +397,9 @@
       var data = res.data || {}
       var reply = data.content || data.error || ('Aucune réponse (HTTP ' + res.status + ').')
       addBotMessage(String(reply), data.model)
-      chatHistory.push({ role: 'assistant', content: String(reply) })
-      if (chatHistory.length > 24) chatHistory = chatHistory.slice(-24)
+      chatHistory.push({ role: 'assistant', content: String(reply), model: data.model || currentModel })
+      if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40)
+      saveStudioChat()
       btn.disabled = false
     })
     .catch(function(err) {
