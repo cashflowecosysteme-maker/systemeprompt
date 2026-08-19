@@ -849,8 +849,10 @@
       // Charge la page du personnage dans l'iframe
       var iframe = document.getElementById('agent-iframe')
       var page = AGENT_PAGES[key] || AGENT_PAGES.nyxia
-      if (iframe && iframe.src.indexOf(page) === -1) {
-        iframe.src = page
+      if (iframe) {
+        var tok = sessionToken || sessionStorage.getItem('nyxia_token') || ''
+        var next = page + (page.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(tok) + '&_=' + Date.now()
+        iframe.src = next
       }
 
       closeMobileMenu()
