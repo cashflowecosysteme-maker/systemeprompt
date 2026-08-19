@@ -10,3 +10,9 @@ binding = "ASSETS"
 [[kv_namespaces]]
 binding = "CASHFLOW_KV"
 id = "106db6da016d49d2b480452f19bad695"
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "VECTORIZE_INDEX"
+index_name = "univers-livres"
