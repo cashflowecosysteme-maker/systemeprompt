@@ -221,7 +221,7 @@
   } catch (e) {}
   if (sessionToken) { try { sessionStorage.setItem('nyxia_token', sessionToken) } catch (e) {} }
   var currentModel = 'openai/gpt-5.6-luna'
-  var history = []
+  var chatHistory = []
   var MODEL_LABELS = {}
 
   function selectModel(key) {
@@ -321,7 +321,7 @@
     input.style.height = 'auto'
 
     addUserMessage(text)
-    history.push({ role: 'user', content: text })
+    chatHistory.push({ role: 'user', content: text })
 
     var btn = document.getElementById('btn-send')
     btn.disabled = true
@@ -338,7 +338,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: text,
-        history: history.slice(0, -1).slice(-16),
+        history: chatHistory.slice(0, -1).slice(-16),
         model: currentModel,
         token: sessionToken
       })
@@ -355,8 +355,8 @@
       var data = res.data || {}
       var reply = data.content || data.error || ('Aucune réponse (HTTP ' + res.status + ').')
       addBotMessage(String(reply), data.model)
-      history.push({ role: 'assistant', content: String(reply) })
-      if (history.length > 24) history = history.slice(-24)
+      chatHistory.push({ role: 'assistant', content: String(reply) })
+      if (chatHistory.length > 24) chatHistory = chatHistory.slice(-24)
       btn.disabled = false
     })
     .catch(function(err) {
