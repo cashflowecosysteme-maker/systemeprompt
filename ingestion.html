@@ -130,7 +130,7 @@
       var btn=document.getElementById('btn-login'); btn.disabled=true; btn.textContent='Connexion...';
       fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
         .then(function(r){return r.json()}).then(function(d){
-          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); }
+          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); var lb=document.getElementById('list-brain-card'); if(lb) lb.classList.remove('hidden'); var cb=document.getElementById('clear-brain-card'); if(cb) cb.classList.remove('hidden'); }
           else { msg.className='msg err'; msg.textContent=d.error||'Mot de passe incorrect.'; btn.disabled=false; btn.textContent='Se connecter'; }
         }).catch(function(){ msg.className='msg err'; msg.textContent='Impossible de joindre le Worker.'; btn.disabled=false; btn.textContent='Se connecter'; });
     }
@@ -289,7 +289,7 @@
   </script>
 </body>
 </html>
-    <div class="card">
+    <div class="card hidden" id="list-brain-card">
       <h2>📚 Contenu d'un cerveau</h2>
       <div class="hint">Choisis un personnage puis liste les livres / passages déjà ingérés.</div>
       <div class="field" style="margin-top:10px">
