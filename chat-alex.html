@@ -244,10 +244,11 @@
     updateHeaderAvatar('alex')
     document.title = 'Alex — NyXia'
 
-    var videoUrl = AGENT_WELCOME_VIDEO.diane
-    if (videoUrl) addVideoMessage(videoUrl, 'alex')
-    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
     renderStoredMessages()
+    var hasMsgs = (chatHistories.alex || []).length > 0
+    var videoUrl = AGENT_WELCOME_VIDEO.alex
+    if (videoUrl && !hasMsgs) addVideoMessage(videoUrl, 'alex')
+    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
 
     var chatInput = document.getElementById('chat-input')
     chatInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px' })
