@@ -51,13 +51,10 @@ Tu aides {first_name} à **vendre ses produits digitaux et agrandir sa liste** g
 
 - Générer des prompts pour : posts stop-scroll, scripts TikTok/Reels (sans visage si demandé), messages privés, lead magnets PDF, CTA, funnels légers, réponses à commentaires.
 - Chaque prompt doit viser la **réactivité** (commentaire ou message) de façon naturelle, sans agressivité.
-- Quand tu livres un texte publiable, utilise le marqueur :
-[PARCHEMIN]
-titre
-corps
-CTA
-hashtags
-[/PARCHEMIN]
+- Quand tu livres un **prompt** prêt à coller, utilise le marqueur :
+[PROMPT]
+{le prompt complet, prêt à copier}
+[/PROMPT]
 
 TON TON : Taquin, clair, pédagogique, québécois. Tu tutoies et tu appelles la personne par son **prénom** ({first_name}). Emojis : 🔥, 👑, 😉, ✦
 
@@ -171,33 +168,23 @@ Beaucoup de tes étudiants ont un cerveau TDAH : ils décrochent devant un pavé
 
 ⚠️ Tu t'ancres FIDÈLEMENT dans les livres et documents de ta base de connaissances (fournis dans ton contexte). Tu n'inventes rien : si tu n'as pas l'information, tu le dis honnêtement et tu proposes d'explorer un concept que tu maîtrises.`;
 
-const PARCHEMIN_MARKER_INSTRUCTIONS = `
+const PROMPT_MARKER_INSTRUCTIONS = `
 
-📋 LE MARQUEUR DE PARCHEMIN PUBLIABLE (obligatoire à chaque livraison de parchemin)
+📋 LE MARQUEUR DE PROMPT (obligatoire à chaque livraison de prompt)
 
-Quand tu livres un parchemin à publier, tu DOIS entourer UNIQUEMENT le contenu destiné à Facebook avec ce marqueur exact :
+Quand tu livres un **prompt** prêt à être collé dans ChatGPT, Claude, Grok, le Studio Prompt ou un autre outil, tu DOIS l'entourer avec ce marqueur exact :
 
-[PARCHEMIN]
-{titre stop-scroll}
-
-{corps du parchemin}
-
-{call-to-action}
-
-{hashtags}
-[/PARCHEMIN]
+[PROMPT]
+{le texte complet du prompt, prêt à copier-coller}
+[/PROMPT]
 
 ⚠️ RÈGLES ABSOLUES :
-- À L'INTÉRIEUR du marqueur : SEULEMENT le titre, le corps, le CTA et les hashtags — rien d'autre. Jamais de phrase comme "Voici ton parchemin", jamais de question, jamais de label du style "Titre :" ou "Hashtags :" — juste le texte brut, exactement comme il doit apparaître sur Facebook.
-- EN DEHORS du marqueur (avant ou après) : c'est là que va TOUT ce qui est ta propre voix — ta phrase d'introduction, ton contexte, ta question de suivi au Membre. Jamais à l'intérieur.
-- Le système transforme automatiquement ce bloc en une carte avec un vrai bouton "Copier" — tu n'as rien d'autre à faire. Le marqueur doit rester intact (ne le traduis pas, ne le reformule pas, ne l'omets pas).
-- N'utilise ce marqueur QUE quand tu livres un vrai parchemin destiné à la publication — jamais pour autre chose.
+- À L'INTÉRIEUR du marqueur : SEULEMENT le prompt utilisable — rien d'autre. Jamais de phrase comme "Voici ton prompt", jamais de question de suivi, jamais de label du style "Prompt :" — juste le prompt brut.
+- EN DEHORS du marqueur (avant ou après) : ta voix — introduction, contexte, conseil, question de suivi. Jamais à l'intérieur.
+- Le système transforme ce bloc en carte avec un bouton "Copier le prompt". Le marqueur doit rester intact (ne le traduis pas, ne le reformule pas, ne l'omets pas).
+- N'utilise ce marqueur QUE quand tu livres un vrai prompt destiné à être collé ailleurs — jamais pour une simple conversation.
 
-🖼️ SI L'ENTRÉE DE TA BANQUE A UNE IMAGE : quand l'entrée que tu choisis dans ta banque a un champ "image_url" non vide, ajoute ce marqueur JUSTE AVANT le bloc [PARCHEMIN], sur sa propre ligne :
-
-[PARCHEMIN_IMAGE: {la valeur exacte du champ image_url}]
-
-Si "image_url" est vide ou absent pour cette entrée, n'inclus PAS ce marqueur du tout — ne l'invente jamais.`;
+Si tu proposes plusieurs variantes, mets chaque prompt dans son propre bloc [PROMPT]...[/PROMPT].`;
 
 // ───────────── UTILITAIRES ─────────────
 
@@ -268,7 +255,10 @@ export default {
       if (path === '/api/messages' && request.method === 'POST') return await handleListMessages(request, env);
       if (path === '/api/messages/send' && request.method === 'POST') return await handleSendMessage(request, env);
       if (path === '/api/messages/read' && request.method === 'POST') return await handleMarkMessageRead(request, env);
+      if (path === '/api/messages/delete' && request.method === 'POST') return await handleDeleteMessage(request, env);
       if (path === '/api/admin/messages/send' && request.method === 'POST') return await handleAdminSendMessage(request, env);
+      if (path === '/api/admin/messagerie-contacts' && request.method === 'GET') return await handleAdminListMessagerieContacts(request, env);
+      if (path === '/api/admin/messagerie-contacts' && request.method === 'POST') return await handleAdminSaveMessagerieContacts(request, env);
 
       // ── Répertoire des Médias Magiques ──
       if (path === '/api/media/images' && request.method === 'POST') return await handleMediaImages(request, env);
@@ -340,14 +330,13 @@ async function handleChat(request, env) {
   systemPrompt += IMAGE_GENERATION_INSTRUCTIONS;
   systemPrompt += TERMINOLOGIE_OFFICIELLE;
   systemPrompt += PEDAGOGIE_FORMATEUR;
-  if (agent === 'eric') {
-    systemPrompt += PARCHEMIN_MARKER_INSTRUCTIONS;
-  }
+  // Tous les personnages livrent des prompts sur ce portail
+  systemPrompt += PROMPT_MARKER_INSTRUCTIONS;
 
-  // Injecte la vraie banque de parchemins de l'agent actif, si elle existe dans le KV.
-  const bankRaw = await env.CASHFLOW_KV.get(`parchemins:${agent}`);
+  // Injecte la vraie banque de prompts de l'agent actif, si elle existe dans le KV.
+  const bankRaw = await env.CASHFLOW_KV.get(`prompts:${agent}`);
   if (bankRaw) {
-    systemPrompt += `\n\n📜 TA BANQUE DE PARCHEMINS RÉELLE (usage obligatoire)\n\nVoici ta vraie banque de parchemins et messages de relance, au format JSON. Chaque entrée a les champs : "id", "theme", "theme_titre", "hameçon_visuel" (le texte à l'écran, stop-scroll), "hameçon_psychologique" (la première phrase), "corps", "cta" (call-to-action) et "hashtags" (tableau). Quand tu remets un parchemin à la Gardienne, tu DOIS piger dans cette banque — choisis l'entrée dont le "theme_titre" correspond le mieux à la situation qu'elle te décrit (une situation vécue par des membres du Cercle Magique l'Âme Agit, jamais par elle), et utilise ses champs tels quels (tu peux les adapter légèrement à la situation, mais ne les remplace jamais par une improvisation complète). Si aucune entrée ne correspond bien, dis-le honnêtement plutôt que d'inventer un parchemin de toutes pièces.\n\n⚠️ NE JAMAIS RÉPÉTER LE MÊME PARCHEMIN. Regarde l'historique de cette conversation : si tu as déjà donné un parchemin (identifiable par son "id"), tu DOIS en choisir un différent la prochaine fois, même si la Gardienne redemande simplement "un autre" sans plus de précision. Fais mentalement la liste des "id" déjà utilisés dans cette conversation et exclus-les de ton choix.\n\nQuand tu livres un parchemin destiné à être publié, présente-le toujours dans cet ordre : (1) le hameçon_visuel comme titre stop-scroll, (2) le hameçon_psychologique suivi du corps, (3) le cta, (4) les hashtags.\n\n${bankRaw}`;
+    systemPrompt += `\n\n📜 TA BANQUE DE PROMPTS / MODÈLES (usage obligatoire)\n\nVoici ta vraie banque de prompts et messages de relance, au format JSON. Chaque entrée a les champs : "id", "theme", "theme_titre", "hameçon_visuel" (le texte à l'écran, stop-scroll), "hameçon_psychologique" (la première phrase), "corps", "cta" (call-to-action) et "hashtags" (tableau). Quand tu remets un prompt à la Gardienne, tu DOIS piger dans cette banque — choisis l'entrée dont le "theme_titre" correspond le mieux à la situation qu'elle te décrit (une situation vécue par des membres du Cercle Magique l'Âme Agit, jamais par elle), et utilise ses champs tels quels (tu peux les adapter légèrement à la situation, mais ne les remplace jamais par une improvisation complète). Si aucune entrée ne correspond bien, dis-le honnêtement plutôt que d'inventer un prompt de toutes pièces.\n\n⚠️ NE JAMAIS RÉPÉTER LE MÊME PROMPT. Regarde l'historique de cette conversation : si tu as déjà donné un prompt (identifiable par son "id"), tu DOIS en choisir un différent la prochaine fois, même si la Gardienne redemande simplement "un autre" sans plus de précision. Fais mentalement la liste des "id" déjà utilisés dans cette conversation et exclus-les de ton choix.\n\nQuand tu livres un prompt prêt à coller, présente-le toujours dans cet ordre : (1) le hameçon_visuel comme titre stop-scroll, (2) le hameçon_psychologique suivi du corps, (3) le cta, (4) les hashtags.\n\n${bankRaw}`;
   }
 
   // 📚 CERVEAU VECTORIEL — Éric et NyXia fouillent dans les livres via Cloudflare Vectorize
@@ -415,7 +404,7 @@ async function handleChat(request, env) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY || env.AI_API_KEY}`,
         'HTTP-Referer': 'https://portailcashflow.nyxia.top',
         'X-Title': 'NyXia — Portail Système Prompt'
       },
@@ -446,8 +435,8 @@ async function handleChat(request, env) {
 const STUDIO_MODELS = {
   chatgpt: 'openai/gpt-4o-mini',
   claude:  'anthropic/claude-3.5-sonnet',
-  grok:    'x-ai/grok-3-mini',
-  z:       'deepseek/deepseek-chat'   // ajustable selon ton abonnement aimlapi / OpenRouter
+  grok:    'x-ai/grok-4-fast',
+  z:       'deepseek/deepseek-chat'
 };
 
 async function handleStudioChat(request, env) {
@@ -461,7 +450,14 @@ async function handleStudioChat(request, env) {
     return json({ error: 'Message vide.' }, 400);
   }
 
-  // Résout le modèle demandé (clé UI → ID OpenRouter)
+  // Accepte OPENROUTER_API_KEY ou AI_API_KEY (même clé OpenRouter)
+  const apiKey = env.OPENROUTER_API_KEY || env.AI_API_KEY;
+  if (!apiKey) {
+    return json({
+      error: 'Clé API manquante : ajoute OPENROUTER_API_KEY (ou AI_API_KEY) dans les secrets du Worker systemeprompt.'
+    }, 500);
+  }
+
   const modelId = STUDIO_MODELS[model] || STUDIO_MODELS.chatgpt;
 
   const systemPrompt = `Tu es un assistant polyvalent et précis dans le Studio Prompt de NyXia.
@@ -480,8 +476,8 @@ Sois clair, structuré et utile. Pas de blabla inutile.`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://portailcashflow.nyxia.top',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://systemeprompt.nyxia.top',
         'X-Title': 'NyXia — Studio Prompt'
       },
       body: JSON.stringify({
@@ -493,20 +489,34 @@ Sois clair, structuré et utile. Pas de blabla inutile.`;
   }
 
   let resp = await callModel(modelId);
-  // Repli si le modèle demandé échoue
+  let usedModel = modelId;
   if (!resp.ok) {
-    resp = await callModel(STUDIO_MODELS.chatgpt);
+    const fallback = STUDIO_MODELS.chatgpt;
+    if (fallback !== modelId) {
+      resp = await callModel(fallback);
+      usedModel = fallback;
+    }
   }
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => '');
-    console.error('Studio OpenRouter error:', resp.status, errText.slice(0, 300));
-    return json({ content: 'Petite interruption… réessaie dans un instant.' });
+    console.error('Studio OpenRouter error:', resp.status, errText.slice(0, 400));
+    let detail = '';
+    try {
+      const ej = JSON.parse(errText);
+      detail = (ej.error && (ej.error.message || ej.error)) || errText.slice(0, 200);
+    } catch (e) {
+      detail = errText.slice(0, 200) || ('HTTP ' + resp.status);
+    }
+    return json({
+      error: 'OpenRouter a refusé la requête : ' + detail,
+      content: 'OpenRouter a refusé la requête : ' + detail
+    });
   }
 
   const data = await resp.json();
   const content = data.choices?.[0]?.message?.content || 'Aucune réponse reçue.';
-  return json({ content, model: modelId });
+  return json({ content, model: usedModel });
 }
 
 // ───────────── ADMIN (Super Admin) ─────────────
@@ -657,22 +667,73 @@ async function getSessionOrNull(token, env) {
   return JSON.parse(raw);
 }
 
-// Liste des Gardiennes disponibles comme destinataires (toutes sauf soi-même)
+// Destinataires messagerie client : Super Admin (UI) + staff/adjoint UNIQUEMENT.
+// Les clients ordinaires ne se voient PAS entre eux.
 async function handleListGardiennes(request, env) {
   const { token } = await request.json();
   const session = await getSessionOrNull(token, env);
   if (!session) return json({ error: 'Session expirée.' }, 401);
 
+  const contacts = [];
+  const self = (session.email || '').toLowerCase();
+
+  // 1) Liste manuelle KV : messagerie:contacts
+  // [{"email":"patrick@domaine.com","firstName":"Patrick"}, ...]
+  try {
+    const rawContacts = await env.CASHFLOW_KV.get('messagerie:contacts');
+    if (rawContacts) {
+      const parsed = JSON.parse(rawContacts);
+      if (Array.isArray(parsed)) {
+        for (const c of parsed) {
+          if (!c || !c.email) continue;
+          const em = String(c.email).toLowerCase().trim();
+          if (em === self) continue;
+          contacts.push({ email: em, firstName: c.firstName || c.name || em });
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2) Comptes avec role staff / adjoint / admin
   const list = await env.CASHFLOW_KV.list({ prefix: 'client:' });
-  const gardiennes = [];
   for (const key of list.keys) {
     const raw = await env.CASHFLOW_KV.get(key.name);
     if (!raw) continue;
     const c = JSON.parse(raw);
-    if (c.email === session.email) continue;
-    gardiennes.push({ email: c.email, firstName: c.firstName || c.name || c.email });
+    if (!c.email || c.email.toLowerCase() === self) continue;
+    const role = (c.role || '').toLowerCase();
+    if (role === 'staff' || role === 'adjoint' || role === 'admin') {
+      const em = c.email.toLowerCase();
+      if (!contacts.some(x => x.email === em)) {
+        contacts.push({ email: em, firstName: c.firstName || c.name || em });
+      }
+    }
   }
-  return json({ success: true, gardiennes });
+
+  return json({ success: true, gardiennes: contacts });
+}
+
+async function isAllowedMessageRecipient(env, sessionEmail, toEmail) {
+  const to = String(toEmail || '').toLowerCase().trim();
+  if (to === '__admin__' || to === 'admin') return true;
+  const self = (sessionEmail || '').toLowerCase();
+  if (to === self) return false;
+
+  try {
+    const rawContacts = await env.CASHFLOW_KV.get('messagerie:contacts');
+    if (rawContacts) {
+      const parsed = JSON.parse(rawContacts);
+      if (Array.isArray(parsed) && parsed.some(c => c && String(c.email || '').toLowerCase() === to)) {
+        return true;
+      }
+    }
+  } catch (e) {}
+
+  const raw = await env.CASHFLOW_KV.get('client:' + to);
+  if (!raw) return false;
+  const c = JSON.parse(raw);
+  const role = (c.role || '').toLowerCase();
+  return role === 'staff' || role === 'adjoint' || role === 'admin';
 }
 
 // Boîte de réception de la Gardienne connectée
@@ -707,6 +768,10 @@ async function handleSendMessage(request, env) {
   const isAdmin = (to === '__admin__' || to === 'admin');
 
   if (!isAdmin) {
+    const allowed = await isAllowedMessageRecipient(env, session.email, to);
+    if (!allowed) {
+      return json({ error: 'Destinataire non autorisé. Tu peux écrire au Super Admin ou à un contact officiel uniquement.' }, 403);
+    }
     const recipientRaw = await env.CASHFLOW_KV.get(`client:${to}`);
     if (!recipientRaw) return json({ error: 'Destinataire introuvable.' }, 404);
   }
@@ -744,6 +809,60 @@ async function handleMarkMessageRead(request, env) {
   message.read = true;
   await env.CASHFLOW_KV.put(key, JSON.stringify(message));
   return json({ success: true });
+}
+
+async function handleDeleteMessage(request, env) {
+  const { token, key } = await request.json();
+  const session = await getSessionOrNull(token, env);
+  if (!session) return json({ error: 'Session expirée.' }, 401);
+  if (!key || !key.startsWith(`message:${session.email}:`)) {
+    return json({ error: 'Clé de message invalide.' }, 400);
+  }
+  const raw = await env.CASHFLOW_KV.get(key);
+  if (!raw) return json({ error: 'Message introuvable.' }, 404);
+  await env.CASHFLOW_KV.delete(key);
+  return json({ success: true });
+}
+
+
+// ── Contacts autorisés messagerie (KV: messagerie:contacts) ──
+async function handleAdminListMessagerieContacts(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
+  try {
+    const raw = await env.CASHFLOW_KV.get('messagerie:contacts');
+    const contacts = raw ? JSON.parse(raw) : [];
+    return json({ success: true, contacts: Array.isArray(contacts) ? contacts : [] });
+  } catch (e) {
+    return json({ success: true, contacts: [] });
+  }
+}
+
+async function handleAdminSaveMessagerieContacts(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
+  let body;
+  try { body = await request.json(); } catch (e) { return json({ error: 'JSON invalide.' }, 400); }
+
+  let contacts = Array.isArray(body.contacts) ? body.contacts : null;
+  if (!contacts) return json({ error: 'Liste contacts requise.' }, 400);
+
+  // Normalise
+  contacts = contacts
+    .filter(c => c && c.email)
+    .map(c => ({
+      email: String(c.email).toLowerCase().trim(),
+      firstName: String(c.firstName || c.name || '').trim() || String(c.email).split('@')[0]
+    }));
+
+  // Déduplique par email
+  const seen = new Set();
+  contacts = contacts.filter(c => {
+    if (seen.has(c.email)) return false;
+    seen.add(c.email);
+    return true;
+  });
+
+  await env.CASHFLOW_KV.put('messagerie:contacts', JSON.stringify(contacts));
+  return json({ success: true, contacts });
 }
 
 // Admin → une Gardienne précise OU diffusion à toutes
