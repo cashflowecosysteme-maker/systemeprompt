@@ -474,7 +474,9 @@
     _msgAccueil.onerror = function() { btn.textContent = '🔊 Message d\'accueil'; btn.classList.remove('speaking') }
   }
 
-  var _micRecognition = null, _micListening = false
+  var _micRecognition = null, _micListening = false, _micFinalText = '', _micSendTimer = null
+  var MIC_SILENCE_MS = 3200  // pause tolérée avant envoi auto (parole lente / hésitations)
+
   function toggleMic() {
     var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognitionAPI) {
@@ -483,29 +485,78 @@
     }
     var btn = document.getElementById('btn-mic')
     if (_micListening) {
-      if (_micRecognition) _micRecognition.stop()
+      if (_micSendTimer) { clearTimeout(_micSendTimer); _micSendTimer = null }
+      try { if (_micRecognition) _micRecognition.stop() } catch (e) {}
+      var input = document.getElementById('chat-input')
+      var text = ((input && input.value) || _micFinalText || '').trim()
+      resetMicBtn()
+      if (text) {
+        if (input) input.value = text
+        sendMessage()
+      }
       return
     }
+
+    _micFinalText = ''
     _micRecognition = new SpeechRecognitionAPI()
     _micRecognition.lang = 'fr-FR'
-    _micRecognition.interimResults = false
+    _micRecognition.continuous = true
+    _micRecognition.interimResults = true
     _micRecognition.maxAlternatives = 1
 
     _micRecognition.onstart = function() {
       _micListening = true
+      if (!btn) return
       btn.textContent = '⏹'
       btn.style.background = 'rgba(255,75,110,0.15)'
       btn.style.borderColor = 'rgba(255,75,110,0.4)'
       btn.style.color = '#ff4b6e'
+      btn.title = 'Cliquer pour terminer et envoyer'
     }
+
     _micRecognition.onresult = function(event) {
-      var transcript = event.results[0][0].transcript
-      document.getElementById('chat-input').value = transcript
-      sendMessage()
+      var interim = ''
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var piece = event.results[i][0].transcript
+        if (event.results[i].isFinal) {
+          _micFinalText = (_micFinalText + ' ' + piece).replace(/\s+/g, ' ').trim()
+        } else {
+          interim += piece
+        }
+      }
+      var input = document.getElementById('chat-input')
+      if (input) {
+        input.value = (_micFinalText + (interim ? ' ' + interim : '')).replace(/\s+/g, ' ').trim()
+        input.style.height = 'auto'
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px'
+      }
+      if (_micSendTimer) clearTimeout(_micSendTimer)
+      _micSendTimer = setTimeout(function() {
+        if (!_micListening) return
+        var finalText = (_micFinalText || (input && input.value) || '').trim()
+        try { if (_micRecognition) _micRecognition.stop() } catch (e) {}
+        resetMicBtn()
+        if (finalText) {
+          if (input) input.value = finalText
+          sendMessage()
+        }
+      }, MIC_SILENCE_MS)
     }
-    _micRecognition.onerror = function() { resetMicBtn() }
-    _micRecognition.onend = function() { resetMicBtn() }
-    _micRecognition.start()
+
+    _micRecognition.onerror = function(ev) {
+      if (_micSendTimer) { clearTimeout(_micSendTimer); _micSendTimer = null }
+      resetMicBtn()
+    }
+    _micRecognition.onend = function() {
+      if (_micSendTimer) return
+      resetMicBtn()
+    }
+    try {
+      _micRecognition.start()
+    } catch (e) {
+      resetMicBtn()
+      alert('Impossible de démarrer le micro. Réessaie.')
+    }
   }
 
   function resetMicBtn() {
@@ -516,7 +567,9 @@
     btn.style.background = 'rgba(123,92,255,0.06)'
     btn.style.borderColor = 'rgba(123,92,255,0.2)'
     btn.style.color = 'var(--t3)'
+    btn.title = 'Parler'
   }
+
 
   function cleanMarkdown(str) {
     return str
