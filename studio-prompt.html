@@ -152,6 +152,17 @@
 
   <script>
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
+  try {
+    if (!sessionToken && window.parent && window.parent !== window) {
+      sessionToken = window.parent.sessionStorage.getItem('nyxia_token') || ''
+    }
+  } catch (e) {}
+  // Fallback : token passé par le dashboard parent
+  try {
+    if (!sessionToken && window.parent && window.parent.sessionToken) {
+      sessionToken = window.parent.sessionToken
+    }
+  } catch (e) {}
   var currentModel = 'chatgpt'
   var history = []
   var MODEL_LABELS = { chatgpt: 'ChatGPT', claude: 'Claude', grok: 'Grok', z: 'Z' }
@@ -270,18 +281,25 @@
         token: sessionToken
       })
     })
-    .then(function(r) { return r.json() })
-    .then(function(data) {
+    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data } }) })
+    .then(function(res) {
       removeTyping()
-      var reply = data.content || data.error || 'Aucune réponse.'
+      var data = res.data || {}
+      var reply = data.content || data.error || ('Aucune réponse (HTTP ' + res.status + ').')
       addBotMessage(reply, data.model)
-      history.push({ role: 'assistant', content: reply })
-      if (history.length > 24) history = history.slice(-24)
+      if (data.content && !data.error) {
+        history.push({ role: 'assistant', content: reply })
+        if (history.length > 24) history = history.slice(-24)
+      } else {
+        // Ne pas polluer l'historique avec une erreur technique
+        history.pop()
+      }
       btn.disabled = false
     })
-    .catch(function() {
+    .catch(function(err) {
       removeTyping()
-      addBotMessage('Petite interruption… réessaie dans un instant.')
+      addBotMessage('Erreur réseau : ' + (err && err.message ? err.message : 'réessaie dans un instant.'))
+      history.pop()
       btn.disabled = false
     })
   }
