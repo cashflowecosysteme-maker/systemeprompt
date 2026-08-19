@@ -851,8 +851,13 @@
       var page = AGENT_PAGES[key] || AGENT_PAGES.nyxia
       if (iframe) {
         var tok = sessionToken || sessionStorage.getItem('nyxia_token') || ''
-        var next = page + (page.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(tok) + '&_=' + Date.now()
-        iframe.src = next
+        var base = page + (page.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(tok)
+        // Recharge seulement si on change de personnage (conserve mieux le cache navigateur)
+        var current = iframe.getAttribute('data-agent') || ''
+        if (current !== key) {
+          iframe.setAttribute('data-agent', key)
+          iframe.src = base + '&_=' + Date.now()
+        }
       }
 
       closeMobileMenu()
