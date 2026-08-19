@@ -31,7 +31,22 @@
     }
     .header-sub { font-size: 12px; color: var(--t3); }
     .model-pills { display: none; }
-    .model-select-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .btn-new-chat {
+      margin-left: auto;
+      border: 1px solid rgba(123,92,255,0.3);
+      background: rgba(123,92,255,0.1);
+      color: var(--t2);
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 50px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .btn-new-chat:hover { border-color: var(--p); color: #fff; background: rgba(123,92,255,0.22); }
+    .model-select-wrap { display: flex; align-items: center; gap: 8px; }
     .model-select {
       appearance: none; -webkit-appearance: none;
       background: rgba(15,28,63,0.85);
@@ -151,6 +166,7 @@
       <div class="header-title">⚡ Studio Prompt</div>
       <div class="header-sub">Exécute tes prompts avec le modèle de ton choix</div>
     </div>
+    <button type="button" class="btn-new-chat" id="btn-new-chat" onclick="nouveauChatStudio()" title="Effacer la conversation du Studio">✨ Nouveau chat</button>
     <div class="model-select-wrap">
       <label for="model-select" style="font-size:11px;color:var(--t3);white-space:nowrap">Modèle</label>
       <select class="model-select" id="model-select" onchange="selectModel(this.value)">
@@ -259,6 +275,24 @@
     } catch (e) {}
   }
 
+
+  function nouveauChatStudio() {
+    if (!confirm('Effacer la conversation du Studio Prompt ?\n\nTu ne pourras pas la récupérer.')) return
+    try {
+      sessionStorage.removeItem(STUDIO_STORAGE_KEY)
+      sessionStorage.removeItem(STUDIO_MODEL_KEY)
+    } catch (e) {}
+    chatHistory = []
+    var msgs = document.getElementById('messages')
+    if (msgs) {
+      msgs.innerHTML = ''
+      var empty = document.createElement('div')
+      empty.className = 'empty-state'
+      empty.id = 'empty-state'
+      empty.innerHTML = '<div class="icon">⚡</div><h2>Studio Prompt</h2><p>Colle un prompt généré par NyXia, Éric, Diane… ou écris directement ta demande. Choisis le modèle en haut, puis envoie.</p>'
+      msgs.appendChild(empty)
+    }
+  }
 
   function selectModel(key) {
     currentModel = key || currentModel
