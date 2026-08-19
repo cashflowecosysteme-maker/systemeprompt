@@ -22,6 +22,22 @@
     #starry-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
     .chat-area { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 860px; margin: 0 auto; }
+    .btn-new-chat {
+      border: 1px solid rgba(123,92,255,0.3);
+      background: rgba(123,92,255,0.1);
+      color: var(--t3);
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 50px;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-left: auto;
+      flex-shrink: 0;
+      transition: all .15s;
+    }
+    .btn-new-chat:hover { border-color: var(--p); color: var(--t2); background: rgba(123,92,255,0.2); }
     .chat-header { padding: 16px 24px; border-bottom: 1px solid rgba(123,92,255,0.1); background: rgba(10,22,40,0.6); backdrop-filter: blur(10px); display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
     .chat-header img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(123,92,255,0.4); box-shadow: 0 0 24px rgba(123,92,255,0.35); }
     .chat-header-info { flex: 1; }
@@ -81,18 +97,19 @@
 
   <div class="chat-area">
     <div class="chat-header">
-      <span id="chat-header-avatar"><img src="/Eric.png" alt="Éric"></span>
+      <span id="chat-header-avatar"><img src="/Kael.png" alt="Kael"></span>
       <div class="chat-header-info">
-        <div class="chat-header-name" id="chat-header-name">Éric</div>
-        <div class="chat-header-sub" id="chat-header-sub">Gardien-formateur du Portail CashFlow</div>
+        <div class="chat-header-name" id="chat-header-name">Kael</div>
+        <div class="chat-header-sub" id="chat-header-sub">Relations amoureuses & prompts</div>
       </div>
+      <button type="button" class="btn-new-chat" onclick="nouveauChat()" title="Effacer cette conversation">✨ Nouveau chat</button>
     </div>
 
     <div class="chat-messages active-chat" id="chat-messages-kael"></div>
     <div class="suggestions" id="suggestions">
-      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt pour un post Facebook qui fait commenter (vente douce)</button>
-      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt script TikTok/Reels sans montrer mon visage</button>
-      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt pour un message privé qui mène à mon PDF gratuit</button>
+      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt pour un post sur les relations qui crée de la réactivité</button>
+      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt pour une offre digitale « relations amoureuses »</button>
+      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt réponse à un commentaire sensible sur le couple</button>
     </div>
 
     <div id="attach-bar" style="display:none;padding:6px 20px;background:rgba(123,92,255,0.08);border-top:1px solid rgba(123,92,255,0.1);align-items:center;gap:8px;flex-shrink:0;font-size:12px;color:var(--t3)">
@@ -169,6 +186,20 @@
     } catch (e) {}
   }
 
+  function nouveauChat() {
+    var name = (ALPHA_INFO[_currentAgent] && ALPHA_INFO[_currentAgent].name) || 'ce personnage'
+    if (!confirm('Effacer la conversation avec ' + name + ' ?\n\nTu ne pourras pas la récupérer.')) return
+    try { sessionStorage.removeItem(CHAT_STORAGE_KEY) } catch (e) {}
+    chatHistories[_currentAgent] = []
+    var msgs = document.getElementById('chat-messages-' + _currentAgent)
+    if (msgs) msgs.innerHTML = ''
+    var sug = document.getElementById('suggestions')
+    if (sug) sug.style.display = 'flex'
+    // Rejouer la vidéo d'accueil si configurée
+    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    if (videoUrl && typeof addVideoMessage === 'function') addVideoMessage(videoUrl, _currentAgent)
+  }
+
   function saveChatToStorage() {
     try {
       sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({
@@ -201,25 +232,25 @@
   function avatarHtmlFor(key, sizeClass) {
     sizeClass = sizeClass || 'msg-avatar'
     var src = AGENT_IMAGES[key] || AGENT_IMAGES.kael
-    var name = (ALPHA_INFO[key] && ALPHA_INFO[key].name) || 'Éric'
+    var name = (ALPHA_INFO[key] && ALPHA_INFO[key].name) || 'Kael'
     return '<img src="' + src + '" class="' + sizeClass + '" alt="' + name + '">'
   }
   function updateHeaderAvatar(key) {
     var el = document.getElementById('chat-header-avatar')
     if (!el) return
-    el.innerHTML = '<img src="' + (AGENT_IMAGES[key] || AGENT_IMAGES.kael) + '" alt="' + ((ALPHA_INFO[key] && ALPHA_INFO[key].name) || 'Éric') + '">'
+    el.innerHTML = '<img src="' + (AGENT_IMAGES[key] || AGENT_IMAGES.kael) + '" alt="' + ((ALPHA_INFO[key] && ALPHA_INFO[key].name) || 'Kael') + '">'
   }
 
   function init() {
     loadChatFromStorage()
     document.getElementById('chat-header-name').textContent = ALPHA_INFO.kael.name
     document.getElementById('chat-header-sub').textContent = ALPHA_INFO.kael.sub
-    updateHeaderAvatar('eric')
+    updateHeaderAvatar('kael')
     document.title = 'Kael — Studio Prompt'
 
     // Première visite : vidéo de bienvenue (jouée une fois) PUIS le texte d'accueil.
-    var videoUrl = AGENT_WELCOME_VIDEO.eric
-    if (videoUrl) addVideoMessage(videoUrl, 'eric')
+    var videoUrl = AGENT_WELCOME_VIDEO.kael
+    if (videoUrl) addVideoMessage(videoUrl, 'kael')
     // Pas de message texte d'accueil auto — la vidéo de présentation suffit
     renderStoredMessages()
 
@@ -360,9 +391,9 @@
 
     var imgRegex = /\[IMAGE\s*:\s*([\s\S]*?)\]/i
     var imgMatch = text.match(imgRegex)
-    var parchRegex = /\[(?:PROMPT|PARCHEMIN)\]([\s\S]*?)\[\/(?:PROMPT|PARCHEMIN)\]/i
+    var parchRegex = /\[(?:PROMPT|prompt)\]([\s\S]*?)\[\/(?:PROMPT|prompt)\]/i
     var parchMatch = text.match(parchRegex)
-    var parchImgRegex = /\[(?:PROMPT|PARCHEMIN)_IMAGE\s*:\s*([\s\S]*?)\]/i
+    var parchImgRegex = /\[(?:PROMPT|prompt)_IMAGE\s*:\s*([\s\S]*?)\]/i
     var parchImgMatch = text.match(parchImgRegex)
     var textWithoutImg = text.replace(imgRegex, '').replace(parchRegex, '').replace(parchImgRegex, '').trim()
     var imgDesc = imgMatch ? imgMatch[1].trim() : null
@@ -377,7 +408,7 @@
     }
     wrapper.appendChild(bubble)
 
-    // Carte de parchemin — séparée du texte, avec un bouton Copier qui ne prend QUE
+    // Carte de prompt — séparée du texte, avec un bouton Copier qui ne prend QUE
     // le contenu publiable (jamais les mots de l'agent autour).
     if (parchContent) {
       var parchWrap = document.createElement('div')
@@ -480,7 +511,7 @@
       }
     }); acts.appendChild(ret)
 
-    var agentName = (ALPHA_INFO[msgAgent] && ALPHA_INFO[msgAgent].name) || 'Éric'
+    var agentName = (ALPHA_INFO[msgAgent] && ALPHA_INFO[msgAgent].name) || 'Kael'
     var pdfBtn = document.createElement('button'); pdfBtn.style.cssText = bs; pdfBtn.textContent = '⬇ PDF'
     pdfBtn.addEventListener('click', function() {
       var w = window.open('', '_blank'); if (!w) return
@@ -687,8 +718,8 @@
       .replace(/#{1,6}\s+/g, '')
       .replace(/^>+\s*/gm, '')
       .replace(/\[IMAGE[\s\S]*?\]/gi, '')
-      .replace(/\[(?:PROMPT|PARCHEMIN)\][\s\S]*?\[\/(?:PROMPT|PARCHEMIN)\]/gi, '')
-      .replace(/\[(?:PROMPT|PARCHEMIN)_IMAGE[\s\S]*?\]/gi, '')
+      .replace(/\[(?:PROMPT|prompt)\][\s\S]*?\[\/(?:PROMPT|prompt)\]/gi, '')
+      .replace(/\[(?:PROMPT|prompt)_IMAGE[\s\S]*?\]/gi, '')
       .replace(/[✦💜🚀💎🌐📱⭐✓►▶🪞🌿🕯️🌙✨📖🔥👑😉📚📜]/gu, '')
       .replace(/<br>/g, ' ')
       .replace(/<[^>]+>/g, '')
