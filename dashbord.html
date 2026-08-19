@@ -60,6 +60,23 @@
     .nav-item.active .nav-sub { color: rgba(214,217,240,0.9); opacity: 1; }
     .nav-item:hover .nav-sub { color: var(--t3); }
     .nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
+    .nav-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 2px solid rgba(123,92,255,0.35);
+      box-shadow: 0 0 0 1px rgba(123,92,255,0.12);
+      background: rgba(15,28,63,0.8);
+    }
+    .nav-item.active .nav-avatar {
+      border-color: rgba(167,139,250,0.85);
+      box-shadow: 0 0 12px rgba(123,92,255,0.45);
+    }
+    .nav-item:hover .nav-avatar {
+      border-color: rgba(123,92,255,0.55);
+    }
     .nav-arrow { margin-left: auto; font-size: 10px; color: var(--t4); flex-shrink: 0; align-self: center; }
     .nav-text {
       display: flex;
@@ -200,37 +217,37 @@
       <div class="sidebar-section">
         <div class="sidebar-label">Mes Conversations</div>
         <div class="nav-item" id="nav-diane" onclick="openAgentTab('diane')">
-          <span class="nav-icon">👑</span>
+          <img class="nav-avatar" src="/Diane.png" alt="Diane">
           <span class="nav-text"><span class="nav-name">Diane</span><span class="nav-sub">Prompt Formation</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item active" id="nav-nyxia" onclick="openAgentTab('nyxia')">
-          <span class="nav-icon">✦</span>
+          <img class="nav-avatar" src="/NyXia.png" alt="NyXia">
           <span class="nav-text"><span class="nav-name">NyXia</span><span class="nav-sub">Prompt Produit digitaux</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-eric" onclick="openAgentTab('eric')">
-          <span class="nav-icon">🔥</span>
+          <img class="nav-avatar" src="/Eric.png" alt="Éric">
           <span class="nav-text"><span class="nav-name">Éric</span><span class="nav-sub">Prompt Communication</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-kael" onclick="openAgentTab('kael')">
-          <span class="nav-icon">💔</span>
+          <img class="nav-avatar" src="/Kael.png" alt="Kael">
           <span class="nav-text"><span class="nav-name">Kael</span><span class="nav-sub">Prompt Relation amoureuse</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-lena" onclick="openAgentTab('lena')">
-          <span class="nav-icon">🔮</span>
+          <img class="nav-avatar" src="/Lena.png" alt="Léna">
           <span class="nav-text"><span class="nav-name">Léna</span><span class="nav-sub">Prompt Spiritualité</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-selena" onclick="openAgentTab('selena')">
-          <span class="nav-icon">🪞</span>
+          <img class="nav-avatar" src="/Selena.png" alt="Séléna">
           <span class="nav-text"><span class="nav-name">Séléna</span><span class="nav-sub">Prompt reconnexion à soi</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-alex" onclick="openAgentTab('alex')">
-          <span class="nav-icon">✍️</span>
+          <img class="nav-avatar" src="/Alex.png" alt="Alex">
           <span class="nav-text"><span class="nav-name">Alex</span><span class="nav-sub">Prompt écriture</span></span>
           <span class="nav-arrow">›</span>
         </div>
