@@ -433,9 +433,10 @@ async function handleChat(request, env) {
 // ───────────── STUDIO PROMPT (multi-modèles OpenRouter) ─────────────
 // Modèles autorisés côté serveur (whitelist) — l'utilisateur choisit dans l'UI.
 const STUDIO_MODELS = {
+  // Alignés sur des IDs OpenRouter courants — le repli final = même modèle que les personnages
   chatgpt: 'openai/gpt-4o-mini',
   claude:  'anthropic/claude-3.5-sonnet',
-  grok:    'x-ai/grok-4-fast',
+  grok:    'x-ai/grok-3-mini',
   z:       'deepseek/deepseek-chat'
 };
 
@@ -483,19 +484,26 @@ Sois clair, structuré et utile. Pas de blabla inutile.`;
       body: JSON.stringify({
         model: m,
         messages,
-        max_tokens: 2000
+        max_tokens: 2000,
+        reasoning: { enabled: false }
       })
     });
   }
 
+  // Même stratégie que les personnages : modèle choisi → chatgpt → deepseek (prouvé chez toi)
   let resp = await callModel(modelId);
   let usedModel = modelId;
   if (!resp.ok) {
-    const fallback = STUDIO_MODELS.chatgpt;
-    if (fallback !== modelId) {
-      resp = await callModel(fallback);
-      usedModel = fallback;
-    }
+    resp = await callModel(STUDIO_MODELS.chatgpt);
+    usedModel = STUDIO_MODELS.chatgpt;
+  }
+  if (!resp.ok) {
+    resp = await callModel(OPENROUTER_MODEL);
+    usedModel = OPENROUTER_MODEL;
+  }
+  if (!resp.ok) {
+    resp = await callModel(OPENROUTER_FALLBACK_MODEL);
+    usedModel = OPENROUTER_FALLBACK_MODEL;
   }
 
   if (!resp.ok) {
