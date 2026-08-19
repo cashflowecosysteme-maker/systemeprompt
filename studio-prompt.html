@@ -30,7 +30,30 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
     .header-sub { font-size: 12px; color: var(--t3); }
-    .model-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .model-pills { display: none; }
+    .model-select-wrap { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .model-select {
+      appearance: none; -webkit-appearance: none;
+      background: rgba(15,28,63,0.85);
+      border: 1px solid rgba(123,92,255,0.35);
+      color: var(--t);
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 36px 8px 14px;
+      border-radius: 50px;
+      cursor: pointer;
+      outline: none;
+      min-width: 220px;
+      max-width: min(420px, 70vw);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238891B8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+    .model-select:hover, .model-select:focus {
+      border-color: rgba(123,92,255,0.65);
+    }
+    .model-select option { background: #0f1c3f; color: #fff; }
     .model-pill {
       padding: 7px 14px; border-radius: 50px; border: 1px solid rgba(123,92,255,0.25);
       background: rgba(123,92,255,0.06); color: var(--t3); font-family: 'Outfit', sans-serif;
@@ -128,11 +151,46 @@
       <div class="header-title">⚡ Studio Prompt</div>
       <div class="header-sub">Exécute tes prompts avec le modèle de ton choix</div>
     </div>
-    <div class="model-pills" id="model-pills">
-      <button class="model-pill active" data-model="chatgpt" onclick="selectModel('chatgpt')">ChatGPT</button>
-      <button class="model-pill" data-model="claude" onclick="selectModel('claude')">Claude</button>
-      <button class="model-pill" data-model="grok" onclick="selectModel('grok')">Grok</button>
-      <button class="model-pill" data-model="z" onclick="selectModel('z')">Z</button>
+    <div class="model-select-wrap">
+      <label for="model-select" style="font-size:11px;color:var(--t3);white-space:nowrap">Modèle</label>
+      <select class="model-select" id="model-select" onchange="selectModel(this.value)">
+        <optgroup label="OpenAI — ChatGPT">
+          <option value="openai/gpt-5.6-sol">GPT-5.6 Sol (phare)</option>
+          <option value="openai/gpt-5.6-luna" selected>GPT-5.6 Luna</option>
+          <option value="openai/gpt-5.6-luna-pro">GPT-5.6 Luna Pro</option>
+          <option value="openai/gpt-5.5">GPT-5.5</option>
+          <option value="openai/gpt-5.4">GPT-5.4</option>
+          <option value="openai/gpt-4o-mini">GPT-4o mini</option>
+        </optgroup>
+        <optgroup label="DeepSeek">
+          <option value="deepseek/deepseek-v3.2">DeepSeek V3.2</option>
+          <option value="deepseek/deepseek-v4-pro">DeepSeek V4 Pro</option>
+          <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash</option>
+        </optgroup>
+        <optgroup label="Grok — xAI">
+          <option value="x-ai/grok-4.6">Grok 4.6</option>
+          <option value="x-ai/grok-4.5">Grok 4.5</option>
+          <option value="x-ai/grok-4">Grok 4</option>
+        </optgroup>
+        <optgroup label="Z.ai — GLM">
+          <option value="z-ai/glm-5.2">GLM 5.2</option>
+          <option value="z-ai/glm-4.6">GLM 4.6</option>
+        </optgroup>
+        <optgroup label="Claude — Anthropic">
+          <option value="anthropic/claude-opus-5">Claude Opus 5</option>
+          <option value="anthropic/claude-opus-5-fast">Claude Opus 5 Fast</option>
+          <option value="anthropic/claude-sonnet-5">Claude Sonnet 5</option>
+          <option value="anthropic/claude-haiku-4.5">Claude Haiku 4.5</option>
+        </optgroup>
+        <optgroup label="Google — Gemini">
+          <option value="google/gemini-3.7-flash">Gemini 3.7 Flash</option>
+          <option value="google/gemini-3.5-flash">Gemini 3.5 Flash</option>
+          <option value="google/gemini-3.1-pro">Gemini 3.1 Pro</option>
+        </optgroup>
+        <optgroup label="Mistral">
+          <option value="mistralai/mistral-small-3.2-24b-instruct">Mistral Small 3.2</option>
+        </optgroup>
+      </select>
     </div>
   </div>
 
@@ -153,19 +211,24 @@
   <script>
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
   try {
-    if (!sessionToken && window.parent && window.parent !== window) {
-      sessionToken = window.parent.sessionStorage.getItem('nyxia_token') || ''
-    }
+    var q = new URLSearchParams(window.location.search)
+    if (q.get('t')) sessionToken = q.get('t')
   } catch (e) {}
-  // Fallback : token passé par le dashboard parent
   try {
-    if (!sessionToken && window.parent && window.parent.sessionToken) {
-      sessionToken = window.parent.sessionToken
+    if (!sessionToken && window.parent && window.parent !== window) {
+      sessionToken = window.parent.sessionStorage.getItem('nyxia_token') || (window.parent.sessionToken || '')
     }
   } catch (e) {}
-  var currentModel = 'chatgpt'
+  if (sessionToken) { try { sessionStorage.setItem('nyxia_token', sessionToken) } catch (e) {} }
+  var currentModel = 'openai/gpt-5.6-luna'
   var history = []
-  var MODEL_LABELS = { chatgpt: 'ChatGPT', claude: 'Claude', grok: 'Grok', z: 'Z' }
+  var MODEL_LABELS = {}
+
+  function selectModel(key) {
+    currentModel = key || currentModel
+    var sel = document.getElementById('model-select')
+    if (sel && key) sel.value = key
+  }
 
   ;(function checkAuth() {
     if (!sessionToken) { window.location.href = '/login.html'; return }
@@ -181,14 +244,7 @@
     .catch(function() { window.location.href = '/login.html' })
   })()
 
-  function selectModel(key) {
-    currentModel = key
-    document.querySelectorAll('.model-pill').forEach(function(btn) {
-      btn.classList.toggle('active', btn.getAttribute('data-model') === key)
-    })
-  }
-
-  var input = document.getElementById('chat-input')
+    var input = document.getElementById('chat-input')
   input.addEventListener('input', function() {
     this.style.height = 'auto'
     this.style.height = Math.min(this.scrollHeight, 140) + 'px'
@@ -210,7 +266,7 @@
     var msgs = document.getElementById('messages')
     var div = document.createElement('div')
     div.className = 'msg user'
-    div.innerHTML = '<div><div class="msg-bubble"></div><div class="msg-meta">' + MODEL_LABELS[currentModel] + '</div></div>'
+    div.innerHTML = '<div><div class="msg-bubble"></div><div class="msg-meta">' + escHtml((currentModel || '').split('/').pop()) + '</div></div>'
     div.querySelector('.msg-bubble').textContent = text
     msgs.appendChild(div)
     msgs.scrollTop = msgs.scrollHeight
@@ -221,7 +277,7 @@
     var msgs = document.getElementById('messages')
     var div = document.createElement('div')
     div.className = 'msg bot'
-    var label = MODEL_LABELS[currentModel] || modelUsed || ''
+    var label = (modelUsed || currentModel || '').split('/').pop() || 'IA'
     div.innerHTML =
       '<div>' +
         '<div class="msg-bubble"></div>' +
@@ -271,6 +327,12 @@
     btn.disabled = true
     addTyping()
 
+    if (!sessionToken) {
+      removeTyping()
+      addBotMessage('Session introuvable. Reconnecte-toi au portail, puis rouvre Studio Prompt.')
+      btn.disabled = false
+      return
+    }
     fetch('/api/studio-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -281,25 +343,25 @@
         token: sessionToken
       })
     })
-    .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data } }) })
+    .then(function(r) {
+      return r.text().then(function(txt) {
+        var data
+        try { data = JSON.parse(txt) } catch (e) { data = { content: 'Réponse brute (' + r.status + '): ' + (txt || '').slice(0, 300) } }
+        return { ok: r.ok, status: r.status, data: data }
+      })
+    })
     .then(function(res) {
       removeTyping()
       var data = res.data || {}
       var reply = data.content || data.error || ('Aucune réponse (HTTP ' + res.status + ').')
-      addBotMessage(reply, data.model)
-      if (data.content && !data.error) {
-        history.push({ role: 'assistant', content: reply })
-        if (history.length > 24) history = history.slice(-24)
-      } else {
-        // Ne pas polluer l'historique avec une erreur technique
-        history.pop()
-      }
+      addBotMessage(String(reply), data.model)
+      history.push({ role: 'assistant', content: String(reply) })
+      if (history.length > 24) history = history.slice(-24)
       btn.disabled = false
     })
     .catch(function(err) {
       removeTyping()
-      addBotMessage('Erreur réseau : ' + (err && err.message ? err.message : 'réessaie dans un instant.'))
-      history.pop()
+      addBotMessage('Erreur réseau : ' + (err && err.message ? err.message : 'réessaie.'))
       btn.disabled = false
     })
   }
