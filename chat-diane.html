@@ -21,6 +21,22 @@
     #starry-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
     .chat-area { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 860px; margin: 0 auto; }
+    .btn-new-chat {
+      border: 1px solid rgba(123,92,255,0.3);
+      background: rgba(123,92,255,0.1);
+      color: var(--t3);
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 50px;
+      cursor: pointer;
+      white-space: nowrap;
+      margin-left: auto;
+      flex-shrink: 0;
+      transition: all .15s;
+    }
+    .btn-new-chat:hover { border-color: var(--p); color: var(--t2); background: rgba(123,92,255,0.2); }
     .chat-header { padding: 16px 24px; border-bottom: 1px solid rgba(123,92,255,0.1); background: rgba(10,22,40,0.6); backdrop-filter: blur(10px); display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
     .chat-header img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(123,92,255,0.4); box-shadow: 0 0 24px rgba(123,92,255,0.35); }
     .chat-header-info { flex: 1; }
@@ -85,6 +101,7 @@
         <div class="chat-header-name" id="chat-header-name">Diane</div>
         <div class="chat-header-sub" id="chat-header-sub">Créatrice de l'univers NyXia</div>
       </div>
+      <button type="button" class="btn-new-chat" onclick="nouveauChat()" title="Effacer cette conversation">✨ Nouveau chat</button>
     </div>
 
     <div class="chat-messages active-chat" id="chat-messages-diane"></div>
@@ -163,6 +180,20 @@
       if (!data || !Array.isArray(data.messages)) return
       chatHistories[_currentAgent] = data.messages.slice(-40)
     } catch (e) {}
+  }
+
+  function nouveauChat() {
+    var name = (ALPHA_INFO[_currentAgent] && ALPHA_INFO[_currentAgent].name) || 'ce personnage'
+    if (!confirm('Effacer la conversation avec ' + name + ' ?\n\nTu ne pourras pas la récupérer.')) return
+    try { sessionStorage.removeItem(CHAT_STORAGE_KEY) } catch (e) {}
+    chatHistories[_currentAgent] = []
+    var msgs = document.getElementById('chat-messages-' + _currentAgent)
+    if (msgs) msgs.innerHTML = ''
+    var sug = document.getElementById('suggestions')
+    if (sug) sug.style.display = 'flex'
+    // Rejouer la vidéo d'accueil si configurée
+    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    if (videoUrl && typeof addVideoMessage === 'function') addVideoMessage(videoUrl, _currentAgent)
   }
 
   function saveChatToStorage() {
