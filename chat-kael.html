@@ -102,6 +102,7 @@
         <div class="chat-header-name" id="chat-header-name">Kael</div>
         <div class="chat-header-sub" id="chat-header-sub">Relations amoureuses & prompts</div>
       </div>
+      <button type="button" class="btn-new-chat" id="btn-welcome-video" onclick="rejouerVideoAccueil()" title="Revoir la vidéo d'accueil">🎬 Vidéo</button>
       <button type="button" class="btn-new-chat" onclick="nouveauChat()" title="Effacer cette conversation">✨ Nouveau chat</button>
     </div>
 
@@ -148,7 +149,7 @@
     nyxia: '/NyXia.png'
   }
   var AGENT_WELCOME_AUDIO = { kael: null }
-  var AGENT_WELCOME_VIDEO = { kael: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85f6ce6df9e8.12493603_Kael_Bienvenue_SP.mp4' }
+  var AGENT_WELCOME_VIDEO = { kael: null }
 
   /* ═══════ AUTH ═══════ */
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
@@ -196,8 +197,7 @@
     var sug = document.getElementById('suggestions')
     if (sug) sug.style.display = 'flex'
     // Rejouer la vidéo d'accueil si configurée
-    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
-    if (videoUrl && typeof addVideoMessage === 'function') addVideoMessage(videoUrl, _currentAgent)
+    // Pas de rejouage auto de la vidéo à Nouveau chat
   }
 
   function saveChatToStorage() {
@@ -249,10 +249,13 @@
     document.title = 'Kael — Studio Prompt'
 
     // Première visite : vidéo de bienvenue (jouée une fois) PUIS le texte d'accueil.
-    var videoUrl = AGENT_WELCOME_VIDEO.kael
-    if (videoUrl) addVideoMessage(videoUrl, 'kael')
-    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
     renderStoredMessages()
+    var hasMsgs = (chatHistories.kael || []).length > 0
+    var videoUrl = AGENT_WELCOME_VIDEO.kael
+    if (videoUrl && !hasMsgs && !hasSeenWelcomeVideo('kael')) {
+      addVideoMessage(videoUrl, 'kael', { autoplay: true })
+    }
+    // Vidéo : autoplay uniquement à la première visite ; ensuite play manuel
 
     // Listeners de l'input
     var chatInput = document.getElementById('chat-input')
@@ -279,8 +282,44 @@
   }
 
   // Vidéo de bienvenue — jouée automatiquement une fois, avec ses propres contrôles.
-  function addVideoMessage(videoUrl, agentKey) {
+
+  function welcomeVideoSeenKey(agentKey) {
+    return 'nyxia_welcome_video_seen_' + (agentKey || _currentAgent)
+  }
+
+  function hasSeenWelcomeVideo(agentKey) {
+    try { return localStorage.getItem(welcomeVideoSeenKey(agentKey)) === '1' } catch (e) { return false }
+  }
+
+  function markWelcomeVideoSeen(agentKey) {
+    try { localStorage.setItem(welcomeVideoSeenKey(agentKey), '1') } catch (e) {}
+  }
+
+  function rejouerVideoAccueil() {
+    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    if (!videoUrl) return
+    var msgs = document.getElementById('chat-messages-' + _currentAgent)
+    if (msgs) {
+      var old = msgs.querySelector('video[data-welcome="1"]')
+      if (old) {
+        var msg = old.closest('.msg')
+        if (msg) msg.remove()
+      }
+    }
+    addVideoMessage(videoUrl, _currentAgent, { autoplay: false })
+  }
+
+  function addVideoMessage(videoUrl, agentKey, opts) {
+    opts = opts || {}
+    var autoplay = opts.autoplay !== false // défaut: true seulement si on le demande explicitement via opts
+    if (opts.autoplay === false) autoplay = false
+    if (opts.autoplay === true) autoplay = true
+
     var msgs = document.getElementById('chat-messages-' + agentKey)
+    if (!msgs) return
+    // Évite les doublons vidéo déjà présents
+    if (msgs.querySelector('video[data-welcome="1"]')) return
+
     var div = document.createElement('div'); div.className = 'msg bot'
     div.style.cssText = 'display:flex;gap:10px;align-items:flex-start'
     var wrapper = document.createElement('div'); wrapper.style.cssText = 'display:flex;flex-direction:column;gap:4px;max-width:100%;flex:1'
@@ -290,23 +329,28 @@
     video.src = videoUrl
     video.controls = true
     video.playsInline = true
+    video.setAttribute('data-welcome', '1')
     video.style.cssText = 'width:100%;display:block'
     videoWrap.appendChild(video)
     wrapper.appendChild(videoWrap)
     div.innerHTML = avatarHtmlFor(agentKey)
     div.appendChild(wrapper)
     msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight
-    video.play().catch(function() {
-      var go = function() {
-        video.play().catch(function(){})
-        document.removeEventListener('click', go)
-        document.removeEventListener('keydown', go)
-        document.removeEventListener('touchstart', go)
-      }
-      document.addEventListener('click', go)
-      document.addEventListener('keydown', go)
-      document.addEventListener('touchstart', go)
-    })
+
+    if (autoplay) {
+      markWelcomeVideoSeen(agentKey)
+      video.play().catch(function() {
+        var go = function() {
+          video.play().catch(function(){})
+          document.removeEventListener('click', go)
+          document.removeEventListener('keydown', go)
+          document.removeEventListener('touchstart', go)
+        }
+        document.addEventListener('click', go)
+        document.addEventListener('keydown', go)
+        document.addEventListener('touchstart', go)
+      })
+    }
   }
 
   /* ═══════ CHAT ═══════ */
