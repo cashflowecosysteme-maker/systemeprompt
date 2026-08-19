@@ -54,10 +54,37 @@
     aside { scrollbar-width: thin; scrollbar-color: rgba(123,92,255,0.25) transparent; }
     .sidebar-section { padding: 20px 12px 8px; }
     .sidebar-label { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: var(--t4); text-transform: uppercase; padding: 0 8px; margin-bottom: 6px; }
-    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all .2s; color: var(--t3); font-size: 14px; font-weight: 500; border: 1px solid transparent; margin-bottom: 2px; text-decoration: none; user-select: none; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; transition: all .2s; color: var(--t3); font-size: 14px; font-weight: 500; border: 1px solid transparent; margin-bottom: 4px; text-decoration: none; user-select: none; }
     .nav-item:hover { background: rgba(123,92,255,0.08); color: var(--t2); border-color: rgba(123,92,255,0.1); }
     .nav-item.active { background: rgba(123,92,255,0.15); color: var(--t); border-color: rgba(123,92,255,0.3); box-shadow: 0 0 16px rgba(123,92,255,0.1); }
+    .nav-item.active .nav-sub { color: rgba(214,217,240,0.9); opacity: 1; }
+    .nav-item:hover .nav-sub { color: var(--t3); }
     .nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
+    .nav-arrow { margin-left: auto; font-size: 10px; color: var(--t4); flex-shrink: 0; align-self: center; }
+    .nav-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+      line-height: 1.2;
+    }
+    .nav-name {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: inherit;
+      line-height: 1.2;
+    }
+    .nav-sub {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--t3);
+      opacity: 0.9;
+      line-height: 1.3;
+    }
     .nav-arrow { margin-left: auto; font-size: 10px; color: var(--t4); }
     .sidebar-divider { height: 1px; background: rgba(123,92,255,0.08); margin: 8px 12px; }
     .sidebar-bottom { margin-top: auto; padding: 12px; border-top: 1px solid rgba(123,92,255,0.08); }
@@ -174,37 +201,37 @@
         <div class="sidebar-label">Mes Conversations</div>
         <div class="nav-item" id="nav-diane" onclick="openAgentTab('diane')">
           <span class="nav-icon">👑</span>
-          <span class="nav-text"><span>Diane</span><span class="nav-sub">Prompts mini-formations</span></span>
+          <span class="nav-text"><span class="nav-name">Diane</span><span class="nav-sub">Prompt Formation</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item active" id="nav-nyxia" onclick="openAgentTab('nyxia')">
           <span class="nav-icon">✦</span>
-          <span class="nav-text"><span>NyXia</span><span class="nav-sub">Créer un produit digital</span></span>
+          <span class="nav-text"><span class="nav-name">NyXia</span><span class="nav-sub">Prompt Produit digitaux</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-eric" onclick="openAgentTab('eric')">
           <span class="nav-icon">🔥</span>
-          <span class="nav-text"><span>Éric</span><span class="nav-sub">Vendre & agrandir ta liste</span></span>
+          <span class="nav-text"><span class="nav-name">Éric</span><span class="nav-sub">Prompt Communication</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-kael" onclick="openAgentTab('kael')">
           <span class="nav-icon">💔</span>
-          <span class="nav-text"><span>Kael</span><span class="nav-sub">Relations & offres amour</span></span>
+          <span class="nav-text"><span class="nav-name">Kael</span><span class="nav-sub">Prompt Relation amoureuse</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-lena" onclick="openAgentTab('lena')">
           <span class="nav-icon">🔮</span>
-          <span class="nav-text"><span>Léna</span><span class="nav-sub">Consultation spirituelle</span></span>
+          <span class="nav-text"><span class="nav-name">Léna</span><span class="nav-sub">Prompt Spiritualité</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-selena" onclick="openAgentTab('selena')">
           <span class="nav-icon">🪞</span>
-          <span class="nav-text"><span>Séléna</span><span class="nav-sub">Reconnexion à soi</span></span>
+          <span class="nav-text"><span class="nav-name">Séléna</span><span class="nav-sub">Prompt reconnexion à soi</span></span>
           <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-alex" onclick="openAgentTab('alex')">
           <span class="nav-icon">✍️</span>
-          <span class="nav-text"><span>Alex</span><span class="nav-sub">Écrire & vendre un livre</span></span>
+          <span class="nav-text"><span class="nav-name">Alex</span><span class="nav-sub">Prompt écriture</span></span>
           <span class="nav-arrow">›</span>
         </div>
       </div>
