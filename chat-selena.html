@@ -247,8 +247,10 @@
     renderStoredMessages()
     var hasMsgs = (chatHistories.selena || []).length > 0
     var videoUrl = AGENT_WELCOME_VIDEO.selena
-    if (videoUrl && !hasMsgs && !hasSeenWelcomeVideo('selena')) {
-      addVideoMessage(videoUrl, 'selena', { autoplay: true })
+    if (videoUrl && !hasMsgs) {
+      var first = !hasSeenWelcomeVideo('selena')
+      addVideoMessage(videoUrl, 'selena', { autoplay: first })
+      if (first) markWelcomeVideoSeen('selena')
     }
     // Vidéo : autoplay uniquement à la première visite ; ensuite play manuel
 
@@ -303,9 +305,8 @@
 
   function addVideoMessage(videoUrl, agentKey, opts) {
     opts = opts || {}
-    var autoplay = opts.autoplay !== false // défaut: true seulement si on le demande explicitement via opts
-    if (opts.autoplay === false) autoplay = false
-    if (opts.autoplay === true) autoplay = true
+    // autoplay UNIQUEMENT si opts.autoplay === true (première visite)
+    var autoplay = opts.autoplay === true
 
     var msgs = document.getElementById('chat-messages-' + agentKey)
     if (!msgs) return
