@@ -458,22 +458,25 @@
       var status = document.getElementById('msg-send-status')
       if (!toEmail) { status.textContent = 'Choisis un destinataire d\'abord.'; return }
       if (!body) { status.textContent = 'Écris ton mot avant d\'envoyer.'; return }
+      if (!sessionToken) { status.textContent = 'Session expirée — reconnecte-toi.'; return }
 
       status.textContent = 'Envoi...'
       fetch('/api/messages/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: sessionToken, toEmail: toEmail, subject: subject, body: body })
       })
-      .then(r => r.json()).then(data => {
-        if (data.success) {
+      .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, status: r.status, data: data } }) })
+      .then(function(res) {
+        if (res.data && res.data.success) {
           status.textContent = '✓ Envoyé 💜'
           document.getElementById('msg-subject').value = ''
           document.getElementById('msg-body').value = ''
           setTimeout(function() { status.textContent = '' }, 3000)
         } else {
-          status.textContent = data.error || 'Erreur lors de l\'envoi.'
+          status.textContent = (res.data && res.data.error) || ('Erreur ' + res.status + ' lors de l\'envoi.')
         }
-      }).catch(() => { status.textContent = 'Petite interruption... réessaie.' })
+      })
+      .catch(function() { status.textContent = 'Petite interruption... réessaie.' })
     }
 
     function escapeHtmlMsg(s) {
