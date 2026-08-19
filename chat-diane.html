@@ -144,7 +144,7 @@
   }
   var AGENT_IMAGES = { diane: '/Diane.png' }
   var AGENT_WELCOME_AUDIO = { diane: '/Bienvenue_Diane.mp3' }   // ← mets ton fichier audio ici si tu en as un
-  var AGENT_WELCOME_VIDEO = { diane: https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85e973d9e329.05123114_Bienvenue_Diane_SP.mp4 }                    // ← mets l'URL de ta vidéo d'accueil ici si tu en as une
+  var AGENT_WELCOME_VIDEO = { diane: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85e973d9e329.05123114_Bienvenue_Diane_SP.mp4' }
 
   /* ═══════ AUTH ═══════ */
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
@@ -244,10 +244,12 @@
     updateHeaderAvatar('diane')
     document.title = 'Diane — NyXia'
 
-    var videoUrl = AGENT_WELCOME_VIDEO.diane
-    if (videoUrl) addVideoMessage(videoUrl, 'diane')
-    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
     renderStoredMessages()
+    // Vidéo d'accueil seulement si conversation vide
+    var hasMsgs = (chatHistories.diane || []).length > 0
+    var videoUrl = AGENT_WELCOME_VIDEO.diane
+    if (videoUrl && !hasMsgs) addVideoMessage(videoUrl, 'diane')
+    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
 
     var chatInput = document.getElementById('chat-input')
     chatInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px' })
