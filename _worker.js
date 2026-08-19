@@ -433,38 +433,76 @@ async function handleChat(request, env) {
 // ───────────── STUDIO PROMPT (multi-modèles OpenRouter) ─────────────
 // Modèles autorisés côté serveur (whitelist) — l'utilisateur choisit dans l'UI.
 const STUDIO_MODELS = {
-  // Alignés sur des IDs OpenRouter courants — le repli final = même modèle que les personnages
-  chatgpt: 'openai/gpt-4o-mini',
-  claude:  'anthropic/claude-3.5-sonnet',
-  grok:    'x-ai/grok-3-mini',
-  z:       'deepseek/deepseek-chat'
+  // OpenAI
+  'openai/gpt-5.6-sol': 'openai/gpt-5.6-sol',
+  'openai/gpt-5.6-luna': 'openai/gpt-5.6-luna',
+  'openai/gpt-5.6-luna-pro': 'openai/gpt-5.6-luna-pro',
+  'openai/gpt-5.5': 'openai/gpt-5.5',
+  'openai/gpt-5.4': 'openai/gpt-5.4',
+  'openai/gpt-4o-mini': 'openai/gpt-4o-mini',
+  // DeepSeek
+  'deepseek/deepseek-v3.2': 'deepseek/deepseek-v3.2',
+  'deepseek/deepseek-v4-pro': 'deepseek/deepseek-v4-pro',
+  'deepseek/deepseek-v4-flash': 'deepseek/deepseek-v4-flash',
+  'deepseek/deepseek-chat': 'deepseek/deepseek-chat',
+  // Grok / xAI
+  'x-ai/grok-4.6': 'x-ai/grok-4.6',
+  'x-ai/grok-4.5': 'x-ai/grok-4.5',
+  'x-ai/grok-4': 'x-ai/grok-4',
+  'x-ai/grok-3-mini': 'x-ai/grok-3-mini',
+  // Z.ai / GLM
+  'z-ai/glm-5.2': 'z-ai/glm-5.2',
+  'z-ai/glm-4.6': 'z-ai/glm-4.6',
+  // Claude
+  'anthropic/claude-opus-5': 'anthropic/claude-opus-5',
+  'anthropic/claude-opus-5-fast': 'anthropic/claude-opus-5-fast',
+  'anthropic/claude-sonnet-5': 'anthropic/claude-sonnet-5',
+  'anthropic/claude-haiku-4.5': 'anthropic/claude-haiku-4.5',
+  'anthropic/claude-3.5-sonnet': 'anthropic/claude-3.5-sonnet',
+  // Google
+  'google/gemini-3.7-flash': 'google/gemini-3.7-flash',
+  'google/gemini-3.5-flash': 'google/gemini-3.5-flash',
+  'google/gemini-3.1-pro': 'google/gemini-3.1-pro',
+  // Mistral
+  'mistralai/mistral-small-3.2-24b-instruct': 'mistralai/mistral-small-3.2-24b-instruct',
+  // Alias UI legacy
+  chatgpt: 'openai/gpt-5.6-luna',
+  claude: 'anthropic/claude-sonnet-5',
+  grok: 'x-ai/grok-4.6',
+  z: 'z-ai/glm-5.2'
 };
 
 async function handleStudioChat(request, env) {
-  const { message, history, model, token } = await request.json();
+  let body;
+  try { body = await request.json(); } catch (e) {
+    return json({ error: 'JSON invalide.', content: 'JSON invalide.' }, 400);
+  }
+  const { message, history, model, token } = body || {};
 
-  if (!token) return json({ error: 'Session manquante.' }, 401);
+  if (!token) return json({ error: 'Session manquante.', content: 'Session manquante — reconnecte-toi.' }, 401);
   const sessionRaw = await env.CASHFLOW_KV.get(`session:${token}`);
-  if (!sessionRaw) return json({ error: 'Session expirée. Reconnecte-toi.' }, 401);
+  if (!sessionRaw) return json({ error: 'Session expirée.', content: 'Session expirée — reconnecte-toi.' }, 401);
 
   if (!message || !String(message).trim()) {
-    return json({ error: 'Message vide.' }, 400);
+    return json({ error: 'Message vide.', content: 'Message vide.' }, 400);
   }
 
-  // Accepte OPENROUTER_API_KEY ou AI_API_KEY (même clé OpenRouter)
   const apiKey = env.OPENROUTER_API_KEY || env.AI_API_KEY;
   if (!apiKey) {
     return json({
-      error: 'Clé API manquante : ajoute OPENROUTER_API_KEY (ou AI_API_KEY) dans les secrets du Worker systemeprompt.'
+      error: 'Clé API manquante',
+      content: 'Clé API manquante (OPENROUTER_API_KEY).'
     }, 500);
   }
 
-  const modelId = STUDIO_MODELS[model] || STUDIO_MODELS.chatgpt;
+  // Modèles demandés + TOUJOURS un repli = même modèle que les personnages (prouvé chez toi)
+  const requested = STUDIO_MODELS[model] || model || OPENROUTER_MODEL;
+  const chain = [requested, OPENROUTER_MODEL, OPENROUTER_FALLBACK_MODEL]
+    .filter((v, i, a) => v && a.indexOf(v) === i);
 
   const systemPrompt = `Tu es un assistant polyvalent et précis dans le Studio Prompt de NyXia.
 Tu aides l'utilisateur à exécuter, améliorer et explorer des prompts.
-Réponds en français (sauf si on te demande explicitement une autre langue).
-Sois clair, structuré et utile. Pas de blabla inutile.`;
+Réponds en français (sauf demande contraire). Sois clair, structuré et utile.`;
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -472,59 +510,53 @@ Sois clair, structuré et utile. Pas de blabla inutile.`;
     { role: 'user', content: String(message).trim() }
   ];
 
-  async function callModel(m) {
-    return await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://systemeprompt.nyxia.top',
-        'X-Title': 'NyXia — Studio Prompt'
-      },
-      body: JSON.stringify({
-        model: m,
-        messages,
-        max_tokens: 2000,
-        reasoning: { enabled: false }
-      })
-    });
-  }
+  let lastErr = '';
+  let usedModel = requested;
 
-  // Même stratégie que les personnages : modèle choisi → chatgpt → deepseek (prouvé chez toi)
-  let resp = await callModel(modelId);
-  let usedModel = modelId;
-  if (!resp.ok) {
-    resp = await callModel(STUDIO_MODELS.chatgpt);
-    usedModel = STUDIO_MODELS.chatgpt;
-  }
-  if (!resp.ok) {
-    resp = await callModel(OPENROUTER_MODEL);
-    usedModel = OPENROUTER_MODEL;
-  }
-  if (!resp.ok) {
-    resp = await callModel(OPENROUTER_FALLBACK_MODEL);
-    usedModel = OPENROUTER_FALLBACK_MODEL;
-  }
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => '');
-    console.error('Studio OpenRouter error:', resp.status, errText.slice(0, 400));
-    let detail = '';
+  for (const mId of chain) {
     try {
-      const ej = JSON.parse(errText);
-      detail = (ej.error && (ej.error.message || ej.error)) || errText.slice(0, 200);
+      const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey,
+          'HTTP-Referer': 'https://systemeprompt.nyxia.top',
+          'X-Title': 'NyXia — Studio Prompt'
+        },
+        body: JSON.stringify({
+          model: mId,
+          messages,
+          max_tokens: 2000
+        })
+      });
+      const raw = await resp.text();
+      let data;
+      try { data = JSON.parse(raw); } catch (e) {
+        lastErr = 'Réponse non-JSON (' + resp.status + '): ' + raw.slice(0, 180);
+        continue;
+      }
+      if (!resp.ok) {
+        lastErr = (data.error && (data.error.message || JSON.stringify(data.error))) || ('HTTP ' + resp.status);
+        continue;
+      }
+      const content = data.choices && data.choices[0] && data.choices[0].message
+        ? data.choices[0].message.content
+        : null;
+      if (!content) {
+        lastErr = 'Réponse vide du modèle ' + mId;
+        continue;
+      }
+      usedModel = mId;
+      return json({ content, model: usedModel });
     } catch (e) {
-      detail = errText.slice(0, 200) || ('HTTP ' + resp.status);
+      lastErr = e.message || String(e);
     }
-    return json({
-      error: 'OpenRouter a refusé la requête : ' + detail,
-      content: 'OpenRouter a refusé la requête : ' + detail
-    });
   }
 
-  const data = await resp.json();
-  const content = data.choices?.[0]?.message?.content || 'Aucune réponse reçue.';
-  return json({ content, model: usedModel });
+  return json({
+    error: lastErr || 'Échec OpenRouter',
+    content: 'Échec Studio : ' + (lastErr || 'aucun modèle n\'a répondu. Vérifie OpenRouter.')
+  });
 }
 
 // ───────────── ADMIN (Super Admin) ─────────────
