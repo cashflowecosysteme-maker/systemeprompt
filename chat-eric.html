@@ -164,7 +164,7 @@
     // Première visite : vidéo de bienvenue (jouée une fois) PUIS le texte d'accueil.
     var videoUrl = AGENT_WELCOME_VIDEO.eric
     if (videoUrl) addVideoMessage(videoUrl, 'eric')
-    addBotMessage(ALPHA_INFO.eric.greeting)
+    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
 
     // Listeners de l'input
     var chatInput = document.getElementById('chat-input')
@@ -227,10 +227,11 @@
     var text = input.value.trim()
     if (!text && !_currentAttachment) return
     input.value = ''; input.style.height = 'auto'
-    sendMessageText(text || '📎 Fichier joint')
+    sendMessageText(text || '📎 Fichier joint', false)
   }
 
-  function sendMessageText(text) {
+  function sendMessageText(text, fromVoice) {
+    _inputWasVoice = !!fromVoice
     var attachmentToSend = _currentAttachment ? JSON.parse(JSON.stringify(_currentAttachment)) : null
     var displayText = text
     if (attachmentToSend) { displayText = text ? text + '\n📎 ' + attachmentToSend.name : '📎 ' + attachmentToSend.name }
@@ -258,13 +259,16 @@
       addBotMessage(reply)
       chatHistories[requestAgent].push({ role: 'assistant', content: reply })
       if (chatHistories[requestAgent].length > 20) chatHistories[requestAgent] = chatHistories[requestAgent].slice(-20)
-      // Lecture automatique de la réponse à voix haute.
-      var msgsEl = document.getElementById('chat-messages-' + requestAgent)
-      var lastBotMsg = msgsEl ? msgsEl.querySelector('.msg.bot:last-child') : null
-      if (lastBotMsg) {
-        var speakBtn = Array.prototype.find.call(lastBotMsg.querySelectorAll('button'), function(b) { return b.textContent.indexOf('Écouter') !== -1 })
-        if (speakBtn) speakBtn.click()
+      // Lecture auto UNIQUEMENT si message micro. Sinon bouton Écouter à la demande.
+      if (_inputWasVoice) {
+        var msgsEl = document.getElementById('chat-messages-' + requestAgent)
+        var lastBotMsg = msgsEl ? msgsEl.querySelector('.msg.bot:last-child') : null
+        if (lastBotMsg) {
+          var speakBtn = Array.prototype.find.call(lastBotMsg.querySelectorAll('button'), function(b) { return b.textContent.indexOf('Écouter') !== -1 })
+          if (speakBtn) speakBtn.click()
+        }
       }
+      _inputWasVoice = false
       btn.disabled = false
     })
     .catch(function(){ removeTyping(); addBotMessage('Petite interruption... réessaie dans un instant 💜'); btn.disabled = false })
@@ -396,7 +400,7 @@
       if (last) {
         if (hist[hist.length - 1].role === 'assistant') hist.pop()
         div.remove()
-        sendMessageText(last.content)
+        sendMessageText(last.content, false)
       }
     }); acts.appendChild(ret)
 
@@ -488,6 +492,7 @@
 
   /* ═══════ MICRO (parler → texte) — identique au Dashboard ═══════ */
   var _micRecognition = null, _micListening = false, _micFinalText = '', _micSendTimer = null
+  var _inputWasVoice = false
   var MIC_SILENCE_MS = 3200  // pause tolérée avant envoi auto (parole lente / hésitations)
 
   function toggleMic() {
@@ -504,8 +509,8 @@
       var text = ((input && input.value) || _micFinalText || '').trim()
       resetMicBtn()
       if (text) {
-        if (input) input.value = text
-        sendMessage()
+        if (input) input.value = ''
+        sendMessageText(text, true)
       }
       return
     }
@@ -550,8 +555,8 @@
         try { if (_micRecognition) _micRecognition.stop() } catch (e) {}
         resetMicBtn()
         if (finalText) {
-          if (input) input.value = finalText
-          sendMessage()
+          if (input) input.value = ''
+          sendMessageText(finalText, true)
         }
       }, MIC_SILENCE_MS)
     }
