@@ -630,7 +630,13 @@
       var iframe = document.getElementById('studio-iframe')
       if (!iframe) return
       var tok = sessionToken || sessionStorage.getItem('nyxia_token') || ''
-      iframe.src = '/studio-prompt.html?t=' + encodeURIComponent(tok) + '&_=' + Date.now()
+      var base = '/studio-prompt.html?t=' + encodeURIComponent(tok)
+      // Recharge seulement si pas encore chargé (évite d'effacer l'état mémoire inutilement ;
+      // sessionStorage restaure la conversation de toute façon)
+      if (!iframe.getAttribute('data-loaded')) {
+        iframe.setAttribute('data-loaded', '1')
+        iframe.src = base
+      }
     }
     function showPanel(name) {
       if (name === 'studio') { try { refreshStudioFrame() } catch (e) {} }
