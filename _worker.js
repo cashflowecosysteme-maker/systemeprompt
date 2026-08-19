@@ -696,25 +696,36 @@ async function handleListMessages(request, env) {
   return json({ success: true, messages, unreadCount });
 }
 
-// Une Gardienne envoie un message à une autre (ex: relance d'une alliée du Cercle)
+// Une Gardienne envoie un message à une autre (ou au Super Admin via __admin__)
 async function handleSendMessage(request, env) {
   const { token, toEmail, subject, body } = await request.json();
   const session = await getSessionOrNull(token, env);
   if (!session) return json({ error: 'Session expirée.' }, 401);
   if (!toEmail || !body) return json({ error: 'Destinataire et message requis.' }, 400);
 
-  const to = toEmail.toLowerCase().trim();
-  const recipientRaw = await env.CASHFLOW_KV.get(`client:${to}`);
-  if (!recipientRaw) return json({ error: 'Destinataire introuvable.' }, 404);
+  const to = String(toEmail).toLowerCase().trim();
+  const isAdmin = (to === '__admin__' || to === 'admin');
+
+  if (!isAdmin) {
+    const recipientRaw = await env.CASHFLOW_KV.get(`client:${to}`);
+    if (!recipientRaw) return json({ error: 'Destinataire introuvable.' }, 404);
+  }
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
+  const inbox = isAdmin ? '__admin__' : to;
   const message = {
-    id, from: session.email, fromName: session.firstname || 'Une Gardienne',
-    to, subject: subject || 'Message du Cercle', body,
-    createdAt, read: false, kind: 'client'
+    id,
+    from: session.email,
+    fromName: session.firstname || 'Un membre',
+    to: inbox,
+    subject: subject || 'Message du Cercle',
+    body,
+    createdAt,
+    read: false,
+    kind: isAdmin ? 'to_admin' : 'client'
   };
-  await env.CASHFLOW_KV.put(`message:${to}:${createdAt}_${id}`, JSON.stringify(message));
+  await env.CASHFLOW_KV.put(`message:${inbox}:${createdAt}_${id}`, JSON.stringify(message));
   return json({ success: true });
 }
 
