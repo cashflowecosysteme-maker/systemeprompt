@@ -325,6 +325,7 @@
         '<div class="msg-meta">' + escHtml(label) + '</div>' +
         '<div class="msg-actions">' +
           '<button type="button" class="btn-copy">📋 Copier</button>' +
+          '<button type="button" class="btn-plain">✨ Texte propre</button>' +
           '<button type="button" class="btn-listen">🔊 Écouter</button>' +
           '<button type="button" class="btn-pdf">⬇ PDF</button>' +
         '</div>' +
@@ -337,11 +338,21 @@
         setTimeout(function() { btn.textContent = '📋 Copier' }, 1800)
       })
     })
+    div.querySelector('.btn-plain').addEventListener('click', function() {
+      var btn = this
+      var plain = stripMarkdown(text)
+      navigator.clipboard.writeText(plain).then(function() {
+        btn.textContent = '✓ Texte copié'
+        setTimeout(function() { btn.textContent = '✨ Texte propre' }, 1800)
+      }).catch(function() {
+        alert(plain)
+      })
+    })
     div.querySelector('.btn-listen').addEventListener('click', function() {
-      speakStudioFrench(this, text)
+      speakStudioFrench(this, stripMarkdown(text))
     })
     div.querySelector('.btn-pdf').addEventListener('click', function() {
-      exportStudioPdf(text, label)
+      exportStudioPdf(stripMarkdown(text), label)
     })
     msgs.appendChild(div)
     msgs.scrollTop = msgs.scrollHeight
@@ -500,6 +511,37 @@
       addBotMessage('Erreur réseau : ' + (err && err.message ? err.message : 'réessaie.'))
       btn.disabled = false
     })
+  }
+
+  function stripMarkdown(md) {
+    var s = String(md || '')
+    // code blocks
+    s = s.replace(/```[\s\S]*?```/g, function(block) {
+      return block.replace(/```\w*\n?/g, '').replace(/```/g, '')
+    })
+    // inline code
+    s = s.replace(/`([^`]+)`/g, '$1')
+    // headers
+    s = s.replace(/^#{1,6}\s*/gm, '')
+    // bold / italic
+    s = s.replace(/\*\*([^*]+)\*\*/g, '$1')
+    s = s.replace(/__([^_]+)__/g, '$1')
+    s = s.replace(/\*([^*]+)\*/g, '$1')
+    s = s.replace(/_([^_]+)_/g, '$1')
+    // links [text](url)
+    s = s.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // images
+    s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+    // blockquotes
+    s = s.replace(/^>\s?/gm, '')
+    // horizontal rules
+    s = s.replace(/^(-{3,}|_{3,}|\*{3,})$/gm, '')
+    // list markers
+    s = s.replace(/^\s*[-*+]\s+/gm, '• ')
+    s = s.replace(/^\s*\d+\.\s+/gm, function(m) { return m.replace(/^\s*/, '') })
+    // excess blank lines
+    s = s.replace(/\n{3,}/g, '\n\n')
+    return s.trim()
   }
 
   function escHtml(str) {
