@@ -54,6 +54,9 @@
     @keyframes nxSpin { to { transform: rotate(360deg); } }
 
     .suggestions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 16px; }
+    .sug-chip { border: 1px solid rgba(123,92,255,0.25); background: rgba(123,92,255,0.08); color: var(--t2); border-radius: 50px; padding: 8px 14px; font-family: 'Outfit', sans-serif; font-size: 12px; cursor: pointer; transition: all .15s; text-align: left; line-height: 1.35; }
+    .sug-chip:hover { border-color: rgba(123,92,255,0.55); background: rgba(123,92,255,0.16); color: #fff; }
+
     .sugg-btn { padding: 8px 16px; border-radius: 50px; border: 1px solid rgba(123,92,255,0.25); background: rgba(123,92,255,0.07); color: var(--t3); font-family: 'Outfit', sans-serif; font-size: 13px; cursor: pointer; transition: all .2s; }
     .sugg-btn:hover { border-color: var(--p); color: var(--t2); background: rgba(123,92,255,0.14); transform: translateY(-1px); }
     .nx-dots { display: inline-flex; gap: 4px; align-items: center; }
@@ -82,11 +85,14 @@
         <div class="chat-header-name" id="chat-header-name">NyXia</div>
         <div class="chat-header-sub" id="chat-header-sub">Alpha Suprême · Assistante de Diane Boyer</div>
       </div>
-      <button class="btn-speak" id="btn-speak" onclick="jouerMessageAccueil()">🔊 Message d'accueil</button>
     </div>
 
     <div class="chat-messages active-chat" id="chat-messages-nyxia"></div>
-    <div class="suggestions" id="suggestions" style="display:none"></div>
+    <div class="suggestions" id="suggestions">
+      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Donne-moi un prompt pour créer un produit digital simple à lancer</button>
+      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt pour structurer mon offre et mon tunnel de vente</button>
+      <button type="button" class="sug-chip" onclick="useSuggestion(this)">Prompt pour trouver des idées de mini-produits à 27$–97$</button>
+    </div>
 
     <div id="attach-bar" style="display:none;padding:6px 20px;background:rgba(123,92,255,0.08);border-top:1px solid rgba(123,92,255,0.1);align-items:center;gap:8px;flex-shrink:0;font-size:12px;color:var(--t3)">
       <span id="attach-name"></span>
@@ -216,11 +222,24 @@
     })
   }
 
+
+  function useSuggestion(btn) {
+    var text = (btn.textContent || '').trim()
+    if (!text) return
+    var input = document.getElementById('chat-input')
+    if (input) { input.value = text; input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px' }
+    var sug = document.getElementById('suggestions')
+    if (sug) sug.style.display = 'none'
+    sendMessage()
+  }
+
   function sendMessage() {
     var input = document.getElementById('chat-input')
     var text = input.value.trim()
     if (!text && !_currentAttachment) return
     input.value = ''; input.style.height = 'auto'
+    var sug = document.getElementById('suggestions')
+    if (sug) sug.style.display = 'none'
     sendMessageText(text || '📎 Fichier joint', false)
   }
 
