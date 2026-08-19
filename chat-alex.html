@@ -153,6 +153,42 @@
   })()
 
   var chatHistories = { alex: [] }
+  var CHAT_STORAGE_KEY = 'nyxia_chat_' + _currentAgent
+
+  function loadChatFromStorage() {
+    try {
+      var raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
+      if (!raw) return
+      var data = JSON.parse(raw)
+      if (!data || !Array.isArray(data.messages)) return
+      chatHistories[_currentAgent] = data.messages.slice(-40)
+    } catch (e) {}
+  }
+
+  function saveChatToStorage() {
+    try {
+      sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({
+        messages: (chatHistories[_currentAgent] || []).slice(-40),
+        updated: Date.now()
+      }))
+    } catch (e) {}
+  }
+
+  function renderStoredMessages() {
+    var list = chatHistories[_currentAgent] || []
+    if (!list.length) return
+    var msgs = document.getElementById('chat-messages-' + _currentAgent)
+    if (!msgs) return
+    // Ne pas rejouer si déjà des messages (évite doublon)
+    if (msgs.querySelector('.msg')) return
+    list.forEach(function(item) {
+      if (!item || !item.content) return
+      if (item.role === 'user') addUserMessage(item.content)
+      else if (item.role === 'assistant') addBotMessage(item.content)
+    })
+    var sug = document.getElementById('suggestions')
+    if (sug && list.length) sug.style.display = 'none'
+  }
   var isSpeaking = false, _currentAttachment = null
 
   function currentHistory() { return chatHistories[_currentAgent] }
@@ -171,6 +207,7 @@
   }
 
   function init() {
+    loadChatFromStorage()
     document.getElementById('chat-header-name').textContent = ALPHA_INFO.alex.name
     document.getElementById('chat-header-sub').textContent = ALPHA_INFO.alex.sub
     updateHeaderAvatar('alex')
@@ -179,6 +216,7 @@
     var videoUrl = AGENT_WELCOME_VIDEO.diane
     if (videoUrl) addVideoMessage(videoUrl, 'alex')
     // Pas de message texte d'accueil auto — la vidéo de présentation suffit
+    renderStoredMessages()
 
     var chatInput = document.getElementById('chat-input')
     chatInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px' })
@@ -266,6 +304,7 @@
     var historyContent = text
     if (attachmentToSend) { historyContent = (text ? text + '\n' : '') + '[Fichier joint: ' + attachmentToSend.name + ' (' + attachmentToSend.type + ')]' }
     currentHistory().push({ role: 'user', content: historyContent })
+    saveChatToStorage()
     if (_currentAttachment) {
       _currentAttachment = null
       var bar = document.getElementById('attach-bar'), fi = document.getElementById('chat-file')
@@ -285,6 +324,7 @@
       var reply = data.content || data.error || 'Erreur inattendue — réessaie dans un instant 💜'
       addBotMessage(reply)
       chatHistories[requestAgent].push({ role: 'assistant', content: reply })
+      saveChatToStorage()
       if (chatHistories[requestAgent].length > 20) chatHistories[requestAgent] = chatHistories[requestAgent].slice(-20)
       if (_inputWasVoice) {
         var msgsEl = document.getElementById('chat-messages-' + requestAgent)
