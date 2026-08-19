@@ -1237,9 +1237,19 @@ async function retrieveBrain(env, agent, query, topK = 5) {
     const picked = results.matches.filter(m => m.score > 0.35); // Seuil de pertinence
     if (!picked.length) return '';
 
-    return picked
-      .map(m => `— (${m.metadata.source || 'livre'}) ${m.metadata.texte_original}`)
-      .join('\n\n');
+    const parts = [];
+    for (const m of picked) {
+      let body = (m.metadata && m.metadata.texte_original) || '';
+      // Si le passage a été tronqué à l'ingestion, recharger le texte complet depuis le KV
+      if (m.metadata && m.metadata.has_full === '1' && m.id) {
+        try {
+          const full = await env.CASHFLOW_KV.get('brain_text:' + agent + ':' + m.id);
+          if (full) body = full;
+        } catch (e) {}
+      }
+      parts.push(`— (${(m.metadata && m.metadata.source) || 'livre'}) ${body}`);
+    }
+    return parts.join('\n\n');
   } catch (e) {
     console.error("Erreur Vectorize:", e);
     return ''; // En cas d'erreur, le chat continue sans contexte
@@ -1292,6 +1302,14 @@ async function handleClearBrain(request, env) {
     try { await env.VECTORIZE_INDEX.deleteByIds(batch); deleted += batch.length; } catch (e) {}
   }
   for (const key of kvKeys) { try { await env.CASHFLOW_KV.delete(key); } catch (e) {} }
+  // Supprimer aussi les textes complets stockés en KV
+  let cursor2;
+  const textPrefix = 'brain_text:' + personnage + ':';
+  do {
+    const list2 = await env.CASHFLOW_KV.list({ prefix: textPrefix, cursor: cursor2 });
+    for (const k of list2.keys) { try { await env.CASHFLOW_KV.delete(k.name); } catch (e) {} }
+    cursor2 = list2.list_complete ? null : list2.cursor;
+  } while (cursor2);
   return json({ success: true, deleted, message: `Cerveau « ${personnage} » vidé (${deleted} passages).` });
 }
 
@@ -1302,22 +1320,32 @@ async function handleIngestBook(request, env) {
   const { id, texte, source, personnage } = await request.json();
   if (!id || !texte || !personnage) return json({ error: 'id, texte et personnage requis.' }, 400);
 
+  // Texte complet en KV (Vectorize metadata max ~10 Ko)
+  const fullText = String(texte);
+  await env.CASHFLOW_KV.put('brain_text:' + personnage + ':' + id, fullText);
+  await env.CASHFLOW_KV.put('brain_id:' + personnage + ':' + id, '1');
+
+  // Embedding : tronquer si énorme (sécurité modèle)
+  const embedText = fullText.length > 8000 ? fullText.slice(0, 8000) : fullText;
   const embeddings = await env.AI.run('@cf/baai/bge-m3', {
-    text: [texte]
+    text: [embedText]
   });
+
+  // Metadata compacte uniquement (limite Vectorize 10240 bytes)
+  const preview = fullText.length > 1500 ? fullText.slice(0, 1500) + '…' : fullText;
+  const metaSource = String(source || 'inconnu').slice(0, 200);
 
   await env.VECTORIZE_INDEX.upsert([{
     id: id,
     values: embeddings.data[0],
     namespace: personnage,
-    metadata: { 
-      texte_original: texte,
-      source: source || 'inconnu',
-      cible: personnage // "eric", "nyxia", ou "global"
+    metadata: {
+      texte_original: preview,
+      source: metaSource,
+      cible: personnage,
+      has_full: fullText.length > 1500 ? '1' : '0'
     }
   }]);
-
-  await env.CASHFLOW_KV.put('brain_id:' + personnage + ':' + id, '1');
 
   return json({ success: true, message: `Passage ${id} ingéré pour ${personnage}.` });
 }
