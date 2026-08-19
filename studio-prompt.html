@@ -325,6 +325,8 @@
         '<div class="msg-meta">' + escHtml(label) + '</div>' +
         '<div class="msg-actions">' +
           '<button type="button" class="btn-copy">📋 Copier</button>' +
+          '<button type="button" class="btn-listen">🔊 Écouter</button>' +
+          '<button type="button" class="btn-pdf">⬇ PDF</button>' +
         '</div>' +
       '</div>'
     div.querySelector('.msg-bubble').textContent = text
@@ -335,8 +337,99 @@
         setTimeout(function() { btn.textContent = '📋 Copier' }, 1800)
       })
     })
+    div.querySelector('.btn-listen').addEventListener('click', function() {
+      speakStudioFrench(this, text)
+    })
+    div.querySelector('.btn-pdf').addEventListener('click', function() {
+      exportStudioPdf(text, label)
+    })
     msgs.appendChild(div)
     msgs.scrollTop = msgs.scrollHeight
+  }
+
+  /* ── TTS français de France (femme) — accessibilité malvoyants ── */
+  var _studioVoicesReady = false
+  function ensureVoices(cb) {
+    var voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : []
+    if (voices && voices.length) { _studioVoicesReady = true; cb(voices); return }
+    if (!window.speechSynthesis) { cb([]); return }
+    window.speechSynthesis.onvoiceschanged = function() {
+      _studioVoicesReady = true
+      cb(window.speechSynthesis.getVoices() || [])
+    }
+    // Fallback timeout
+    setTimeout(function() { cb(window.speechSynthesis.getVoices() || []) }, 400)
+  }
+
+  function pickFranceFrenchFemaleVoice(voices) {
+    if (!voices || !voices.length) return null
+    // 1) Strictement fr-FR (pas fr-CA)
+    var frFR = voices.filter(function(v) {
+      var lang = (v.lang || '').toLowerCase()
+      return lang === 'fr-fr' || lang.indexOf('fr-fr') === 0
+    })
+    // 2) Exclure tout ce qui sent le Canada / Québec
+    function notCanadian(v) {
+      var s = ((v.name || '') + ' ' + (v.lang || '')).toLowerCase()
+      return !/ca\b|canada|québec|quebec|canadian|fr-ca/.test(s)
+    }
+    frFR = frFR.filter(notCanadian)
+    // 3) Préférer des voix féminines connues (France)
+    var femaleHints = /hortense|julie|julie\b|claire|denise|virginie|marie|pauline|marie|céline|celine|femme|female|google français|google francais|audrey|aria|nathalie|françoise|francoise|caroline/i
+    var female = frFR.filter(function(v) { return femaleHints.test(v.name || '') })
+    if (female.length) return female[0]
+    // 4) Sinon première fr-FR non canadienne
+    if (frFR.length) return frFR[0]
+    // 5) Dernier recours : toute voix fr hors CA
+    var anyFr = voices.filter(function(v) {
+      var lang = (v.lang || '').toLowerCase()
+      return lang.indexOf('fr') === 0 && notCanadian(v)
+    })
+    return anyFr[0] || null
+  }
+
+  function speakStudioFrench(btn, text) {
+    if (!window.speechSynthesis) {
+      alert('La synthèse vocale n\'est pas disponible sur ce navigateur.')
+      return
+    }
+    if (btn._speaking) {
+      window.speechSynthesis.cancel()
+      btn._speaking = false
+      btn.textContent = '🔊 Écouter'
+      return
+    }
+    window.speechSynthesis.cancel()
+    var clean = String(text || '').replace(/[#*_`]/g, ' ').replace(/\s+/g, ' ').trim()
+    if (!clean) return
+
+    ensureVoices(function(voices) {
+      var utter = new SpeechSynthesisUtterance(clean)
+      utter.lang = 'fr-FR'  // France, pas Canada
+      var voice = pickFranceFrenchFemaleVoice(voices)
+      if (voice) utter.voice = voice
+      utter.rate = 0.95
+      utter.pitch = 1.0
+      btn._speaking = true
+      btn.textContent = '⏸ Arrêter'
+      utter.onend = function() { btn._speaking = false; btn.textContent = '🔊 Écouter' }
+      utter.onerror = function() { btn._speaking = false; btn.textContent = '🔊 Écouter' }
+      window.speechSynthesis.speak(utter)
+    })
+  }
+
+  function exportStudioPdf(text, modelLabel) {
+    var w = window.open('', '_blank')
+    if (!w) { alert('Autorise les pop-ups pour exporter en PDF.'); return }
+    var body = '<h1>Studio Prompt</h1>' +
+      '<p style="color:#666;font-size:13px">Modèle : ' + escHtml(modelLabel || '') + ' — ' + new Date().toLocaleString('fr-FR') + '</p>' +
+      '<hr/>' +
+      '<div style="white-space:pre-wrap;font-size:15px">' + escHtml(text) + '</div>'
+    w.document.write('<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Studio Prompt</title>' +
+      '<style>body{font-family:Georgia,serif;max-width:760px;margin:48px auto;line-height:1.85;color:#111;padding:0 16px}</style>' +
+      '</head><body>' + body + '</body></html>')
+    w.document.close()
+    setTimeout(function() { w.print() }, 350)
   }
 
   function addTyping() {
