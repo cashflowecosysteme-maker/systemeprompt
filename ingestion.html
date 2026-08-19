@@ -41,7 +41,14 @@
     h2{font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--t);margin-bottom:14px}
     .hint{font-size:12px;color:var(--t3);margin-top:8px;line-height:1.6}
     .divider{height:1px;background:rgba(123,92,255,0.15);margin:20px 0}
-  </style>
+  
+    .chip { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:50px;
+      border:1px solid rgba(123,92,255,.3); background:rgba(123,92,255,.08); font-size:13px; cursor:pointer; color:var(--t2); }
+    .chip input { accent-color: #7B5CFF; }
+    .btn-ghost { background:rgba(123,92,255,.1); box-shadow:none; border:1px solid rgba(123,92,255,.25); color:var(--t2); }
+    .book-row { padding:10px 12px; border:1px solid rgba(123,92,255,.15); border-radius:10px; margin-top:8px; background:rgba(0,0,0,.2); }
+    .book-row strong { color:var(--t); }
+    </style>
 </head>
 <body>
   <canvas id="starry-canvas"></canvas>
@@ -63,12 +70,23 @@
       <h2>📚 Ingérer un ou plusieurs fichiers</h2>
       <div class="row">
         <div>
-          <label for="cible">Personnage (cerveau)</label>
-          <input type="text" id="cible" list="personnages" placeholder="ex : eric, lena, diane..." value="eric">
-          <datalist id="personnages">
-            <option value="eric"><option value="nyxia"><option value="diane">
-            <option value="lena"><option value="kael"><option value="alex"><option value="selena">
-          </datalist>
+                  <div class="field">
+          <label>Personnage(s) — cerveaux cibles</label>
+          <div id="cibles-box" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+            <label class="chip"><input type="checkbox" name="cible" value="diane"> Diane</label>
+            <label class="chip"><input type="checkbox" name="cible" value="nyxia"> NyXia</label>
+            <label class="chip"><input type="checkbox" name="cible" value="eric" checked> Éric</label>
+            <label class="chip"><input type="checkbox" name="cible" value="kael"> Kael</label>
+            <label class="chip"><input type="checkbox" name="cible" value="lena"> Léna</label>
+            <label class="chip"><input type="checkbox" name="cible" value="selena"> Séléna</label>
+            <label class="chip"><input type="checkbox" name="cible" value="alex"> Alex</label>
+          </div>
+          <div class="hint" style="margin-top:8px">Coche <b>plusieurs</b> personnages pour injecter le même livre en une seule passe.</div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" class="btn" style="padding:6px 12px;font-size:12px" onclick="setAllCibles(true)">Tout cocher</button>
+            <button type="button" class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="setAllCibles(false)">Tout décocher</button>
+          </div>
+        </div>
         </div>
         <div>
           <label for="source">Nom du livre / formation</label>
@@ -87,7 +105,17 @@
       <div class="divider"></div>
       <label>Zone de réinitialisation</label>
       <div class="hint" style="margin-top:0;margin-bottom:10px">Supprime TOUS les passages du personnage saisi ci-dessus. Fais-le avant de ré-ingérer proprement un livre corrigé.</div>
-      <button class="btn btn-danger" onclick="clearBrain()">🗑️ Vider le cerveau du personnage saisi</button>
+      <div class="field"><label for="clear-cible">Personnage à vider</label>
+        <select id="clear-cible">
+          <option value="diane">Diane</option>
+          <option value="nyxia">NyXia</option>
+          <option value="eric">Éric</option>
+          <option value="kael">Kael</option>
+          <option value="lena">Léna</option>
+          <option value="selena">Séléna</option>
+          <option value="alex">Alex</option>
+        </select></div>
+      <button class="btn btn-danger" onclick="clearBrain()">🗑️ Vider le cerveau sélectionné</button>
       <div class="msg" id="clear-msg"></div>
     </div>
   </div>
@@ -180,9 +208,9 @@
     }
 
     async function startIngest(){
-      var cible=(document.getElementById('cible').value||'').trim().toLowerCase();
+      var cibles=getSelectedCibles();
       var sourceBase=document.getElementById('source').value.trim()||'livre';
-      if(!cible){ alert('Choisis un personnage.'); return; }
+      if(!cibles.length){ alert('Coche au moins un personnage.'); return; }
       var btn=document.getElementById('btn-ingest'); btn.disabled=true; btn.textContent='En cours...';
       var pwWrap=document.getElementById('pw-wrap'), pbar=document.getElementById('pbar'), log=document.getElementById('log');
       pwWrap.classList.remove('hidden'); log.classList.remove('hidden'); log.innerHTML='';
@@ -194,7 +222,11 @@
         var src=FILES.length>1? (sourceBase+' — '+FILES[i].name.replace(/\.(md|markdown|txt|ya?ml)$/i,'')) : sourceBase;
         var fslug=slug(src);
         log.innerHTML+='<div class="info">📄 '+FILES[i].name+' : '+r.format+' → '+r.passages.length+' passages</div>';
-        r.passages.forEach(function(p,idx){ all.push({ id: cible+'-'+fslug+'-'+(p.pid?slug(p.pid):idx), texte:p.texte, source:src, personnage:cible }); });
+        r.passages.forEach(function(p,idx){
+          cibles.forEach(function(cible){
+            all.push({ id: cible+'-'+fslug+'-'+(p.pid?slug(p.pid):idx), texte:p.texte, source:src, personnage:cible });
+          });
+        });
       }
 
       var ok=0,ko=0;
@@ -208,14 +240,43 @@
         if((k+1)%10===0||k===all.length-1){ log.innerHTML+='<div class="ok">→ '+(k+1)+'/'+all.length+'</div>'; log.scrollTop=log.scrollHeight; }
         await new Promise(function(r){setTimeout(r,120);});
       }
-      log.innerHTML+='<div class="ok">✅ Terminé : '+ok+' passages dans « '+cible+' »'+(ko?(' — '+ko+' échecs'):'')+'.</div>';
+      log.innerHTML+='<div class="ok">✅ Terminé : '+ok+' passages pour ['+cibles.join(', ')+']'+(ko?(' — '+ko+' échecs'):'')+'.</div>';
       log.scrollTop=log.scrollHeight; btn.disabled=false; btn.textContent='🚀 Remplir le cerveau';
     }
 
+    
+    function getSelectedCibles(){
+      return Array.prototype.slice.call(document.querySelectorAll('input[name="cible"]:checked')).map(function(c){ return c.value; });
+    }
+    function setAllCibles(on){
+      document.querySelectorAll('input[name="cible"]').forEach(function(c){ c.checked = !!on; });
+    }
+    async function listBrain(){
+      var cible = (document.getElementById('list-cible').value||'').trim().toLowerCase();
+      var box = document.getElementById('list-brain-result');
+      box.innerHTML = '<div class="info">Chargement…</div>';
+      try{
+        var res = await fetch('/api/admin/list-brain',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':TOKEN},body:JSON.stringify({personnage:cible})});
+        var d = await res.json();
+        if(!res.ok || d.error){ box.innerHTML = '<div class="err">⚠️ '+(d.error||('HTTP '+res.status))+'</div>'; return; }
+        var html = '<div class="ok">'+d.message+'</div>';
+        if(!d.livres || !d.livres.length){ html += '<div class="hint" style="margin-top:8px">Aucun passage pour l’instant.</div>'; }
+        else {
+          d.livres.forEach(function(L){
+            html += '<div class="book-row"><strong>'+L.slug+'</strong><div class="hint">'+L.passages+' passage(s)</div>';
+            if(L.examples && L.examples.length) html += '<div class="hint" style="font-size:11px;opacity:.8">ex: '+L.examples[0]+'</div>';
+            html += '</div>';
+          });
+        }
+        box.innerHTML = html;
+      }catch(e){ box.innerHTML = '<div class="err">⚠️ '+(e.message||'Erreur réseau')+'</div>'; }
+    }
+
     async function clearBrain(){
-      var cible=(document.getElementById('cible').value||'').trim().toLowerCase();
+      var cible=(document.getElementById('clear-cible')&&document.getElementById('clear-cible').value)||(document.getElementById('list-cible')&&document.getElementById('list-cible').value)||'';
+      cible=(cible||'').trim().toLowerCase();
       var msg=document.getElementById('clear-msg');
-      if(!cible){ msg.className='msg err'; msg.textContent='Choisis un personnage.'; return; }
+      if(!cible){ msg.className='msg err'; msg.textContent='Choisis un personnage à vider.'; return; }
       if(!confirm('Vider TOUT le cerveau de « '+cible+' » ? Cette action est irréversible.')) return;
       msg.className='msg'; msg.style.color='var(--t3)'; msg.textContent='Suppression en cours…';
       try{
@@ -228,3 +289,22 @@
   </script>
 </body>
 </html>
+    <div class="card">
+      <h2>📚 Contenu d'un cerveau</h2>
+      <div class="hint">Choisis un personnage puis liste les livres / passages déjà ingérés.</div>
+      <div class="field" style="margin-top:10px">
+        <label for="list-cible">Personnage</label>
+        <select id="list-cible">
+          <option value="diane">Diane</option>
+          <option value="nyxia">NyXia</option>
+          <option value="eric">Éric</option>
+          <option value="kael">Kael</option>
+          <option value="lena">Léna</option>
+          <option value="selena">Séléna</option>
+          <option value="alex">Alex</option>
+        </select>
+      </div>
+      <button class="btn" type="button" onclick="listBrain()">👁 Voir le contenu</button>
+      <div id="list-brain-result" style="margin-top:12px"></div>
+    </div>
+
