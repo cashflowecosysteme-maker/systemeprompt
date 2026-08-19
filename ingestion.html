@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" type="image/png" href="/FavIcon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧠 Remplir les cerveaux — NyXia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+  <style>
+    :root { --bg1:#0A1628; --p:#7B5CFF; --p2:#5A6CFF; --p3:#4FA3FF; --gold:#F4C842; --t:#fff; --t2:#D6D9F0; --t3:#8891B8; --green:#00E676; --red:#FF4B6E; }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    html,body{min-height:100%;background:var(--bg1);color:var(--t2);font-family:'Outfit',sans-serif}
+    body{padding:32px 20px 60px}
+    canvas#starry-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+      background:radial-gradient(ellipse 60% 50% at 30% 12%,rgba(123,92,255,0.15) 0%,transparent 65%),radial-gradient(ellipse 50% 40% at 75% 88%,rgba(79,163,255,0.08) 0%,transparent 60%)}
+    .wrap{position:relative;z-index:1;max-width:700px;margin:0 auto}
+    h1{font-family:'Space Grotesk',sans-serif;font-size:26px;color:var(--t);margin-bottom:4px}
+    .lead{color:var(--t3);font-size:13px;margin-bottom:24px;line-height:1.6}
+    .card{background:rgba(123,92,255,0.06);border:1px solid rgba(123,92,255,0.16);border-radius:16px;padding:22px;margin-bottom:18px;backdrop-filter:blur(6px)}
+    label{display:block;font-size:12px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+    input,select{width:100%;background:rgba(10,22,40,0.7);border:1px solid rgba(123,92,255,0.25);border-radius:10px;color:var(--t);font-family:'Outfit',sans-serif;font-size:15px;padding:12px 14px;outline:none}
+    input:focus,select:focus{border-color:rgba(123,92,255,0.6)}
+    input[type=file]{padding:10px}
+    .btn{width:100%;padding:14px;border-radius:50px;border:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 0 24px rgba(123,92,255,0.4);transition:.2s;margin-top:8px}
+    .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 40px rgba(123,92,255,0.6)}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn-danger{background:rgba(255,75,110,0.12);border:1px solid rgba(255,75,110,0.4);color:#ff8fab;box-shadow:none;font-size:13px;padding:11px}
+    .btn-danger:hover:not(:disabled){background:rgba(255,75,110,0.2);box-shadow:0 0 20px rgba(255,75,110,0.3);transform:none}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .hidden{display:none}
+    .msg{font-size:13px;margin-top:12px;text-align:center}
+    .msg.err{color:var(--red)} .msg.ok{color:var(--green)}
+    .progress-wrap{height:10px;background:rgba(10,22,40,0.8);border-radius:50px;overflow:hidden;margin:16px 0 10px}
+    .progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--p),var(--p3));transition:width .2s}
+    .log{max-height:220px;overflow-y:auto;font-size:12px;color:var(--t3);background:rgba(10,22,40,0.6);border-radius:10px;padding:12px;margin-top:12px;line-height:1.7;font-family:monospace}
+    .log .ok{color:var(--green)} .log .err{color:var(--red)} .log .info{color:var(--p3)}
+    h2{font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--t);margin-bottom:14px}
+    .hint{font-size:12px;color:var(--t3);margin-top:8px;line-height:1.6}
+    .divider{height:1px;background:rgba(123,92,255,0.15);margin:20px 0}
+  </style>
+</head>
+<body>
+  <canvas id="starry-canvas"></canvas>
+  <div class="wrap">
+    <h1>🧠 Remplir les cerveaux</h1>
+    <p class="lead">Dépose n'importe quel fichier — <b>Markdown à titres</b> (###), <b>YAML de formation</b> (principes), ou <b>texte simple</b>. L'outil détecte le format, découpe intelligemment, et remplit le cerveau du personnage choisi. Réutilisable pour tous tes livres et portails. ✦</p>
+
+    <!-- LOGIN -->
+    <div class="card" id="login-card">
+      <h2>🔑 Connexion admin</h2>
+      <label for="pw">Mot de passe Super Admin</label>
+      <input type="password" id="pw" placeholder="••••••••" autocomplete="current-password">
+      <button class="btn" id="btn-login" onclick="doLogin()">Se connecter</button>
+      <div class="msg" id="login-msg"></div>
+    </div>
+
+    <!-- OUTIL -->
+    <div class="card hidden" id="ingest-card">
+      <h2>📚 Ingérer un ou plusieurs fichiers</h2>
+      <div class="row">
+        <div>
+          <label for="cible">Personnage (cerveau)</label>
+          <input type="text" id="cible" list="personnages" placeholder="ex : eric, lena, diane..." value="eric">
+          <datalist id="personnages">
+            <option value="eric"><option value="nyxia"><option value="diane">
+            <option value="lena"><option value="kael"><option value="alex"><option value="selena">
+          </datalist>
+        </div>
+        <div>
+          <label for="source">Nom du livre / formation</label>
+          <input type="text" id="source" placeholder="ex : Psychologie du Clic">
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label for="files">Fichiers (.md, .txt, .yaml, .yml — plusieurs possibles)</label>
+        <input type="file" id="files" accept=".md,.markdown,.txt,.yaml,.yml" multiple onchange="preview()">
+      </div>
+      <div class="hint" id="preview-hint"></div>
+      <button class="btn" id="btn-ingest" onclick="startIngest()" disabled>🚀 Remplir le cerveau</button>
+      <div class="progress-wrap hidden" id="pw-wrap"><div class="progress-bar" id="pbar"></div></div>
+      <div class="log hidden" id="log"></div>
+
+      <div class="divider"></div>
+      <label>Zone de réinitialisation</label>
+      <div class="hint" style="margin-top:0;margin-bottom:10px">Supprime TOUS les passages du personnage saisi ci-dessus. Fais-le avant de ré-ingérer proprement un livre corrigé.</div>
+      <button class="btn btn-danger" onclick="clearBrain()">🗑️ Vider le cerveau du personnage saisi</button>
+      <div class="msg" id="clear-msg"></div>
+    </div>
+  </div>
+
+  <script src="/starry-bg.js" defer></script>
+  <script>
+    var TOKEN = null, FILES = [];
+
+    function doLogin(){
+      var pw=document.getElementById('pw').value.trim(), msg=document.getElementById('login-msg');
+      if(!pw){ msg.className='msg err'; msg.textContent='Entre ton mot de passe.'; return; }
+      var btn=document.getElementById('btn-login'); btn.disabled=true; btn.textContent='Connexion...';
+      fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
+        .then(function(r){return r.json()}).then(function(d){
+          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); }
+          else { msg.className='msg err'; msg.textContent=d.error||'Mot de passe incorrect.'; btn.disabled=false; btn.textContent='Se connecter'; }
+        }).catch(function(){ msg.className='msg err'; msg.textContent='Impossible de joindre le Worker.'; btn.disabled=false; btn.textContent='Se connecter'; });
+    }
+
+    function slug(s){ return (s||'x').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40); }
+    function readFile(f){ return new Promise(function(res){ var r=new FileReader(); r.onload=function(){res(r.result)}; r.readAsText(f); }); }
+
+    // ── Nettoie les tableaux markdown en texte lisible ──
+    function cleanTables(block){
+      return block.split('\n').map(function(l){
+        if(/^\s*\|?[\s:|.-]*-[\s:|.-]*\|?\s*$/.test(l) && l.indexOf('|')>-1) return null; // ligne séparatrice
+        if(l.indexOf('|')>-1){ l = l.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(function(c){return c.trim().replace(/\*\*/g,'');}).filter(Boolean).join(' — '); }
+        return l;
+      }).filter(function(l){ return l!==null; }).join('\n');
+    }
+
+    // ── Format 1 : YAML de formation (principes) ──
+    function tryYaml(text){
+      if(typeof jsyaml==='undefined' || text.indexOf('principes:')===-1) return null;
+      var doc; try{ doc=jsyaml.load(text); }catch(e){ return null; }
+      if(!doc || !Array.isArray(doc.principes)) return null;
+      return doc.principes.map(function(p,i){
+        var decl = Array.isArray(p.declencheurs_recherche)? p.declencheurs_recherche.join(' ; ') : '';
+        var rep=''; for(var k in p){ if(k.indexOf('reponse')===0 && typeof p[k]==='string'){ rep=p[k]; break; } }
+        var lim = Array.isArray(p.limites)? ('\nÀ éviter : '+p.limites.join(' ; ')) : '';
+        var texte = (p.titre? p.titre+'\n\n':'') + String(p.contenu||'').trim()
+                  + (decl? '\n\nQuestions liées : '+decl : '')
+                  + (rep? '\n\nConsigne de réponse : '+String(rep).trim() : '') + lim;
+        return { texte: texte.trim(), pid: p.id || null };
+      }).filter(function(x){ return x.texte.length>25; });
+    }
+
+    // ── Format 2 : Markdown à titres (## / ###) → un passage par section ──
+    function parseSections(text){
+      text=text.replace(/\r/g,''); var lines=text.split('\n'); var blocks=[]; var cur=null;
+      for(var i=0;i<lines.length;i++){
+        var m=lines[i].match(/^(#{2,3})\s+(.*)$/);
+        if(m){ if(cur) blocks.push(cur); cur={title:m[2].trim(),lines:[]}; }
+        else { if(!cur) cur={title:'',lines:[]}; cur.lines.push(lines[i]); }
+      }
+      if(cur) blocks.push(cur);
+      return blocks.map(function(b){
+        var body=cleanTables(b.lines.join('\n')).replace(/^#{4,}\s*/gm,'').replace(/\n{3,}/g,'\n\n').trim();
+        var texte=(b.title? b.title+'\n\n':'')+body;
+        return { texte: texte.trim(), pid: null };
+      }).filter(function(x){ return x.texte.replace(/\s/g,'').length>40; });
+    }
+
+    // ── Format 3 : texte simple (~900 caractères) ──
+    function chunkPlain(text,target){
+      target=target||900; var blocks=text.replace(/\r/g,'').split(/\n\s*\n/); var chunks=[],cur='';
+      function hard(b){ var o=[],s=0; while(s<b.length){ var e=Math.min(s+target,b.length); if(e<b.length){var sp=b.lastIndexOf(' ',e); if(sp>s+200)e=sp;} o.push(b.slice(s,e).trim()); s=e; } return o; }
+      for(var i=0;i<blocks.length;i++){ var b=blocks[i].trim(); if(!b) continue;
+        if(b.length>target*1.6){ if(cur){chunks.push(cur);cur='';} hard(b).forEach(function(p){if(p)chunks.push(p);}); continue; }
+        if(cur && (cur+'\n\n'+b).length>target){ chunks.push(cur); cur=b; } else { cur+=(cur?'\n\n':'')+b; }
+      }
+      if(cur.trim()) chunks.push(cur.trim());
+      return chunks.filter(function(c){return c.length>25;}).map(function(t){return {texte:t,pid:null};});
+    }
+
+    function parseFile(text){
+      var y=tryYaml(text); if(y && y.length) return {format:'YAML formation', passages:y};
+      if(/\n#{2,3}\s+/.test('\n'+text)) return {format:'Markdown (sections)', passages:parseSections(text)};
+      return {format:'Texte simple', passages:chunkPlain(text)};
+    }
+
+    async function preview(){
+      FILES=Array.from(document.getElementById('files').files);
+      var hint=document.getElementById('preview-hint'), btn=document.getElementById('btn-ingest');
+      if(!FILES.length){ hint.textContent=''; btn.disabled=true; return; }
+      if(!document.getElementById('source').value && FILES[0]) document.getElementById('source').value=FILES[0].name.replace(/\.(md|markdown|txt|ya?ml)$/i,'');
+      var report=[];
+      for(var i=0;i<FILES.length;i++){ var txt=await readFile(FILES[i]); var r=parseFile(txt); report.push(FILES[i].name+' → '+r.format+' : '+r.passages.length+' passage(s)'); }
+      hint.innerHTML=report.join('<br>'); btn.disabled=false;
+    }
+
+    async function startIngest(){
+      var cible=(document.getElementById('cible').value||'').trim().toLowerCase();
+      var sourceBase=document.getElementById('source').value.trim()||'livre';
+      if(!cible){ alert('Choisis un personnage.'); return; }
+      var btn=document.getElementById('btn-ingest'); btn.disabled=true; btn.textContent='En cours...';
+      var pwWrap=document.getElementById('pw-wrap'), pbar=document.getElementById('pbar'), log=document.getElementById('log');
+      pwWrap.classList.remove('hidden'); log.classList.remove('hidden'); log.innerHTML='';
+
+      var all=[];
+      for(var i=0;i<FILES.length;i++){
+        var txt=await readFile(FILES[i]);
+        var r=parseFile(txt);
+        var src=FILES.length>1? (sourceBase+' — '+FILES[i].name.replace(/\.(md|markdown|txt|ya?ml)$/i,'')) : sourceBase;
+        var fslug=slug(src);
+        log.innerHTML+='<div class="info">📄 '+FILES[i].name+' : '+r.format+' → '+r.passages.length+' passages</div>';
+        r.passages.forEach(function(p,idx){ all.push({ id: cible+'-'+fslug+'-'+(p.pid?slug(p.pid):idx), texte:p.texte, source:src, personnage:cible }); });
+      }
+
+      var ok=0,ko=0;
+      for(var k=0;k<all.length;k++){
+        try{
+          var res=await fetch('/api/ingest-book',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':TOKEN},body:JSON.stringify(all[k])});
+          var d=await res.json();
+          if(res.ok&&d.success){ ok++; } else { ko++; log.innerHTML+='<div class="err">✗ '+all[k].id+' : '+(d.error||('HTTP '+res.status))+'</div>'; }
+        }catch(e){ ko++; log.innerHTML+='<div class="err">✗ '+all[k].id+' : réseau</div>'; }
+        pbar.style.width=Math.round(((k+1)/all.length)*100)+'%';
+        if((k+1)%10===0||k===all.length-1){ log.innerHTML+='<div class="ok">→ '+(k+1)+'/'+all.length+'</div>'; log.scrollTop=log.scrollHeight; }
+        await new Promise(function(r){setTimeout(r,120);});
+      }
+      log.innerHTML+='<div class="ok">✅ Terminé : '+ok+' passages dans « '+cible+' »'+(ko?(' — '+ko+' échecs'):'')+'.</div>';
+      log.scrollTop=log.scrollHeight; btn.disabled=false; btn.textContent='🚀 Remplir le cerveau';
+    }
+
+    async function clearBrain(){
+      var cible=(document.getElementById('cible').value||'').trim().toLowerCase();
+      var msg=document.getElementById('clear-msg');
+      if(!cible){ msg.className='msg err'; msg.textContent='Choisis un personnage.'; return; }
+      if(!confirm('Vider TOUT le cerveau de « '+cible+' » ? Cette action est irréversible.')) return;
+      msg.className='msg'; msg.style.color='var(--t3)'; msg.textContent='Suppression en cours…';
+      try{
+        var res=await fetch('/api/admin/clear-brain',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':TOKEN},body:JSON.stringify({personnage:cible})});
+        var d=await res.json();
+        if(d.success){ msg.className='msg ok'; msg.textContent=d.message; }
+        else { msg.className='msg err'; msg.textContent='⚠️ '+(d.error||'Erreur'); }
+      }catch(e){ msg.className='msg err'; msg.textContent='⚠️ '+(e.message||'Erreur réseau'); }
+    }
+  </script>
+</body>
+</html>
