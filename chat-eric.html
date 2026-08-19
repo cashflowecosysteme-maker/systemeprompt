@@ -132,6 +132,16 @@
 
   /* ═══════ AUTH ═══════ */
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
+  try {
+    var q = new URLSearchParams(window.location.search)
+    if (q.get('t')) sessionToken = q.get('t')
+  } catch (e) {}
+  try {
+    if (!sessionToken && window.parent && window.parent !== window) {
+      sessionToken = window.parent.sessionStorage.getItem('nyxia_token') || (window.parent.sessionToken || '')
+    }
+  } catch (e) {}
+  if (sessionToken) { try { sessionStorage.setItem('nyxia_token', sessionToken) } catch (e) {} }
   var clientEmail = '', clientName = localStorage.getItem('nyxia_username') || 'toi'
   ;(function checkAuth() {
     if (!sessionToken) { window.location.href = '/login.html'; return }
@@ -144,6 +154,42 @@
   })()
 
   var chatHistories = { eric: [] }
+  var CHAT_STORAGE_KEY = 'nyxia_chat_' + _currentAgent
+
+  function loadChatFromStorage() {
+    try {
+      var raw = sessionStorage.getItem(CHAT_STORAGE_KEY)
+      if (!raw) return
+      var data = JSON.parse(raw)
+      if (!data || !Array.isArray(data.messages)) return
+      chatHistories[_currentAgent] = data.messages.slice(-40)
+    } catch (e) {}
+  }
+
+  function saveChatToStorage() {
+    try {
+      sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({
+        messages: (chatHistories[_currentAgent] || []).slice(-40),
+        updated: Date.now()
+      }))
+    } catch (e) {}
+  }
+
+  function renderStoredMessages() {
+    var list = chatHistories[_currentAgent] || []
+    if (!list.length) return
+    var msgs = document.getElementById('chat-messages-' + _currentAgent)
+    if (!msgs) return
+    // Ne pas rejouer si déjà des messages (évite doublon)
+    if (msgs.querySelector('.msg')) return
+    list.forEach(function(item) {
+      if (!item || !item.content) return
+      if (item.role === 'user') addUserMessage(item.content)
+      else if (item.role === 'assistant') addBotMessage(item.content)
+    })
+    var sug = document.getElementById('suggestions')
+    if (sug && list.length) sug.style.display = 'none'
+  }
   var isSpeaking = false, _currentAttachment = null
 
   function currentHistory() { return chatHistories[_currentAgent] }
@@ -162,6 +208,7 @@
   }
 
   function init() {
+    loadChatFromStorage()
     document.getElementById('chat-header-name').textContent = ALPHA_INFO.eric.name
     document.getElementById('chat-header-sub').textContent = ALPHA_INFO.eric.sub
     updateHeaderAvatar('eric')
@@ -171,6 +218,7 @@
     var videoUrl = AGENT_WELCOME_VIDEO.eric
     if (videoUrl) addVideoMessage(videoUrl, 'eric')
     // Pas de message texte d'accueil auto — la vidéo de présentation suffit
+    renderStoredMessages()
 
     // Listeners de l'input
     var chatInput = document.getElementById('chat-input')
@@ -251,6 +299,10 @@
 
   function sendMessageText(text, fromVoice) {
     _inputWasVoice = !!fromVoice
+    if (!sessionToken) {
+      addBotMessage('Session introuvable. Reconnecte-toi au portail, puis rouvre ce personnage.')
+      return
+    }
     var attachmentToSend = _currentAttachment ? JSON.parse(JSON.stringify(_currentAttachment)) : null
     var displayText = text
     if (attachmentToSend) { displayText = text ? text + '\n📎 ' + attachmentToSend.name : '📎 ' + attachmentToSend.name }
@@ -258,6 +310,7 @@
     var historyContent = text
     if (attachmentToSend) { historyContent = (text ? text + '\n' : '') + '[Fichier joint: ' + attachmentToSend.name + ' (' + attachmentToSend.type + ')]' }
     currentHistory().push({ role: 'user', content: historyContent })
+    saveChatToStorage()
     if (_currentAttachment) {
       _currentAttachment = null
       var bar = document.getElementById('attach-bar'), fi = document.getElementById('chat-file')
@@ -271,12 +324,13 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, history: chatHistories[requestAgent].slice(-10), userName: clientName, agent: requestAgent, attachment: attachmentToSend, token: sessionToken })
     })
-    .then(function(r){ return r.json() })
+    .then(function(r){ return r.text().then(function(txt){ var data; try { data = JSON.parse(txt) } catch(e) { data = { content: 'Réponse brute ('+r.status+'): '+(txt||'').slice(0,200) } } return data }) })
     .then(function(data) {
       removeTyping()
-      var reply = data.content || 'Erreur inattendue — réessaie dans un instant 💜'
+      var reply = data.content || data.error || 'Erreur inattendue — réessaie dans un instant 💜'
       addBotMessage(reply)
       chatHistories[requestAgent].push({ role: 'assistant', content: reply })
+      saveChatToStorage()
       if (chatHistories[requestAgent].length > 20) chatHistories[requestAgent] = chatHistories[requestAgent].slice(-20)
       // Lecture auto UNIQUEMENT si message micro. Sinon bouton Écouter à la demande.
       if (_inputWasVoice) {
