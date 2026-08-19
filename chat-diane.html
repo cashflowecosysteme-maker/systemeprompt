@@ -276,9 +276,9 @@
 
     var imgRegex = /\[IMAGE\s*:\s*([\s\S]*?)\]/i
     var imgMatch = text.match(imgRegex)
-    var parchRegex = /\[PARCHEMIN\]([\s\S]*?)\[\/PARCHEMIN\]/i
+    var parchRegex = /\[(?:PROMPT|PARCHEMIN)\]([\s\S]*?)\[\/(?:PROMPT|PARCHEMIN)\]/i
     var parchMatch = text.match(parchRegex)
-    var parchImgRegex = /\[PARCHEMIN_IMAGE\s*:\s*([\s\S]*?)\]/i
+    var parchImgRegex = /\[(?:PROMPT|PARCHEMIN)_IMAGE\s*:\s*([\s\S]*?)\]/i
     var parchImgMatch = text.match(parchImgRegex)
     var textWithoutImg = text.replace(imgRegex, '').replace(parchRegex, '').replace(parchImgRegex, '').trim()
     var imgDesc = imgMatch ? imgMatch[1].trim() : null
@@ -300,7 +300,7 @@
       if (parchImgUrl) {
         var parchImgEl = document.createElement('img')
         parchImgEl.src = parchImgUrl
-        parchImgEl.alt = 'Image du parchemin'
+        parchImgEl.alt = 'Image du prompt'
         parchImgEl.style.cssText = 'width:100%;border-radius:10px;display:block;margin-bottom:12px;max-height:320px;object-fit:cover'
         parchImgEl.onerror = function() { parchImgEl.style.display = 'none' }
         parchWrap.appendChild(parchImgEl)
@@ -315,12 +315,12 @@
       parchBtnRow.style.cssText = 'display:flex;gap:8px;margin-top:12px'
 
       var copyBtn = document.createElement('button')
-      copyBtn.textContent = '📋 Copier le texte'
+      copyBtn.textContent = '📋 Copier le prompt'
       copyBtn.style.cssText = 'flex:1;padding:9px;border-radius:9px;border:1px solid rgba(123,92,255,0.3);background:rgba(123,92,255,0.1);color:var(--t2);font-family:Outfit,sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s'
       copyBtn.addEventListener('click', function() {
         navigator.clipboard.writeText(parchContent).then(function() {
           copyBtn.textContent = '✅ Copié !'
-          setTimeout(function() { copyBtn.textContent = '📋 Copier le texte' }, 2500)
+          setTimeout(function() { copyBtn.textContent = '📋 Copier le prompt' }, 2500)
         }).catch(function() { copyBtn.textContent = '⚠️ Sélectionne le texte manuellement' })
       })
       parchBtnRow.appendChild(copyBtn)
@@ -331,7 +331,7 @@
         dlBtn.href = parchImgUrl
         dlBtn.target = '_blank'
         dlBtn.rel = 'noopener'
-        dlBtn.download = 'parchemin.jpg'
+        dlBtn.download = 'prompt.jpg'
         dlBtn.style.cssText = 'flex:1;padding:9px;border-radius:9px;border:1px solid rgba(123,92,255,0.3);background:rgba(123,92,255,0.1);color:var(--t2);font-family:Outfit,sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center'
         parchBtnRow.appendChild(dlBtn)
       }
@@ -597,8 +597,8 @@
       .replace(/#{1,6}\s+/g, '')
       .replace(/^>+\s*/gm, '')
       .replace(/\[IMAGE[\s\S]*?\]/gi, '')
-      .replace(/\[PARCHEMIN\][\s\S]*?\[\/PARCHEMIN\]/gi, '')
-      .replace(/\[PARCHEMIN_IMAGE[\s\S]*?\]/gi, '')
+      .replace(/\[(?:PROMPT|PARCHEMIN)\][\s\S]*?\[\/(?:PROMPT|PARCHEMIN)\]/gi, '')
+      .replace(/\[(?:PROMPT|PARCHEMIN)_IMAGE[\s\S]*?\]/gi, '')
       .replace(/[✦💜🚀💎🌐📱⭐✓►▶🪞🌿🕯️🌙✨📖🔥👑😉📚📜]/gu, '')
       .replace(/<br>/g, ' ')
       .replace(/<[^>]+>/g, '')
