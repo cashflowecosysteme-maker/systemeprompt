@@ -411,7 +411,7 @@ async function handleChat(request, env) {
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: 900,
+        max_tokens: 32000,
         reasoning: { enabled: false }
       })
     });
@@ -419,15 +419,70 @@ async function handleChat(request, env) {
 
   // Modèle principal deepseek-v3.2, repli automatique sur mistral-small.
   let resp = await callModel(OPENROUTER_MODEL);
-  if (!resp.ok) resp = await callModel(OPENROUTER_FALLBACK_MODEL);
+  let usedModel = OPENROUTER_MODEL;
+  if (!resp.ok) {
+    resp = await callModel(OPENROUTER_FALLBACK_MODEL);
+    usedModel = OPENROUTER_FALLBACK_MODEL;
+  }
 
   if (!resp.ok) {
     return json({ content: 'Petite interruption dans le miroir... réessaie dans un instant 💜' });
   }
 
-  const data = await resp.json();
-  const content = data.choices?.[0]?.message?.content || 'Le miroir est resté silencieux, réessaie 💜';
+  let data = await resp.json();
+  let content = data.choices?.[0]?.message?.content || '';
+  let finish = data.choices?.[0]?.finish_reason || '';
+
+  // Si le modèle coupe (plafond de sortie), on continue automatiquement jusqu'à 3 fois
+  const continueMessages = messages.slice();
+  if (content) continueMessages.push({ role: 'assistant', content });
+
+  let cont = 0;
+  while (cont < 3 && content && (finish === 'length' || looksTruncated(content))) {
+    cont++;
+    continueMessages.push({
+      role: 'user',
+      content: 'Continue exactement où tu t\'es arrêté. Ne répète pas ce qui est déjà écrit. Reprends en milieu de phrase si besoin et termine TOUTE la réponse / le prompt complet.'
+    });
+    const contResp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY || env.AI_API_KEY}`,
+        'HTTP-Referer': 'https://portailcashflow.nyxia.top',
+        'X-Title': 'NyXia — Studio Prompt'
+      },
+      body: JSON.stringify({
+        model: usedModel,
+        messages: continueMessages,
+        max_tokens: 32000,
+        reasoning: { enabled: false }
+      })
+    });
+    if (!contResp.ok) break;
+    const contData = await contResp.json();
+    const piece = contData.choices?.[0]?.message?.content || '';
+    finish = contData.choices?.[0]?.finish_reason || '';
+    if (!piece) break;
+    content += piece;
+    continueMessages.push({ role: 'assistant', content: piece });
+  }
+
+  if (!content) content = 'Le miroir est resté silencieux, réessaie 💜';
   return json({ content });
+}
+
+function looksTruncated(text) {
+  const s = String(text || '').trim();
+  if (s.length < 400) return false;
+  // Coupe typique : pas de fin de ponctuation, ou marqueur PROMPT non fermé
+  if (s.includes('[PROMPT]') && !s.includes('[/PROMPT]')) return true;
+  if (s.includes('[PARCHEMIN]') && !s.includes('[/PARCHEMIN]')) return true;
+  const last = s.slice(-1);
+  if (/[a-zA-ZÀ-ÿ0-9,;:（\([{]/.test(last)) return true;
+  // Finit par mot coupé rare : se termine sans . ! ? …
+  if (!/[.!?…»"')\]]$/.test(s) && s.length > 2500) return true;
+  return false;
 }
 
 // ───────────── STUDIO PROMPT (multi-modèles OpenRouter) ─────────────
