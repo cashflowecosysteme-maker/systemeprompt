@@ -255,6 +255,7 @@ export default {
       // ── Ingestion des livres Markdown dans Vectorize (Sécurisé Admin) ──
       if (path === '/api/ingest-book' && request.method === 'POST') return await handleIngestBook(request, env);
       if (path === '/api/admin/clear-brain' && request.method === 'POST') return await handleClearBrain(request, env);
+      if (path === '/api/admin/list-brain' && request.method === 'POST') return await handleListBrain(request, env);
       if (path === '/api/admin/setup-vectorize' && request.method === 'POST') return await handleSetupVectorize(request, env);
 
       if (path === '/api/admin/login' && request.method === 'POST') return await handleAdminLogin(request, env);
@@ -1298,6 +1299,56 @@ async function handleSetupVectorize(request, env) {
 
 // Route pour envoyer tes textes Markdown vers la base de données vectorielle
 // Vide un cerveau (namespace) : supprime tous ses vecteurs via les IDs suivis en KV.
+
+async function handleListBrain(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
+  const body = await request.json().catch(() => ({}));
+  const personnage = String(body.personnage || '').trim().toLowerCase();
+  if (!personnage) return json({ error: 'personnage requis.' }, 400);
+
+  const prefix = 'brain_id:' + personnage + ':';
+  const ids = [];
+  let cursor;
+  do {
+    const list = await env.CASHFLOW_KV.list({ prefix, cursor });
+    for (const k of list.keys) {
+      ids.push(k.name.slice(prefix.length));
+    }
+    cursor = list.list_complete ? null : list.cursor;
+  } while (cursor);
+
+  // Regroupe par « livre » à partir de l'id : personnage-sluglivre-chapitre-...
+  // id type: diane-cashflow-neurogenere-chapitre-1-xxx
+  const books = {};
+  for (const id of ids) {
+    let rest = id;
+    if (rest.startsWith(personnage + '-')) rest = rest.slice(personnage.length + 1);
+    // retire suffixe -chapitre-... ou -N final
+    let book = rest.replace(/-chapitre-.*$/i, '').replace(/-\d+$/, '');
+    // si pattern ...-chapitre-N-...
+    const m = rest.match(/^(.*?)-chapitre[-_]/i);
+    if (m) book = m[1];
+    if (!book) book = rest.split('-').slice(0, 4).join('-') || rest;
+    if (!books[book]) books[book] = { slug: book, passages: 0, examples: [] };
+    books[book].passages++;
+    if (books[book].examples.length < 3) books[book].examples.push(id);
+  }
+
+  const livres = Object.values(books).sort((a, b) => b.passages - a.passages);
+  return json({
+    success: true,
+    personnage,
+    total: ids.length,
+    livres,
+    message: totalMessage(personnage, ids.length, livres.length)
+  });
+}
+
+function totalMessage(personnage, total, nLivres) {
+  return 'Cerveau « ' + personnage + ' » : ' + total + ' passage(s), ' + nLivres + ' livre(s) détecté(s).';
+}
+
+
 async function handleClearBrain(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
   const { personnage } = await request.json();
@@ -1450,6 +1501,10 @@ async function handleTTSNyxia(request, env) {
   // ── Voie 2 : OpenAI (voix distinctes, moins chères, sans clonage) ──
   const openaiVoice = OPENAI_VOICE_MAP[agent];
   if (openaiVoice) {
+    const openaiKey = env.OpenAI_KEY || env.OpenAi_KEY || env.OPENAI_API_KEY || '';
+    if (!openaiKey) {
+      return json({ error: 'Clé OpenAI absente. Secret attendu : OpenAI_KEY (ou OpenAi_KEY).' }, 500);
+    }
     const cacheKey = 'tts_cache_openai:' + agent + ':' + openaiVoice + ':' + (await sha256Hex(cleanText));
     const cachedBuf = await env.CASHFLOW_KV.get(cacheKey, 'arrayBuffer');
     if (cachedBuf) {
@@ -1463,7 +1518,7 @@ async function handleTTSNyxia(request, env) {
     const openaiBodyBytes = new TextEncoder().encode(JSON.stringify({ model: 'tts-1', voice: openaiVoice, input: cleanText, response_format: 'mp3' }));
     const resp = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + env['OpenAi_KEY'], 'Content-Type': 'application/json' },
+      headers: { 'Authorization': 'Bearer ' + openaiKey, 'Content-Type': 'application/json' },
       body: openaiBodyBytes
     });
 
