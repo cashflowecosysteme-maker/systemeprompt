@@ -260,12 +260,12 @@
       <!-- SECTION : MON ESPACE — Diane (formatrice) en premier -->
       <div class="sidebar-section">
         <div class="sidebar-label">Mes Conversations</div>
-        <div class="nav-item" id="nav-diane" onclick="openAgentTab('diane')">
+        <div class="nav-item active" id="nav-diane" onclick="openAgentTab('diane')">
           <img class="nav-avatar" src="/Diane.png" alt="Diane">
           <span class="nav-text"><span class="nav-name">Diane</span><span class="nav-sub">Prompt Formation</span></span>
           <span class="nav-arrow">›</span>
         </div>
-        <div class="nav-item active" id="nav-nyxia" onclick="openAgentTab('nyxia')">
+        <div class="nav-item" id="nav-nyxia" onclick="openAgentTab('nyxia')">
           <img class="nav-avatar" src="/NyXia.png" alt="NyXia">
           <span class="nav-text"><span class="nav-name">NyXia</span><span class="nav-sub">Prompt Produit digitaux</span></span>
           <span class="nav-arrow">›</span>
@@ -321,6 +321,9 @@
         <div class="nav-item" id="nav-studio" onclick="showPanel('studio')">
           <span class="nav-icon">⚡</span> Studio Prompt <span class="nav-arrow">›</span>
         </div>
+        <div class="nav-item" id="nav-journal" onclick="showPanel('journal')">
+          <span class="nav-icon">📓</span> Mon Journal <span class="nav-arrow">›</span>
+        </div>
         <div class="nav-item" id="nav-medias" onclick="showPanel('medias')">
           <span class="nav-icon">✨</span> Banque d'images - Sons et Vidéos <span class="nav-arrow">›</span>
         </div>
@@ -340,7 +343,7 @@
     <div class="main-content">
       <!-- Panel Chat — charge la page individuelle du personnage en iframe -->
       <div class="panel active" id="panel-chat" style="flex-direction:column">
-        <iframe id="agent-iframe" src="/chat-nyxia.html" style="width:100%;height:100%;border:none;display:block" title="Conversation"></iframe>
+        <iframe id="agent-iframe" src="/chat-diane.html" style="width:100%;height:100%;border:none;display:block" title="Conversation"></iframe>
       </div>
 
       <!-- Panel Mon Espace — désactivé (ouvre en nouvel onglet) -->
@@ -350,10 +353,10 @@
         <a href="https://www.lemiroirnyxia.com/fr/login" target="_blank" rel="noopener" style="padding:10px 22px;border-radius:50px;background:linear-gradient(135deg,#7B5CFF,#5A6CFF);color:#fff;text-decoration:none;font-weight:600;font-size:13px">Ouvrir Mon Espace ↗</a>
       </div>
 
-      <!-- Panel Journal de la cashflow — iframe -->
+      <!-- Panel Journal Studio Prompt -->
       <div class="panel" id="panel-journal" style="flex-direction:column">
         <div style="flex:1;overflow:hidden;position:relative">
-          <div style="padding:40px;color:#8891b8;font-family:Outfit,sans-serif;text-align:center">Journal non disponible sur Studio Prompt.</div>
+          <iframe src="/journal-studio.html" style="width:100%;height:100%;border:none;display:block" title="Mon Journal Studio Prompt"></iframe>
         </div>
       </div>
 
@@ -479,7 +482,7 @@
       document.getElementById('sidebar-username').textContent = clientName
       document.getElementById('sidebar-avatar').textContent = (clientName || 'U').charAt(0).toUpperCase()
       // Charge NyXia par défaut (cohérent avec le nav actif + iframe initiale)
-      openAgentTab('nyxia')
+      openAgentTab('diane')
       refreshUnreadBadge()
       var voiceToggle = document.getElementById('nyxia-voice-toggle')
       if (voiceToggle) voiceToggle.style.display = 'flex'
@@ -732,7 +735,7 @@
     window.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'nyxia_suggest' && e.data.text) {
         // Ouvre NyXia et laisse l'iframe gérer (le chat est maintenant dans l'iframe)
-        openAgentTab('nyxia')
+        openAgentTab('diane')
       }
     })
 
