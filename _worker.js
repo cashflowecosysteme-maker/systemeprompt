@@ -526,7 +526,7 @@ Réponds en français (sauf demande contraire). Sois clair, structuré et utile.
         body: JSON.stringify({
           model: mId,
           messages,
-          max_tokens: 2000
+          max_tokens: 32000
         })
       });
       const raw = await resp.text();
