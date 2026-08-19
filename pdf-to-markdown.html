@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF → Markdown (chapitres) — NyXia</title>
+  <link rel="icon" type="image/png" href="/FavIcon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+  <style>
+    :root {
+      --bg: #0A1628; --card: rgba(15,28,63,.85); --p: #7B5CFF; --p3: #4FA3FF;
+      --t: #fff; --t2: #D6D9F0; --t3: #8891B8; --ok: #00E676; --err: #ff6b8a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; background: linear-gradient(165deg,#0A1628,#0F1C3F 50%,#1A2554);
+      color: var(--t2); font-family: Outfit, sans-serif; line-height: 1.5;
+      padding: 28px 16px 60px;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; }
+    h1 {
+      font-family: 'Cormorant Garamond', serif; font-size: 32px; color: var(--t);
+      margin-bottom: 8px;
+    }
+    h1 span {
+      background: linear-gradient(135deg,#a78bfa,var(--p3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .lead { color: var(--t3); margin-bottom: 22px; font-size: 14px; max-width: 640px; }
+    .card {
+      background: var(--card); border: 1px solid rgba(123,92,255,.22);
+      border-radius: 16px; padding: 20px; margin-bottom: 14px;
+    }
+    .card h2 { font-size: 15px; color: var(--t); margin-bottom: 12px; }
+    label { display: block; font-size: 12px; color: var(--t3); margin-bottom: 6px; }
+    input[type=text], select {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid rgba(123,92,255,.25); background: rgba(10,22,40,.7);
+      color: var(--t2); font-family: Outfit, sans-serif; font-size: 14px;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+    .drop {
+      border: 2px dashed rgba(123,92,255,.35); border-radius: 14px;
+      padding: 28px 16px; text-align: center; cursor: pointer;
+      transition: .15s; background: rgba(123,92,255,.05);
+    }
+    .drop:hover, .drop.drag { border-color: var(--p); background: rgba(123,92,255,.12); }
+    .drop strong { color: #c4b5fd; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 18px; border-radius: 50px; border: none; cursor: pointer;
+      font-family: Outfit, sans-serif; font-size: 13px; font-weight: 600;
+      background: linear-gradient(135deg,var(--p),#5A6CFF); color: #fff;
+      box-shadow: 0 0 20px rgba(123,92,255,.3); margin-top: 12px;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-ghost {
+      background: rgba(123,92,255,.12); color: var(--t2);
+      border: 1px solid rgba(123,92,255,.3); box-shadow: none;
+    }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .log {
+      font-size: 12px; color: var(--t3); max-height: 160px; overflow: auto;
+      background: rgba(0,0,0,.25); border-radius: 10px; padding: 10px;
+      white-space: pre-wrap; margin-top: 10px;
+    }
+    .chapters { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .ch {
+      border: 1px solid rgba(123,92,255,.18); border-radius: 12px;
+      padding: 12px 14px; background: rgba(10,22,40,.45);
+    }
+    .ch-title { font-size: 14px; color: var(--t); font-weight: 600; }
+    .ch-meta { font-size: 11px; color: var(--t3); margin-top: 4px; }
+    .ch-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .mini {
+      font-size: 11px; padding: 6px 10px; border-radius: 50px; cursor: pointer;
+      border: 1px solid rgba(123,92,255,.3); background: rgba(123,92,255,.1);
+      color: var(--t2); font-family: Outfit, sans-serif;
+    }
+    .hint { font-size: 12px; color: var(--t3); margin-top: 8px; }
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+    textarea.preview {
+      width: 100%; min-height: 140px; margin-top: 8px; border-radius: 10px;
+      border: 1px solid rgba(123,92,255,.2); background: rgba(0,0,0,.3);
+      color: var(--t2); font-family: ui-monospace, monospace; font-size: 11px;
+      padding: 10px; display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>PDF → <span>Markdown chapitres</span></h1>
+    <p class="lead">
+      Dépose un livre PDF complet. L’outil extrait le texte, détecte les chapitres, et produit des fichiers
+      <strong>.md</strong> prêts pour <code>ingestion.html</code> (cerveaux Diane, Éric, NyXia…).
+      Tout se passe dans ton navigateur — le PDF ne part pas sur un serveur tiers.
+    </p>
+
+    <div class="card">
+      <h2>1. Options</h2>
+      <div class="row">
+        <div>
+          <label>Titre du livre (pour les noms de fichiers)</label>
+          <input type="text" id="book-title" placeholder="ex : CashFlow Neurogénéré">
+        </div>
+        <div>
+          <label>Détection des chapitres</label>
+          <select id="detect-mode">
+            <option value="auto">Auto (Chapitre / Chapter / # Titre)</option>
+            <option value="chapitre">Lignes « Chapitre X »</option>
+            <option value="pages">Par paquets de pages</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Si « Par paquets de pages » — pages / chapitre</label>
+          <input type="text" id="pages-per" value="8" inputmode="numeric">
+        </div>
+        <div>
+          <label>Pages à ignorer au début (couverture, sommaire…)</label>
+          <input type="text" id="skip-start" value="0" inputmode="numeric">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. Déposer le PDF</h2>
+      <div class="drop" id="drop" onclick="document.getElementById('file').click()">
+        <div style="font-size:28px;margin-bottom:8px">📄</div>
+        <div><strong>Clique</strong> ou glisse ton PDF ici</div>
+        <div class="hint" id="file-label">Aucun fichier</div>
+      </div>
+      <input type="file" id="file" accept="application/pdf,.pdf" hidden>
+      <button class="btn" id="btn-run" disabled onclick="runConvert()">⚙️ Extraire & découper</button>
+      <div class="log" id="log" style="display:none"></div>
+    </div>
+
+    <div class="card" id="result-card" style="display:none">
+      <h2>3. Chapitres Markdown</h2>
+      <p class="hint">Télécharge les .md puis dépose-les dans <strong>ingestion.html</strong> pour remplir le cerveau du personnage.</p>
+      <div class="btn-row">
+        <button class="btn" id="btn-zip" onclick="downloadAll()">⬇ Tout télécharger (.md)</button>
+        <button class="btn btn-ghost" onclick="copyAll()">📋 Copier tout (un seul texte)</button>
+      </div>
+      <div class="chapters" id="chapters"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+    let pdfFile = null;
+    let chapters = []; // { title, markdown, pages }
+
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('file');
+    const btnRun = document.getElementById('btn-run');
+    const logEl = document.getElementById('log');
+
+    function log(msg, cls) {
+      logEl.style.display = 'block';
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = msg;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    function clearLog() { logEl.innerHTML = ''; logEl.style.display = 'none'; }
+
+    ;['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+      e.preventDefault(); drop.classList.add('drag');
+    }));
+    ;['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+      e.preventDefault(); drop.classList.remove('drag');
+    }));
+    drop.addEventListener('drop', e => {
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) setFile(f);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    function setFile(f) {
+      if (!f || !/\.pdf$/i.test(f.name)) {
+        alert('Choisis un fichier PDF.');
+        return;
+      }
+      pdfFile = f;
+      document.getElementById('file-label').textContent = f.name + ' (' + Math.round(f.size/1024) + ' Ko)';
+      btnRun.disabled = false;
+      if (!document.getElementById('book-title').value) {
+        document.getElementById('book-title').value = f.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ');
+      }
+    }
+
+    function slug(s) {
+      return String(s || 'chapitre')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    }
+
+    function isChapterLine(line) {
+      const t = line.trim();
+      if (!t || t.length > 120) return false;
+      if (/^#{1,3}\s+\S/.test(t)) return true;
+      if (/^(chapitre|chapter|partie|part|section)\s+[\divxlcdm0-9]+/i.test(t)) return true;
+      if (/^(chapitre|chapter)\s+\d+/i.test(t)) return true;
+      if (/^\d{1,2}[\.\)]\s+[A-ZÀ-Ü]/.test(t) && t.length < 80) return true;
+      return false;
+    }
+
+    function pagesToChapters(pageTexts, mode, pagesPer) {
+      const book = document.getElementById('book-title').value.trim() || 'Livre';
+      if (mode === 'pages') {
+        const out = [];
+        for (let i = 0; i < pageTexts.length; i += pagesPer) {
+          const slice = pageTexts.slice(i, i + pagesPer);
+          const num = out.length + 1;
+          const body = slice.join('\n\n').trim();
+          const title = 'Chapitre ' + num;
+          out.push({
+            title,
+            pages: (i + 1) + '–' + (i + slice.length),
+            markdown: '# ' + title + '\n\n> Source : ' + book + '\n\n' + body + '\n'
+          });
+        }
+        return out;
+      }
+
+      // auto / chapitre : split on chapter headings across full text with page markers
+      const lines = [];
+      pageTexts.forEach((pt, pi) => {
+        String(pt).split(/\n/).forEach(l => lines.push({ page: pi + 1, text: l }));
+      });
+
+      const starts = [];
+      lines.forEach((L, idx) => {
+        if (isChapterLine(L.text)) starts.push(idx);
+      });
+
+      if (!starts.length) {
+        // fallback one block
+        return [{
+          title: book,
+          pages: '1–' + pageTexts.length,
+          markdown: '# ' + book + '\n\n' + pageTexts.join('\n\n').trim() + '\n'
+        }];
+      }
+
+      const out = [];
+      for (let s = 0; s < starts.length; s++) {
+        const from = starts[s];
+        const to = s + 1 < starts.length ? starts[s + 1] : lines.length;
+        const chunkLines = lines.slice(from, to);
+        let title = chunkLines[0].text.trim().replace(/^#+\s*/, '');
+        if (!/^chapitre/i.test(title) && !/^chapter/i.test(title)) {
+          title = 'Chapitre ' + (out.length + 1) + ' — ' + title;
+        }
+        const body = chunkLines.slice(1).map(x => x.text).join('\n').trim();
+        const p0 = chunkLines[0].page;
+        const p1 = chunkLines[chunkLines.length - 1].page;
+        out.push({
+          title,
+          pages: p0 === p1 ? String(p0) : (p0 + '–' + p1),
+          markdown: '# ' + title + '\n\n> Source : ' + book + '\n\n' + body + '\n'
+        });
+      }
+      return out;
+    }
+
+    window.runConvert = async function runConvert() {
+      if (!pdfFile) return;
+      btnRun.disabled = true;
+      clearLog();
+      chapters = [];
+      document.getElementById('result-card').style.display = 'none';
+      document.getElementById('chapters').innerHTML = '';
+
+      try {
+        log('Lecture du PDF…');
+        const buf = await pdfFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        const skip = Math.max(0, parseInt(document.getElementById('skip-start').value, 10) || 0);
+        const total = pdf.numPages;
+        log('Pages détectées : ' + total + (skip ? (' (ignore les ' + skip + ' premières)') : ''));
+
+        const pageTexts = [];
+        for (let p = 1 + skip; p <= total; p++) {
+          const page = await pdf.getPage(p);
+          const tc = await page.getTextContent();
+          const text = tc.items.map(it => it.str).join(' ');
+          // Reconstitute rough lines: split on multiple spaces / keep as paragraph blocks
+          const cleaned = text.replace(/\s+/g, ' ').trim();
+          pageTexts.push(cleaned);
+          if (p % 5 === 0 || p === total) log('  page ' + p + '/' + total);
+        }
+
+        const mode = document.getElementById('detect-mode').value;
+        const pagesPer = Math.max(1, parseInt(document.getElementById('pages-per').value, 10) || 8);
+        chapters = pagesToChapters(pageTexts, mode, pagesPer);
+        log('Chapitres trouvés : ' + chapters.length, 'ok');
+        renderChapters();
+        document.getElementById('result-card').style.display = 'block';
+      } catch (e) {
+        console.error(e);
+        log('Erreur : ' + (e.message || e), 'err');
+      }
+      btnRun.disabled = false;
+    };
+
+    function renderChapters() {
+      const root = document.getElementById('chapters');
+      root.innerHTML = '';
+      chapters.forEach((ch, i) => {
+        const div = document.createElement('div');
+        div.className = 'ch';
+        const words = ch.markdown.split(/\s+/).length;
+        div.innerHTML =
+          '<div class="ch-title">' + escapeHtml(ch.title) + '</div>' +
+          '<div class="ch-meta">Pages ' + escapeHtml(ch.pages) + ' · ~' + words + ' mots · ' + ch.markdown.length + ' car.</div>' +
+          '<div class="ch-actions">' +
+          '<button type="button" class="mini" data-dl="' + i + '">⬇ .md</button>' +
+          '<button type="button" class="mini" data-copy="' + i + '">📋 Copier</button>' +
+          '<button type="button" class="mini" data-prev="' + i + '">👁 Aperçu</button>' +
+          '</div>' +
+          '<textarea class="preview" id="prev-' + i + '" readonly></textarea>';
+        root.appendChild(div);
+      });
+      root.querySelectorAll('[data-dl]').forEach(btn => btn.addEventListener('click', () => downloadOne(+btn.getAttribute('data-dl'))));
+      root.querySelectorAll('[data-copy]').forEach(btn => btn.addEventListener('click', () => {
+        const i = +btn.getAttribute('data-copy');
+        navigator.clipboard.writeText(chapters[i].markdown).then(() => {
+          btn.textContent = '✅';
+          setTimeout(() => btn.textContent = '📋 Copier', 1500);
+        });
+      }));
+      root.querySelectorAll('[data-prev]').forEach(btn => btn.addEventListener('click', () => {
+        const i = +btn.getAttribute('data-prev');
+        const ta = document.getElementById('prev-' + i);
+        if (ta.style.display === 'block') { ta.style.display = 'none'; return; }
+        ta.value = chapters[i].markdown.slice(0, 4000) + (chapters[i].markdown.length > 4000 ? '\n…' : '');
+        ta.style.display = 'block';
+      }));
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function fileNameFor(i) {
+      const book = slug(document.getElementById('book-title').value || 'livre');
+      const ch = slug(chapters[i].title);
+      return book + '-' + String(i + 1).padStart(2, '0') + '-' + ch + '.md';
+    }
+
+    function downloadOne(i) {
+      const blob = new Blob([chapters[i].markdown], { type: 'text/markdown;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileNameFor(i);
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    window.downloadAll = function() {
+      chapters.forEach((_, i) => setTimeout(() => downloadOne(i), i * 150));
+    };
+
+    window.copyAll = function() {
+      const all = chapters.map(c => c.markdown).join('\n\n---\n\n');
+      navigator.clipboard.writeText(all).then(() => alert('Tout le livre (markdown) copié.'));
+    };
+  </script>
+</body>
+</html>
