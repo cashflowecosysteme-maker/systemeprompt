@@ -248,8 +248,10 @@
     // Vidéo d'accueil seulement si conversation vide
     var hasMsgs = (chatHistories.diane || []).length > 0
     var videoUrl = AGENT_WELCOME_VIDEO.diane
-    if (videoUrl && !hasMsgs && !hasSeenWelcomeVideo('diane')) {
-      addVideoMessage(videoUrl, 'diane', { autoplay: true })
+    if (videoUrl && !hasMsgs) {
+      var first = !hasSeenWelcomeVideo('diane')
+      addVideoMessage(videoUrl, 'diane', { autoplay: first })
+      if (first) markWelcomeVideoSeen('diane')
     }
     // Pas de message texte d'accueil auto — la vidéo de présentation suffit
 
@@ -304,9 +306,8 @@
 
   function addVideoMessage(videoUrl, agentKey, opts) {
     opts = opts || {}
-    var autoplay = opts.autoplay !== false // défaut: true seulement si on le demande explicitement via opts
-    if (opts.autoplay === false) autoplay = false
-    if (opts.autoplay === true) autoplay = true
+    // autoplay UNIQUEMENT si opts.autoplay === true (première visite)
+    var autoplay = opts.autoplay === true
 
     var msgs = document.getElementById('chat-messages-' + agentKey)
     if (!msgs) return
