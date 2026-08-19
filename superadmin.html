@@ -376,6 +376,36 @@ tr:hover td{background:rgba(123,92,255,0.05)}
       <div id="msg-admin-status" style="margin-top:10px;font-size:13px"></div>
     </div>
 
+
+    <!-- Contacts autorisés messagerie client -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">🔐 Contacts autorisés (messagerie clients)</div>
+          <div class="panel-subtitle">Les clients ne peuvent écrire qu'au Super Admin et à ces personnes (Patrick, adjoint…). Pas aux autres clients.</div>
+        </div>
+        <button type="button" class="btn-primary" onclick="loadMessagerieContacts()">↻ Actualiser</button>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:16px">
+        <div class="field">
+          <label>Prénom / nom affiché</label>
+          <input type="text" id="contact-firstname" placeholder="Patrick">
+        </div>
+        <div class="field">
+          <label>Email *</label>
+          <input type="email" id="contact-email" placeholder="patrick@exemple.com">
+        </div>
+      </div>
+      <div class="form-actions" style="margin-bottom:16px">
+        <button type="button" class="btn-primary" onclick="addMessagerieContact()">+ Ajouter le contact</button>
+      </div>
+      <div id="contacts-status" style="font-size:13px;margin-bottom:12px;color:var(--t3)"></div>
+      <div id="contacts-list" style="display:flex;flex-direction:column;gap:8px">
+        <div style="color:var(--t3);font-size:13px">Chargement…</div>
+      </div>
+    </div>
+
     <!-- Setup Vectorize (cerveaux Éric & NyXia) -->
     <div class="panel">
       <div class="panel-header">
@@ -559,6 +589,7 @@ var LOCKOUT_UNTIL = 0;
         ADMIN_SESSION_TOKEN = session.token;
         showAdminPanel();
         loadAccounts();
+      loadMessagerieContacts();
         return;
       }
     } catch(e) {}
