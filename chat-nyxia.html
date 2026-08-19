@@ -144,7 +144,7 @@
   }
   var AGENT_IMAGES = { nyxia: '/NyXia.png' }
   var AGENT_WELCOME_AUDIO = { nyxia: '/Bienvenue_NyXia.mp3' }  // ← mets ton fichier audio ici si tu en as un
-  var AGENT_WELCOME_VIDEO = { nyxia: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85f1b5b20f18.16466987_NyXia_Bienvenue_SP.mp4' }                   // ← mets l'URL de ta vidéo d'accueil ici si tu en as une
+  var AGENT_WELCOME_VIDEO = { nyxia: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85f1b5b20f18.16466987_NyXia_Bienvenue_SP.mp4' }
 
   /* ═══════ AUTH ═══════ */
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
@@ -234,10 +234,11 @@
     updateHeaderAvatar('nyxia')
     document.title = 'NyXia — Alpha Suprême'
 
-    var videoUrl = AGENT_WELCOME_VIDEO.nyxia
-    if (videoUrl) addVideoMessage(videoUrl, 'nyxia')
-    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
     renderStoredMessages()
+    var hasMsgs = (chatHistories.nyxia || []).length > 0
+    var videoUrl = AGENT_WELCOME_VIDEO.nyxia
+    if (videoUrl && !hasMsgs) addVideoMessage(videoUrl, 'nyxia')
+    // Pas de message texte d'accueil auto — la vidéo de présentation suffit
 
     var chatInput = document.getElementById('chat-input')
     chatInput.addEventListener('input', function() { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px' })
