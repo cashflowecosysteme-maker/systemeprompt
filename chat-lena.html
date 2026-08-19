@@ -247,8 +247,10 @@
     renderStoredMessages()
     var hasMsgs = (chatHistories.lena || []).length > 0
     var videoUrl = AGENT_WELCOME_VIDEO.lena
-    if (videoUrl && !hasMsgs && !hasSeenWelcomeVideo('lena')) {
-      addVideoMessage(videoUrl, 'lena', { autoplay: true })
+    if (videoUrl && !hasMsgs) {
+      var first = !hasSeenWelcomeVideo('lena')
+      addVideoMessage(videoUrl, 'lena', { autoplay: first })
+      if (first) markWelcomeVideoSeen('lena')
     }
     // Vidéo : autoplay uniquement à la première visite ; ensuite play manuel
 
@@ -303,9 +305,8 @@
 
   function addVideoMessage(videoUrl, agentKey, opts) {
     opts = opts || {}
-    var autoplay = opts.autoplay !== false // défaut: true seulement si on le demande explicitement via opts
-    if (opts.autoplay === false) autoplay = false
-    if (opts.autoplay === true) autoplay = true
+    // autoplay UNIQUEMENT si opts.autoplay === true (première visite)
+    var autoplay = opts.autoplay === true
 
     var msgs = document.getElementById('chat-messages-' + agentKey)
     if (!msgs) return
