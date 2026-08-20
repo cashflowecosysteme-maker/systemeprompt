@@ -186,9 +186,7 @@
 
   function nouveauChat() {
     var name = (ALPHA_INFO[_currentAgent] && ALPHA_INFO[_currentAgent].name) || 'ce personnage'
-    if (!confirm('Effacer la conversation avec ' + name + ' ?
-
-Tu ne pourras pas la récupérer.')) return
+    if (!confirm('Effacer la conversation avec ' + name + ' ?\n\nTu ne pourras pas la récupérer.')) return
     try { sessionStorage.removeItem(CHAT_STORAGE_KEY) } catch (e) {}
     try { localStorage.removeItem(welcomeVideoSeenKey(_currentAgent)) } catch (e) {}
     chatHistories[_currentAgent] = []
