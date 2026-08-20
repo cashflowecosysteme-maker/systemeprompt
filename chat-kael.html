@@ -149,7 +149,7 @@
     nyxia: '/NyXia.png'
   }
   var AGENT_WELCOME_AUDIO = { kael: null }
-  var AGENT_WELCOME_VIDEO = { kael: "https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85f6ce6df9e8.12493603_Kael_Bienvenue_SP.mp4" }
+  var AGENT_WELCOME_VIDEO = { kael: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85f6ce6df9e8.12493603_Kael_Bienvenue_SP.mp4' }
 
   /* ═══════ AUTH ═══════ */
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
@@ -189,9 +189,7 @@
 
   function nouveauChat() {
     var name = (ALPHA_INFO[_currentAgent] && ALPHA_INFO[_currentAgent].name) || 'ce personnage'
-    if (!confirm('Effacer la conversation avec ' + name + ' ?
-
-Tu ne pourras pas la récupérer.')) return
+    if (!confirm('Effacer la conversation avec ' + name + ' ?\n\nTu ne pourras pas la récupérer.')) return
     try { sessionStorage.removeItem(CHAT_STORAGE_KEY) } catch (e) {}
     try { localStorage.removeItem(welcomeVideoSeenKey(_currentAgent)) } catch (e) {}
     chatHistories[_currentAgent] = []
