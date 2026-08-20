@@ -187,14 +187,17 @@
     var name = (ALPHA_INFO[_currentAgent] && ALPHA_INFO[_currentAgent].name) || 'ce personnage'
     if (!confirm('Effacer la conversation avec ' + name + ' ?\n\nTu ne pourras pas la récupérer.')) return
     try { sessionStorage.removeItem(CHAT_STORAGE_KEY) } catch (e) {}
-    try { localStorage.removeItem(welcomeVideoSeenKey(_currentAgent)) } catch (e) {}
+    clearVideoAutoplayed(_currentAgent)
     chatHistories[_currentAgent] = []
     var msgs = document.getElementById('chat-messages-' + _currentAgent)
     if (msgs) msgs.innerHTML = ''
     var sug = document.getElementById('suggestions')
     if (sug) sug.style.display = 'flex'
     var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
-    if (videoUrl) addVideoMessage(videoUrl, _currentAgent, { autoplay: true })
+    if (videoUrl) {
+      addVideoMessage(videoUrl, _currentAgent, { autoplay: true })
+      markVideoAutoplayed(_currentAgent)
+    }
   }
 
   function saveChatToStorage() {
@@ -211,9 +214,7 @@
     if (!list.length) return
     var msgs = document.getElementById('chat-messages-' + _currentAgent)
     if (!msgs) return
-    // Ne pas rejouer si déjà des messages (évite doublon)
     if (msgs.querySelector('.msg')) return
-    // Vidéo d'accueil visible mais sans autoplay quand on revient sur la conversation
     var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
     if (videoUrl) addVideoMessage(videoUrl, _currentAgent, { autoplay: false })
     list.forEach(function(item) {
@@ -249,16 +250,13 @@
     document.title = 'Léna — NyXia'
 
     renderStoredMessages()
-    var hasMsgs = (chatHistories.lena || []).length > 0
     var videoUrl = AGENT_WELCOME_VIDEO.lena
     if (videoUrl) {
-      if (!hasMsgs) {
-        // Login / conversation vide → autoplay
-        addVideoMessage(videoUrl, 'lena', { autoplay: true })
-      } else {
-        // Conversation existante → vidéo visible, lecture manuelle
-        addVideoMessage(videoUrl, 'lena', { autoplay: false })
-      }
+      var alreadyPlayed = hasVideoAutoplayed('lena')
+      // Autoplay SEULEMENT la première fois qu'on ouvre ce personnage dans la session
+      // Revenir sur Diane après Éric → vidéo visible, SANS autoplay
+      addVideoMessage(videoUrl, 'lena', { autoplay: !alreadyPlayed })
+      if (!alreadyPlayed) markVideoAutoplayed('lena')
     }
     // Vidéo : autoplay uniquement à la première visite ; ensuite play manuel
 
@@ -284,6 +282,20 @@
     if (ca) ca.addEventListener('click', function() { _currentAttachment = null; var bar = document.getElementById('attach-bar'), fi2 = document.getElementById('chat-file'); if (bar) bar.style.display = 'none'; if (fi2) fi2.value = '' })
   }
 
+
+  
+  function videoAutoplayKey(agentKey) {
+    return 'nyxia_video_autoplayed_' + (agentKey || _currentAgent)
+  }
+  function hasVideoAutoplayed(agentKey) {
+    try { return sessionStorage.getItem(videoAutoplayKey(agentKey)) === '1' } catch (e) { return false }
+  }
+  function markVideoAutoplayed(agentKey) {
+    try { sessionStorage.setItem(videoAutoplayKey(agentKey), '1') } catch (e) {}
+  }
+  function clearVideoAutoplayed(agentKey) {
+    try { sessionStorage.removeItem(videoAutoplayKey(agentKey)) } catch (e) {}
+  }
 
   function welcomeVideoSeenKey(agentKey) {
     return 'nyxia_welcome_video_seen_' + (agentKey || _currentAgent)
