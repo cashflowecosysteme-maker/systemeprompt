@@ -185,15 +185,18 @@
 
   function nouveauChat() {
     var name = (ALPHA_INFO[_currentAgent] && ALPHA_INFO[_currentAgent].name) || 'ce personnage'
-    if (!confirm('Effacer la conversation avec ' + name + ' ?\n\nTu ne pourras pas la récupérer.')) return
+    if (!confirm('Effacer la conversation avec ' + name + ' ?
+
+Tu ne pourras pas la récupérer.')) return
     try { sessionStorage.removeItem(CHAT_STORAGE_KEY) } catch (e) {}
+    try { localStorage.removeItem(welcomeVideoSeenKey(_currentAgent)) } catch (e) {}
     chatHistories[_currentAgent] = []
     var msgs = document.getElementById('chat-messages-' + _currentAgent)
     if (msgs) msgs.innerHTML = ''
     var sug = document.getElementById('suggestions')
     if (sug) sug.style.display = 'flex'
-    // Rejouer la vidéo d'accueil si configurée
-    // Pas de rejouage auto de la vidéo à Nouveau chat
+    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    if (videoUrl) addVideoMessage(videoUrl, _currentAgent, { autoplay: true })
   }
 
   function saveChatToStorage() {
@@ -212,6 +215,9 @@
     if (!msgs) return
     // Ne pas rejouer si déjà des messages (évite doublon)
     if (msgs.querySelector('.msg')) return
+    // Vidéo d'accueil visible mais sans autoplay quand on revient sur la conversation
+    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    if (videoUrl) addVideoMessage(videoUrl, _currentAgent, { autoplay: false })
     list.forEach(function(item) {
       if (!item || !item.content) return
       if (item.role === 'user') addUserMessage(item.content)
@@ -247,10 +253,14 @@
     renderStoredMessages()
     var hasMsgs = (chatHistories.lena || []).length > 0
     var videoUrl = AGENT_WELCOME_VIDEO.lena
-    if (videoUrl && !hasMsgs) {
-      var first = !hasSeenWelcomeVideo('lena')
-      addVideoMessage(videoUrl, 'lena', { autoplay: first })
-      if (first) markWelcomeVideoSeen('lena')
+    if (videoUrl) {
+      if (!hasMsgs) {
+        // Login / conversation vide → autoplay
+        addVideoMessage(videoUrl, 'lena', { autoplay: true })
+      } else {
+        // Conversation existante → vidéo visible, lecture manuelle
+        addVideoMessage(videoUrl, 'lena', { autoplay: false })
+      }
     }
     // Vidéo : autoplay uniquement à la première visite ; ensuite play manuel
 
