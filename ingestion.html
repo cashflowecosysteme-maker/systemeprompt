@@ -22,8 +22,9 @@
     .lead{color:var(--t3);font-size:13px;margin-bottom:24px;line-height:1.6}
     .card{background:rgba(123,92,255,0.06);border:1px solid rgba(123,92,255,0.16);border-radius:16px;padding:22px;margin-bottom:18px;backdrop-filter:blur(6px)}
     label{display:block;font-size:12px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
-    input,select{width:100%;background:rgba(10,22,40,0.7);border:1px solid rgba(123,92,255,0.25);border-radius:10px;color:var(--t);font-family:'Outfit',sans-serif;font-size:15px;padding:12px 14px;outline:none}
-    input:focus,select:focus{border-color:rgba(123,92,255,0.6)}
+    input,select,textarea{width:100%;background:rgba(10,22,40,0.7);border:1px solid rgba(123,92,255,0.25);border-radius:10px;color:var(--t);font-family:'Outfit',sans-serif;font-size:15px;padding:12px 14px;outline:none}
+    input:focus,select:focus,textarea:focus{border-color:rgba(123,92,255,0.6)}
+    textarea{min-height:110px;resize:vertical;line-height:1.55}
     input[type=file]{padding:10px}
     .btn{width:100%;padding:14px;border-radius:50px;border:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 0 24px rgba(123,92,255,0.4);transition:.2s;margin-top:8px}
     .btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 40px rgba(123,92,255,0.6)}
@@ -48,6 +49,11 @@
     .btn-ghost { background:rgba(123,92,255,.1); box-shadow:none; border:1px solid rgba(123,92,255,.25); color:var(--t2); }
     .book-row { padding:10px 12px; border:1px solid rgba(123,92,255,.15); border-radius:10px; margin-top:8px; background:rgba(0,0,0,.2); }
     .book-row strong { color:var(--t); }
+    .video-preview{display:none;margin-top:12px;padding:12px;border:1px solid rgba(123,92,255,.2);border-radius:12px;background:rgba(0,0,0,.25)}
+    .video-preview video,.video-preview iframe{display:block;width:100%;max-height:380px;border:0;border-radius:10px;background:#000;aspect-ratio:16/9}
+    .video-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .video-actions .btn{width:auto;flex:1;min-width:190px}
+    @media (max-width:640px){.row{grid-template-columns:1fr}.video-actions .btn{width:100%}}
     </style>
 </head>
 <body>
@@ -118,6 +124,110 @@
       <button class="btn btn-danger" onclick="clearBrain()">🗑️ Vider le cerveau sélectionné</button>
       <div class="msg" id="clear-msg"></div>
     </div>
+
+    <!-- FORMATION VIVANTE VIDÉO -->
+    <div class="card hidden" id="video-training-card">
+      <h2>🎬 Formation vivante vidéo</h2>
+      <div class="hint" style="margin-top:0;margin-bottom:16px">Crée une leçon vidéo que le personnage pourra retrouver naturellement selon la conversation. La transcription est vectorisée; l’adresse permet d’afficher la vidéo au bon moment.</div>
+
+      <label>Personnage(s) formateur(s)</label>
+      <div id="fv-cibles-box" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+        <label class="chip"><input type="checkbox" name="fv-cible" value="diane"> Diane</label>
+        <label class="chip"><input type="checkbox" name="fv-cible" value="nyxia"> NyXia</label>
+        <label class="chip"><input type="checkbox" name="fv-cible" value="eric" checked> Éric</label>
+        <label class="chip"><input type="checkbox" name="fv-cible" value="kael"> Kael</label>
+        <label class="chip"><input type="checkbox" name="fv-cible" value="lena"> Léna</label>
+        <label class="chip"><input type="checkbox" name="fv-cible" value="selena"> Séléna</label>
+        <label class="chip"><input type="checkbox" name="fv-cible" value="alex"> Alex</label>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn" style="padding:6px 12px;font-size:12px" onclick="setAllVideoCibles(true)">Tout cocher</button>
+        <button type="button" class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="setAllVideoCibles(false)">Tout décocher</button>
+      </div>
+
+      <div class="row" style="margin-top:16px">
+        <div>
+          <label for="fv-course">Nom de la formation</label>
+          <input type="text" id="fv-course" placeholder="ex : Communication humaine">
+        </div>
+        <div>
+          <label for="fv-title">Titre de la leçon</label>
+          <input type="text" id="fv-title" placeholder="ex : Répondre à l’objection du prix">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="fv-module">Module</label>
+          <input type="text" id="fv-module" value="1" placeholder="ex : 1 — Comprendre">
+        </div>
+        <div>
+          <label for="fv-lesson">Leçon</label>
+          <input type="text" id="fv-lesson" value="1" placeholder="ex : 1">
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="fv-url">Adresse de la vidéo</label>
+        <input type="url" id="fv-url" placeholder="https://.../ma-video.mp4">
+        <div class="hint">Adresse HTTPS directe recommandée : MP4 CloudFront/Systeme.io, Cloudflare Stream, YouTube ou Vimeo.</div>
+        <div class="video-actions">
+          <button type="button" class="btn btn-ghost" onclick="previewTrainingVideo()">▶ Tester la vidéo</button>
+        </div>
+        <div class="video-preview" id="fv-preview"></div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="fv-triggers">Quand proposer cette leçon?</label>
+        <textarea id="fv-triggers" placeholder="ex : Lorsque la personne parle d’une objection sur le prix, de sa peur de vendre ou de la difficulté à expliquer la valeur de son offre."></textarea>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="fv-content">Contenu ou transcription de la vidéo</label>
+        <textarea id="fv-content" style="min-height:190px" placeholder="Colle ici la transcription, le résumé détaillé ou le contenu enseigné dans la vidéo."></textarea>
+        <div class="hint">Si le texte est long, l’outil le découpera automatiquement en plusieurs passages reliés à la même vidéo.</div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label for="fv-intro">Introduction du personnage avant la vidéo — facultatif</label>
+        <textarea id="fv-intro" placeholder="ex : Cette courte leçon va t’aider à présenter la valeur de ton offre sans te justifier."></textarea>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="fv-question">Question après la vidéo — facultatif</label>
+          <textarea id="fv-question" placeholder="ex : Quelle objection reçois-tu le plus souvent?"></textarea>
+        </div>
+        <div>
+          <label for="fv-next">Prochaine étape — facultatif</label>
+          <textarea id="fv-next" placeholder="ex : Préparer ensemble une réponse personnalisée."></textarea>
+        </div>
+      </div>
+
+      <button class="btn" id="btn-fv-ingest" type="button" onclick="startVideoTrainingIngest()">🎬 Vectoriser cette leçon vidéo</button>
+      <div class="progress-wrap hidden" id="fv-progress-wrap"><div class="progress-bar" id="fv-progress"></div></div>
+      <div class="log hidden" id="fv-log"></div>
+      <div class="msg" id="fv-msg"></div>
+    </div>
+
+    <div class="card hidden" id="list-brain-card">
+      <h2>📚 Contenu d'un cerveau</h2>
+      <div class="hint">Choisis un personnage puis liste les livres / passages déjà ingérés.</div>
+      <div class="field" style="margin-top:10px">
+        <label for="list-cible">Personnage</label>
+        <select id="list-cible">
+          <option value="diane">Diane</option>
+          <option value="nyxia">NyXia</option>
+          <option value="eric">Éric</option>
+          <option value="kael">Kael</option>
+          <option value="lena">Léna</option>
+          <option value="selena">Séléna</option>
+          <option value="alex">Alex</option>
+        </select>
+      </div>
+      <button class="btn" type="button" onclick="listBrain()">👁 Voir le contenu</button>
+      <div id="list-brain-result" style="margin-top:12px"></div>
+    </div>
   </div>
 
   <script src="/starry-bg.js" defer></script>
@@ -130,7 +240,7 @@
       var btn=document.getElementById('btn-login'); btn.disabled=true; btn.textContent='Connexion...';
       fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
         .then(function(r){return r.json()}).then(function(d){
-          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); var lb=document.getElementById('list-brain-card'); if(lb) lb.classList.remove('hidden'); var cb=document.getElementById('clear-brain-card'); if(cb) cb.classList.remove('hidden'); }
+          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); var fv=document.getElementById('video-training-card'); if(fv) fv.classList.remove('hidden'); var lb=document.getElementById('list-brain-card'); if(lb) lb.classList.remove('hidden'); var cb=document.getElementById('clear-brain-card'); if(cb) cb.classList.remove('hidden'); }
           else { msg.className='msg err'; msg.textContent=d.error||'Mot de passe incorrect.'; btn.disabled=false; btn.textContent='Se connecter'; }
         }).catch(function(){ msg.className='msg err'; msg.textContent='Impossible de joindre le Worker.'; btn.disabled=false; btn.textContent='Se connecter'; });
     }
@@ -251,6 +361,130 @@
     function setAllCibles(on){
       document.querySelectorAll('input[name="cible"]').forEach(function(c){ c.checked = !!on; });
     }
+
+    function getSelectedVideoCibles(){
+      return Array.prototype.slice.call(document.querySelectorAll('input[name="fv-cible"]:checked')).map(function(c){ return c.value; });
+    }
+
+    function setAllVideoCibles(on){
+      document.querySelectorAll('input[name="fv-cible"]').forEach(function(c){ c.checked = !!on; });
+    }
+
+    function validHttpsUrl(value){
+      try { var u=new URL(value); return u.protocol==='https:' ? u : null; }
+      catch(e){ return null; }
+    }
+
+    function videoEmbedUrl(value){
+      var u=validHttpsUrl(value); if(!u) return null;
+      var host=u.hostname.toLowerCase();
+      if(host==='youtu.be'){
+        var shortId=u.pathname.replace(/^\//,'').split('/')[0];
+        return shortId ? 'https://www.youtube.com/embed/'+encodeURIComponent(shortId) : null;
+      }
+      if(host.indexOf('youtube.com')>-1){
+        var id=u.searchParams.get('v');
+        if(!id && u.pathname.indexOf('/embed/')===0) id=u.pathname.split('/embed/')[1].split('/')[0];
+        return id ? 'https://www.youtube.com/embed/'+encodeURIComponent(id) : null;
+      }
+      if(host.indexOf('vimeo.com')>-1){
+        var vm=u.pathname.split('/').filter(Boolean).pop();
+        return /^\d+$/.test(vm||'') ? 'https://player.vimeo.com/video/'+vm : null;
+      }
+      if(host.indexOf('cloudflarestream.com')>-1 && /\/(?:watch|iframe)\/?$/i.test(u.pathname)){
+        return value.replace(/\/watch\/?(?:\?.*)?$/i,'/iframe');
+      }
+      return null;
+    }
+
+    function previewTrainingVideo(){
+      var raw=document.getElementById('fv-url').value.trim();
+      var box=document.getElementById('fv-preview'), msg=document.getElementById('fv-msg');
+      box.innerHTML=''; box.style.display='none';
+      if(!validHttpsUrl(raw)){ msg.className='msg err'; msg.textContent='Entre une adresse vidéo HTTPS valide.'; return; }
+      var embed=videoEmbedUrl(raw), media;
+      if(embed){
+        media=document.createElement('iframe'); media.src=embed; media.allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'; media.allowFullscreen=true;
+      }else{
+        media=document.createElement('video'); media.src=raw; media.controls=true; media.playsInline=true; media.preload='metadata';
+        media.addEventListener('error',function(){ msg.className='msg err'; msg.textContent='La vidéo ne peut pas être prévisualisée. Vérifie que l’adresse mène directement à une vidéo accessible.'; });
+      }
+      box.appendChild(media); box.style.display='block'; msg.className='msg ok'; msg.textContent='Aperçu chargé. Vérifie que la lecture fonctionne avant de vectoriser.';
+    }
+
+    function addVideoTrainingLog(message, cls){
+      var log=document.getElementById('fv-log'); log.classList.remove('hidden');
+      var line=document.createElement('div'); if(cls) line.className=cls; line.textContent=message; log.appendChild(line); log.scrollTop=log.scrollHeight;
+    }
+
+    async function startVideoTrainingIngest(){
+      var cibles=getSelectedVideoCibles();
+      var course=document.getElementById('fv-course').value.trim();
+      var title=document.getElementById('fv-title').value.trim();
+      var moduleName=document.getElementById('fv-module').value.trim()||'1';
+      var lessonName=document.getElementById('fv-lesson').value.trim()||'1';
+      var videoUrl=document.getElementById('fv-url').value.trim();
+      var triggers=document.getElementById('fv-triggers').value.trim();
+      var content=document.getElementById('fv-content').value.trim();
+      var intro=document.getElementById('fv-intro').value.trim();
+      var question=document.getElementById('fv-question').value.trim();
+      var nextStep=document.getElementById('fv-next').value.trim();
+      var msg=document.getElementById('fv-msg');
+
+      if(!cibles.length){ msg.className='msg err'; msg.textContent='Coche au moins un personnage formateur.'; return; }
+      if(!course||!title||!triggers||!content){ msg.className='msg err'; msg.textContent='Complète la formation, le titre, le moment où la proposer et son contenu.'; return; }
+      if(!validHttpsUrl(videoUrl)){ msg.className='msg err'; msg.textContent='Entre une adresse vidéo HTTPS valide.'; return; }
+
+      var passages=chunkPlain(content,1300).map(function(p){return p.texte;});
+      if(!passages.length) passages=[content];
+      var source='Formation vidéo — '+course+' — Module '+moduleName+' — Leçon '+lessonName+' — '+title;
+      var courseSlug=slug(course).slice(0,20), titleSlug=slug(title).slice(0,16);
+      var all=[];
+
+      cibles.forEach(function(cible){
+        passages.forEach(function(passage,index){
+          var texte=[
+            'TYPE DE CONTENU : FORMATION VIVANTE VIDÉO',
+            'PERSONNAGE FORMATEUR : '+cible,
+            'FORMATION : '+course,
+            'MODULE : '+moduleName,
+            'LEÇON : '+lessonName,
+            'TITRE : '+title,
+            'ADRESSE VIDÉO APPROUVÉE : '+videoUrl,
+            'QUAND PROPOSER CETTE LEÇON : '+triggers,
+            intro ? 'INTRODUCTION SUGGÉRÉE AVANT LA VIDÉO : '+intro : 'INTRODUCTION AVANT LA VIDÉO : Présenter brièvement pourquoi cette leçon peut aider la personne maintenant.',
+            'CONTENU VECTORISÉ — PARTIE '+(index+1)+' SUR '+passages.length+' :\n'+passage,
+            question ? 'QUESTION D’INTÉGRATION APRÈS LA VIDÉO : '+question : 'APRÈS LA VIDÉO : Poser une seule question ouverte liée à la situation de la personne.',
+            nextStep ? 'PROCHAINE ÉTAPE : '+nextStep : 'PROCHAINE ÉTAPE : Adapter la suite à la réponse de la personne.',
+            'RÈGLE D’UTILISATION : Proposer cette vidéo seulement lorsqu’elle répond réellement à la demande ou à l’étape de formation de la personne. L’introduire humainement et ne jamais inventer ni modifier son adresse.',
+            'RÈGLE TECHNIQUE D’AFFICHAGE : Pour afficher la vidéo dans le message, écrire exactement cette balise une seule fois sur une ligne séparée : [VIDEO: '+videoUrl+']'
+          ].join('\n\n');
+          var id=(cible+'-fv-'+courseSlug+'-m'+slug(moduleName).slice(0,6)+'-l'+slug(lessonName).slice(0,6)+'-'+titleSlug+'-p'+(index+1)).slice(0,64);
+          all.push({id:id,texte:texte,source:source,personnage:cible});
+        });
+      });
+
+      var btn=document.getElementById('btn-fv-ingest'), wrap=document.getElementById('fv-progress-wrap'), bar=document.getElementById('fv-progress'), log=document.getElementById('fv-log');
+      btn.disabled=true; btn.textContent='Vectorisation en cours...'; wrap.classList.remove('hidden'); bar.style.width='0%'; log.innerHTML=''; log.classList.remove('hidden'); msg.textContent='';
+      addVideoTrainingLog('🎬 '+passages.length+' passage(s) × '+cibles.length+' personnage(s) = '+all.length+' ingestion(s).','info');
+
+      var ok=0,ko=0;
+      for(var i=0;i<all.length;i++){
+        try{
+          var res=await fetch('/api/ingest-book',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':TOKEN},body:JSON.stringify(all[i])});
+          var data=await res.json();
+          if(res.ok&&data.success){ ok++; addVideoTrainingLog('✓ '+all[i].id,'ok'); }
+          else { ko++; addVideoTrainingLog('✗ '+all[i].id+' : '+(data.error||('HTTP '+res.status)),'err'); }
+        }catch(e){ ko++; addVideoTrainingLog('✗ '+all[i].id+' : erreur réseau','err'); }
+        bar.style.width=Math.round(((i+1)/all.length)*100)+'%';
+        await new Promise(function(resolve){setTimeout(resolve,120);});
+      }
+
+      btn.disabled=false; btn.textContent='🎬 Vectoriser cette leçon vidéo';
+      msg.className=ko?'msg err':'msg ok';
+      msg.textContent=ko ? ('Terminé avec '+ok+' passage(s) réussi(s) et '+ko+' échec(s).') : ('✅ Leçon vidéo vectorisée : '+ok+' passage(s) ajouté(s).');
+    }
+
     async function listBrain(){
       var cible = (document.getElementById('list-cible').value||'').trim().toLowerCase();
       var box = document.getElementById('list-brain-result');
@@ -289,22 +523,3 @@
   </script>
 </body>
 </html>
-    <div class="card hidden" id="list-brain-card">
-      <h2>📚 Contenu d'un cerveau</h2>
-      <div class="hint">Choisis un personnage puis liste les livres / passages déjà ingérés.</div>
-      <div class="field" style="margin-top:10px">
-        <label for="list-cible">Personnage</label>
-        <select id="list-cible">
-          <option value="diane">Diane</option>
-          <option value="nyxia">NyXia</option>
-          <option value="eric">Éric</option>
-          <option value="kael">Kael</option>
-          <option value="lena">Léna</option>
-          <option value="selena">Séléna</option>
-          <option value="alex">Alex</option>
-        </select>
-      </div>
-      <button class="btn" type="button" onclick="listBrain()">👁 Voir le contenu</button>
-      <div id="list-brain-result" style="margin-top:12px"></div>
-    </div>
-
