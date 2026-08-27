@@ -256,8 +256,11 @@ export default {
       if (path === '/api/ingest-book' && request.method === 'POST') return await handleIngestBook(request, env);
       if (path === '/api/admin/clear-brain' && request.method === 'POST') return await handleClearBrain(request, env);
       if (path === '/api/admin/list-brain' && request.method === 'POST') return await handleListBrain(request, env);
-      if (path === '/api/personnages' && request.method === 'POST') return await handleListPersonnages(request, env);
       if (path === '/api/admin/setup-vectorize' && request.method === 'POST') return await handleSetupVectorize(request, env);
+
+      if ((path === '/api/personnages' || path === '/api/formations/agents') && (request.method === 'POST' || request.method === 'GET')) return await handlePersonnagesList(request, env);
+      if ((path === '/api/personnages/save' || path === '/api/formations/agents/save') && request.method === 'POST') return await handlePersonnagesSave(request, env);
+      if ((path === '/api/personnages/delete' || path === '/api/formations/agents/delete') && request.method === 'POST') return await handlePersonnagesDelete(request, env);
 
       if (path === '/api/admin/login' && request.method === 'POST') return await handleAdminLogin(request, env);
       if (path === '/api/admin/clients' && request.method === 'GET') return await handleAdminListClients(request, env);
@@ -641,30 +644,6 @@ async function getAdminCredentials(env) {
   const creds = { salt, hash };
   await env.CASHFLOW_KV.put('admin:credentials', JSON.stringify(creds));
   return creds;
-}
-
-// Liste des personnages pour l'outil Ingestion : 13 par défaut + ceux ajoutés dans le Super Admin
-// (clé partagée admin:formation_personnages dans CASHFLOW_KV). Rien n'est dupliqué : lecture seule.
-const INGESTION_DEFAULT_AGENTS = [
-  { code: 'diane', nom: 'Diane' }, { code: 'nyxia', nom: 'NyXia' }, { code: 'eric', nom: 'Éric' },
-  { code: 'kael', nom: 'Kael' }, { code: 'lena', nom: 'Léna' }, { code: 'selena', nom: 'Séléna' },
-  { code: 'alex', nom: 'Alex' }, { code: 'aimee', nom: 'Aimée' }, { code: 'alibi', nom: 'Alibi' },
-  { code: 'constance', nom: 'Constance' }, { code: 'fripouille', nom: 'Fripouille' },
-  { code: 'melusine', nom: 'Mélusine' }, { code: 'abime', nom: 'Abîme' }
-];
-
-async function handleListPersonnages(request, env) {
-  if (!(await requireAdmin(request, env))) return json({ error: 'Non autorisé.' }, 401);
-  let custom = [];
-  try { const raw = await env.CASHFLOW_KV.get('admin:formation_personnages'); if (raw) custom = JSON.parse(raw) || []; } catch (_) {}
-  const map = new Map();
-  for (const a of INGESTION_DEFAULT_AGENTS) map.set(a.code, { code: a.code, nom: a.nom });
-  for (const a of (Array.isArray(custom) ? custom : [])) {
-    if (a && /^[a-z0-9][a-z0-9-]{0,40}$/.test(String(a.code || ''))) {
-      map.set(a.code, { code: a.code, nom: String(a.nom || a.code) });
-    }
-  }
-  return json({ personnages: [...map.values()] });
 }
 
 async function requireAdmin(request, env) {
@@ -1578,3 +1557,76 @@ async function handleTTSCachedAudio(request, env, url) {
 
   return new Response(audio, { status: 200, headers: { 'Content-Type': 'audio/mpeg' } });
 }
+
+// ───────────── Personnages partagés (Univers + Studio Prompt, même KV) ─────────────
+const PERSONNAGES_KV_KEY = 'nyxia:personnages';
+const PERSONNAGES_KV_KEY_LEGACY = 'formations:agents';
+const PERSONNAGES_DEFAUT = [
+  { code: 'diane', nom: 'Diane', portail: 'lena', custom: false },
+  { code: 'nyxia', nom: 'NyXia', portail: 'tous', custom: false },
+  { code: 'lena', nom: 'Léna', portail: 'lena', custom: false },
+  { code: 'sophia', nom: 'Sophia', portail: 'lena', custom: false },
+  { code: 'aletheia', nom: 'Aletheia', portail: 'lena', custom: false },
+  { code: 'cassandre', nom: 'Cassandre', portail: 'lena', custom: false },
+  { code: 'celeste', nom: 'Céleste', portail: 'lena', custom: false },
+  { code: 'selena', nom: 'Séléna', portail: 'selena', custom: false },
+  { code: 'kael', nom: 'Kael', portail: 'kael', custom: false },
+  { code: 'eric', nom: 'Éric', portail: 'cercles', custom: false },
+  { code: 'alex', nom: 'Alex', portail: 'alex', custom: false }
+];
+function slugPersonnage(nom) {
+  return String(nom || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+async function lirePersonnages(env) {
+  const raw = (await env.CASHFLOW_KV.get(PERSONNAGES_KV_KEY)) || (await env.CASHFLOW_KV.get(PERSONNAGES_KV_KEY_LEGACY));
+  let extra = [];
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      extra = Array.isArray(parsed) ? parsed : (parsed.agents || parsed.personnages || []);
+    } catch (_) {}
+  }
+  const map = {};
+  PERSONNAGES_DEFAUT.concat(extra).forEach((p) => {
+    const code = String(p.code || p.id || '').toLowerCase().trim();
+    if (!code) return;
+    map[code] = {
+      code,
+      nom: p.nom || p.name || code,
+      portail: p.portail || p.portal || '',
+      custom: !!p.custom || !PERSONNAGES_DEFAUT.some((d) => d.code === code)
+    };
+  });
+  return Object.values(map).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+}
+async function ecrirePersonnages(env, list) {
+  const custom = list.filter((p) => p.custom);
+  await env.CASHFLOW_KV.put(PERSONNAGES_KV_KEY, JSON.stringify(custom));
+  await env.CASHFLOW_KV.put(PERSONNAGES_KV_KEY_LEGACY, JSON.stringify({ agents: custom }));
+}
+async function handlePersonnagesList(request, env) {
+  const agents = await lirePersonnages(env);
+  return json({ success: true, personnages: agents, agents });
+}
+async function handlePersonnagesSave(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const nom = String(body.nom || body.name || '').trim();
+  const code = slugPersonnage(body.code || nom);
+  if (!nom || !code) return json({ error: 'Nom requis.' }, 400);
+  const list = await lirePersonnages(env);
+  const exist = list.find((p) => p.code === code);
+  const row = { code, nom, portail: String(body.portail || body.portal || '').toLowerCase(), custom: true };
+  if (exist) Object.assign(exist, row);
+  else list.push(row);
+  await ecrirePersonnages(env, list);
+  return json({ success: true, agent: row, personnage: row });
+}
+async function handlePersonnagesDelete(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const code = String(body.code || body.id || '').toLowerCase().trim();
+  if (!code) return json({ error: 'code requis.' }, 400);
+  const list = (await lirePersonnages(env)).filter((p) => p.code !== code);
+  await ecrirePersonnages(env, list);
+  return json({ success: true });
+}
+
