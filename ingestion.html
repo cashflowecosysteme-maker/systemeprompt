@@ -78,6 +78,7 @@
         <div>
                   <div class="field">
           <label>Personnage(s) — cerveaux cibles</label>
+          <input id="filtre-persos" type="search" placeholder="Filtrer : sophia, léna, kael…" oninput="filtrePersos(this.value)" style="width:100%;margin:6px 0 8px;padding:8px 10px;border-radius:8px;border:1px solid rgba(123,92,255,.25);background:#0b1228;color:#fff">
           <div id="cibles-box" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
             <label class="chip"><input type="checkbox" name="cible" value="diane"> Diane</label>
             <label class="chip"><input type="checkbox" name="cible" value="nyxia"> NyXia</label>
@@ -274,15 +275,34 @@
       if(cur){ sel.value=cur; }
     }
     function loadPersonnages(){
-      fetch('/api/personnages',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':TOKEN}})
-        .then(function(r){return r.json()}).then(function(d){
-          var list=(d&&d.personnages)||[];
-          if(!list.length) return; /* garde le HTML par défaut si vide */
-          fillChips('cibles-box','cible',list,['eric']);
-          fillChips('fv-cibles-box','fv-cible',list,['eric']);
+      var headers={'Content-Type':'application/json','X-Admin-Token':TOKEN};
+      Promise.all([
+        fetch('/api/personnages',{method:'POST',headers:headers,body:'{}'}).then(function(r){return r.json()}).catch(function(){return {};}),
+        fetch('/api/formations/agents',{method:'GET',headers:headers}).then(function(r){return r.json()}).catch(function(){return {};})
+      ]).then(function(res){
+          var a=(res[0]&&(res[0].personnages||res[0].agents))||[];
+          var b=(res[1]&&(res[1].personnages||res[1].agents||(res[1].data&&res[1].data.agents)))||[];
+          var map={};
+          a.concat(b).forEach(function(p){
+            if(!p) return;
+            var code=String(p.code||p.id||p.agent||'').toLowerCase().trim();
+            if(!code) return;
+            map[code]={code:code, nom:p.nom||p.name||p.label||code, portail:p.portail||p.portal||''};
+          });
+          var list=Object.keys(map).sort().map(function(k){return map[k];});
+          if(!list.length) return;
+          fillChips('cibles-box','cible',list,[]);
+          fillChips('fv-cibles-box','fv-cible',list,[]);
           fillSelectP('clear-cible',list);
           fillSelectP('list-cible',list);
-        }).catch(function(){ /* en cas d'échec, on garde les listes par défaut du HTML */ });
+        }).catch(function(){});
+    }
+    function filtrePersos(q){
+      q=(q||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      document.querySelectorAll('#cibles-box .chip, #fv-cibles-box .chip').forEach(function(ch){
+        var t=ch.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        ch.style.display=!q||t.indexOf(q)>-1?'':'none';
+      });
     }
 
     function doLogin(){
