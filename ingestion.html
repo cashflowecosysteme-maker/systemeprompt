@@ -258,13 +258,40 @@
   <script>
     var TOKEN = null, FILES = [];
 
+    // Peuple les 4 sélecteurs de personnages depuis le worker (13 défauts + ajouts du Super Admin).
+    function escP(s){var d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
+    function fillChips(boxId,name,list,checkedCodes){
+      var box=document.getElementById(boxId); if(!box) return;
+      box.innerHTML=list.map(function(a){
+        var ck=(checkedCodes&&checkedCodes.indexOf(a.code)>-1)?' checked':'';
+        return '<label class="chip"><input type="checkbox" name="'+name+'" value="'+escP(a.code)+'"'+ck+'> '+escP(a.nom)+'</label>';
+      }).join('');
+    }
+    function fillSelectP(id,list){
+      var sel=document.getElementById(id); if(!sel) return;
+      var cur=sel.value;
+      sel.innerHTML=list.map(function(a){ return '<option value="'+escP(a.code)+'">'+escP(a.nom)+'</option>'; }).join('');
+      if(cur){ sel.value=cur; }
+    }
+    function loadPersonnages(){
+      fetch('/api/personnages',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':TOKEN}})
+        .then(function(r){return r.json()}).then(function(d){
+          var list=(d&&d.personnages)||[];
+          if(!list.length) return; /* garde le HTML par défaut si vide */
+          fillChips('cibles-box','cible',list,['eric']);
+          fillChips('fv-cibles-box','fv-cible',list,['eric']);
+          fillSelectP('clear-cible',list);
+          fillSelectP('list-cible',list);
+        }).catch(function(){ /* en cas d'échec, on garde les listes par défaut du HTML */ });
+    }
+
     function doLogin(){
       var pw=document.getElementById('pw').value.trim(), msg=document.getElementById('login-msg');
       if(!pw){ msg.className='msg err'; msg.textContent='Entre ton mot de passe.'; return; }
       var btn=document.getElementById('btn-login'); btn.disabled=true; btn.textContent='Connexion...';
       fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})})
-        .then(function(r){return r.json()}).then(function(d){
-          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); var fv=document.getElementById('video-training-card'); if(fv) fv.classList.remove('hidden'); var lb=document.getElementById('list-brain-card'); if(lb) lb.classList.remove('hidden'); var cb=document.getElementById('clear-brain-card'); if(cb) cb.classList.remove('hidden'); }
+        .then(function(r){return r.json()}).then(function(d){ /* login */
+          if(d.success&&d.token){ TOKEN=d.token; document.getElementById('login-card').classList.add('hidden'); document.getElementById('ingest-card').classList.remove('hidden'); var fv=document.getElementById('video-training-card'); if(fv) fv.classList.remove('hidden'); var lb=document.getElementById('list-brain-card'); if(lb) lb.classList.remove('hidden'); var cb=document.getElementById('clear-brain-card'); if(cb) cb.classList.remove('hidden'); loadPersonnages(); }
           else { msg.className='msg err'; msg.textContent=d.error||'Mot de passe incorrect.'; btn.disabled=false; btn.textContent='Se connecter'; }
         }).catch(function(){ msg.className='msg err'; msg.textContent='Impossible de joindre le Worker.'; btn.disabled=false; btn.textContent='Se connecter'; });
     }
