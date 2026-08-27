@@ -256,6 +256,7 @@ export default {
       if (path === '/api/ingest-book' && request.method === 'POST') return await handleIngestBook(request, env);
       if (path === '/api/admin/clear-brain' && request.method === 'POST') return await handleClearBrain(request, env);
       if (path === '/api/admin/list-brain' && request.method === 'POST') return await handleListBrain(request, env);
+      if (path === '/api/personnages' && request.method === 'POST') return await handleListPersonnages(request, env);
       if (path === '/api/admin/setup-vectorize' && request.method === 'POST') return await handleSetupVectorize(request, env);
 
       if (path === '/api/admin/login' && request.method === 'POST') return await handleAdminLogin(request, env);
@@ -640,6 +641,30 @@ async function getAdminCredentials(env) {
   const creds = { salt, hash };
   await env.CASHFLOW_KV.put('admin:credentials', JSON.stringify(creds));
   return creds;
+}
+
+// Liste des personnages pour l'outil Ingestion : 13 par défaut + ceux ajoutés dans le Super Admin
+// (clé partagée admin:formation_personnages dans CASHFLOW_KV). Rien n'est dupliqué : lecture seule.
+const INGESTION_DEFAULT_AGENTS = [
+  { code: 'diane', nom: 'Diane' }, { code: 'nyxia', nom: 'NyXia' }, { code: 'eric', nom: 'Éric' },
+  { code: 'kael', nom: 'Kael' }, { code: 'lena', nom: 'Léna' }, { code: 'selena', nom: 'Séléna' },
+  { code: 'alex', nom: 'Alex' }, { code: 'aimee', nom: 'Aimée' }, { code: 'alibi', nom: 'Alibi' },
+  { code: 'constance', nom: 'Constance' }, { code: 'fripouille', nom: 'Fripouille' },
+  { code: 'melusine', nom: 'Mélusine' }, { code: 'abime', nom: 'Abîme' }
+];
+
+async function handleListPersonnages(request, env) {
+  if (!(await requireAdmin(request, env))) return json({ error: 'Non autorisé.' }, 401);
+  let custom = [];
+  try { const raw = await env.CASHFLOW_KV.get('admin:formation_personnages'); if (raw) custom = JSON.parse(raw) || []; } catch (_) {}
+  const map = new Map();
+  for (const a of INGESTION_DEFAULT_AGENTS) map.set(a.code, { code: a.code, nom: a.nom });
+  for (const a of (Array.isArray(custom) ? custom : [])) {
+    if (a && /^[a-z0-9][a-z0-9-]{0,40}$/.test(String(a.code || ''))) {
+      map.set(a.code, { code: a.code, nom: String(a.nom || a.code) });
+    }
+  }
+  return json({ personnages: [...map.values()] });
 }
 
 async function requireAdmin(request, env) {
