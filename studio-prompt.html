@@ -367,6 +367,7 @@
           '<button type="button" class="btn-copy">📋 Copier</button>' +
           '<button type="button" class="btn-plain">✨ Texte propre</button>' +
           '<button type="button" class="btn-listen">🔊 Écouter</button>' +
+          '<button type="button" class="btn-journal">📓 Ajouter au Journal</button>' +
           '<button type="button" class="btn-pdf">⬇ PDF</button>' +
         '</div>' +
       '</div>'
@@ -390,6 +391,29 @@
     })
     div.querySelector('.btn-listen').addEventListener('click', function() {
       speakStudioFrench(this, stripMarkdown(text))
+    })
+    div.querySelector('.btn-journal').addEventListener('click', function() {
+      var btn = this
+      var clean = stripMarkdown(text)
+      var incoming = {
+        nom: inferJournalTitle(clean),
+        type: 'Prompt',
+        personnage: 'Studio',
+        contenu: clean,
+        createdAt: new Date().toISOString()
+      }
+      try {
+        var queue = []
+        try { queue = JSON.parse(localStorage.getItem('nyxia_journal_incoming_queue') || '[]') } catch (_) { queue = [] }
+        if (!Array.isArray(queue)) queue = []
+        queue.push(incoming)
+        if (queue.length > 50) queue = queue.slice(-50)
+        localStorage.setItem('nyxia_journal_incoming_queue', JSON.stringify(queue))
+        btn.textContent = '✓ Ajouté au Journal'
+        setTimeout(function() { btn.textContent = '📓 Ajouter au Journal' }, 2200)
+      } catch (e) {
+        alert('Impossible d’ajouter au Journal dans ce navigateur.')
+      }
     })
     div.querySelector('.btn-pdf').addEventListener('click', function() {
       exportStudioPdf(stripMarkdown(text), label)
@@ -498,6 +522,34 @@
     var t = document.getElementById('typing-indicator')
     if (t) t.remove()
   }
+
+  function inferJournalTitle(text) {
+    var s = String(text || '').replace(/^#+\s*/gm, '').trim()
+    var first = (s.split('\n').find(function(line) { return line.trim() }) || 'Prompt Studio').trim()
+    return first.length > 80 ? first.slice(0, 79) + '…' : first
+  }
+
+  function applyStudioPrefill(text) {
+    text = String(text || '').trim()
+    if (!text) return
+    input.value = text
+    input.style.height = 'auto'
+    input.style.height = Math.min(input.scrollHeight, 140) + 'px'
+    input.focus()
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.origin !== location.origin || !e.data) return
+    if (e.data.type === 'nyxia_prefill_studio') applyStudioPrefill(e.data.text)
+  })
+
+  try {
+    var _journalPrefill = localStorage.getItem('nyxia_studio_prefill') || ''
+    if (_journalPrefill) {
+      localStorage.removeItem('nyxia_studio_prefill')
+      setTimeout(function() { applyStudioPrefill(_journalPrefill) }, 30)
+    }
+  } catch (e) {}
 
   function sendMessage() {
     var text = input.value.trim()
