@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF → Markdown propre (chapitres) — NyXia</title>
+  <title>PDF → Markdown (chapitres) — NyXia</title>
   <link rel="icon" type="image/png" href="/FavIcon.png">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Cormorant+Garamond:wght@600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
@@ -96,7 +96,7 @@
     <p class="lead">
       Dépose un livre PDF complet. L’outil extrait le texte, détecte les chapitres, et produit des fichiers
       <strong>.md</strong> prêts pour <code>ingestion.html</code> (cerveaux Diane, Éric, NyXia…).
-      Tout se passe dans ton navigateur — le PDF ne part pas sur un serveur tiers. Le nettoyage automatique retire les résidus de pied de page avant de créer les .md.
+      Tout se passe dans ton navigateur — le PDF ne part pas sur un serveur tiers.
     </p>
 
     <div class="card">
@@ -124,13 +124,6 @@
           <label>Pages à ignorer au début (couverture, sommaire…)</label>
           <input type="text" id="skip-start" value="0" inputmode="numeric">
         </div>
-      </div>
-      <div style="margin-top:14px;padding:12px 14px;border:1px solid rgba(123,92,255,.18);border-radius:12px;background:rgba(123,92,255,.06)">
-        <label style="display:flex;align-items:flex-start;gap:10px;margin:0;cursor:pointer;color:var(--t2)">
-          <input type="checkbox" id="auto-clean" checked style="margin-top:3px;accent-color:#7B5CFF">
-          <span><strong style="color:#fff">✨ Nettoyage automatique avant vectorisation</strong><br>
-          <span class="hint">Retire les pieds de page répétitifs, mentions « Tous droits réservés », numéros de page isolés et en-têtes/pieds courts répétés. Les URLs et marqueurs 🎬 VIDÉO / 🖼️ IMAGE sont protégés.</span></span>
-        </label>
       </div>
     </div>
 
@@ -210,118 +203,6 @@
       return String(s || 'chapitre')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
-    }
-
-    function protectedResourceLine(line) {
-      const t = String(line || '');
-      return /https?:\/\//i.test(t)
-        || /drive\.google\.com/i.test(t)
-        || /🎬\s*VID[ÉE]O/i.test(t)
-        || /🖼️?\s*IMAGE/i.test(t);
-    }
-
-    function normalizeEdgeNoise(line) {
-      return String(line || '')
-        .trim()
-        .toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/\b(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}\b/g, 'yyyy-yyyy')
-        .replace(/\b(?:19|20)\d{2}\b/g, 'yyyy')
-        .replace(/\s+[|·•\-–—]?\s*\d{1,4}\s*$/g, ' #')
-        .replace(/\s+/g, ' ');
-    }
-
-    function itemsToLines(items) {
-      // Regroupe les éléments PDF.js par coordonnée verticale afin de récupérer
-      // de vraies lignes. C'est ce qui permet d'identifier les en-têtes/pieds de page.
-      const rows = [];
-      const tol = 2.5;
-      (items || []).forEach((it, order) => {
-        const text = String(it && it.str || '').trim();
-        if (!text) return;
-        const tr = it.transform || [];
-        const x = Number(tr[4] || 0);
-        const y = Number(tr[5] || 0);
-        let row = rows.find(r => Math.abs(r.y - y) <= tol);
-        if (!row) { row = { y, parts: [] }; rows.push(row); }
-        row.parts.push({ x, text, order });
-      });
-      rows.sort((a,b) => b.y - a.y);
-      return rows.map(r => {
-        r.parts.sort((a,b) => (a.x - b.x) || (a.order - b.order));
-        return r.parts.map(p => p.text).join(' ').replace(/\s+/g,' ').trim();
-      }).filter(Boolean);
-    }
-
-    function detectRepeatedEdgeLines(pageLines) {
-      const counts = new Map();
-      const samples = new Map();
-      const total = pageLines.length;
-      pageLines.forEach(lines => {
-        const candidates = [];
-        const edge = 3;
-        lines.slice(0, edge).forEach(x => candidates.push(x));
-        lines.slice(Math.max(0, lines.length - edge)).forEach(x => candidates.push(x));
-        const seen = new Set();
-        candidates.forEach(line => {
-          const t = String(line || '').trim();
-          if (!t || t.length > 180 || protectedResourceLine(t)) return;
-          const key = normalizeEdgeNoise(t);
-          if (!key || seen.has(key)) return;
-          seen.add(key);
-          counts.set(key, (counts.get(key) || 0) + 1);
-          if (!samples.has(key)) samples.set(key, t);
-        });
-      });
-      const repeated = new Set();
-      const threshold = Math.max(3, Math.ceil(total * 0.35));
-      counts.forEach((n,key) => {
-        if (n >= threshold) repeated.add(key);
-      });
-      return repeated;
-    }
-
-    function obviousNoiseLine(line, index, lineCount, repeatedEdges) {
-      const t = String(line || '').trim();
-      if (!t || protectedResourceLine(t)) return false;
-
-      // Mentions légales de pied de page.
-      if (/tous\s+droits\s+r[ée]serv[ée]s/i.test(t)) return true;
-      if (/all\s+rights\s+reserved/i.test(t)) return true;
-      if (/©/.test(t) && /\b(?:19|20)\d{2}\b/.test(t) && t.length <= 220) return true;
-
-      // Numérotation explicite de page.
-      if (/^page\s+\d{1,5}(?:\s+(?:sur|of)\s+\d{1,5})?$/i.test(t)) return true;
-      if (/^\d{1,5}\s*\/\s*\d{1,5}$/.test(t)) return true;
-      if (/^[-–—]\s*\d{1,5}\s*[-–—]$/.test(t)) return true;
-
-      // Un numéro seul n'est supprimé que s'il est vraiment au bord de la page.
-      const edgePos = index <= 1 || index >= lineCount - 2;
-      if (edgePos && /^\d{1,5}$/.test(t)) return true;
-
-      // En-têtes/pieds courts qui reviennent sur de nombreuses pages.
-      const key = normalizeEdgeNoise(t);
-      if (edgePos && repeatedEdges && repeatedEdges.has(key)) return true;
-
-      return false;
-    }
-
-    function cleanExtractedPages(rawPageLines) {
-      const enabled = document.getElementById('auto-clean').checked;
-      if (!enabled) {
-        return { pageTexts: rawPageLines.map(lines => lines.join('\n').trim()), removed: 0 };
-      }
-      const repeatedEdges = detectRepeatedEdgeLines(rawPageLines);
-      let removed = 0;
-      const pageTexts = rawPageLines.map(lines => {
-        const kept = [];
-        lines.forEach((line, idx) => {
-          if (obviousNoiseLine(line, idx, lines.length, repeatedEdges)) removed++;
-          else kept.push(line);
-        });
-        return kept.join('\n').replace(/\n{3,}/g,'\n\n').trim();
-      });
-      return { pageTexts, removed };
     }
 
     function isChapterLine(line) {
@@ -409,20 +290,15 @@
         const total = pdf.numPages;
         log('Pages détectées : ' + total + (skip ? (' (ignore les ' + skip + ' premières)') : ''));
 
-        const rawPageLines = [];
+        const pageTexts = [];
         for (let p = 1 + skip; p <= total; p++) {
           const page = await pdf.getPage(p);
           const tc = await page.getTextContent();
-          rawPageLines.push(itemsToLines(tc.items));
+          const text = tc.items.map(it => it.str).join(' ');
+          // Reconstitute rough lines: split on multiple spaces / keep as paragraph blocks
+          const cleaned = text.replace(/\s+/g, ' ').trim();
+          pageTexts.push(cleaned);
           if (p % 5 === 0 || p === total) log('  page ' + p + '/' + total);
-        }
-
-        const cleanedResult = cleanExtractedPages(rawPageLines);
-        const pageTexts = cleanedResult.pageTexts;
-        if (document.getElementById('auto-clean').checked) {
-          log('Nettoyage automatique : ' + cleanedResult.removed + ' ligne(s) parasite(s) retirée(s).', 'ok');
-        } else {
-          log('Nettoyage automatique désactivé.');
         }
 
         const mode = document.getElementById('detect-mode').value;
