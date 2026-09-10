@@ -18,6 +18,8 @@
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     html, body { height: 100%; overflow: hidden; }
     body { background: var(--bg1); color: var(--t2); font-family: 'Outfit', sans-serif; display: flex; flex-direction: column; }
+    #starry-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+    .header, .messages, .input-wrap, .hint { position: relative; z-index: 1; }
 
     .header {
       padding: 14px 20px; border-bottom: 1px solid rgba(123,92,255,0.12);
@@ -161,6 +163,8 @@
 </head>
 <body>
 
+  <canvas id="starry-canvas"></canvas>
+
   <div class="header">
     <div>
       <div class="header-title">⚡ Studio Prompt</div>
@@ -223,6 +227,8 @@
     <button class="btn-send" id="btn-send" onclick="sendMessage()">➤</button>
   </div>
   <div class="hint">Entrée pour envoyer · Shift+Entrée pour un retour à la ligne</div>
+
+  <script src="/starry-bg.js" defer></script>
 
   <script>
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
