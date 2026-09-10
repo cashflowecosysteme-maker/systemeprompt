@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/FavIcon.png">
+  <title>Mon Journal — Studio Prompt NyXia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg1:#0A1628;--bg2:#0F1C3F;--bg3:#1A2554;
+      --p:#7B5CFF;--lav:#A78BFA;--blue:#4FA3FF;--gold:#F4D58D;
+      --t:#fff;--t2:#D6D9F0;--t3:#8891B8;--t4:#59638A;
+      --glass:rgba(15,28,63,.68);--line:rgba(167,139,250,.18);
+      --danger:#ff6b81;--ok:#68e0a0;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:'Outfit',sans-serif;color:var(--t2);background:var(--bg1)}
+    #starry-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+    .app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
+    .topbar{padding:14px 18px;border-bottom:1px solid rgba(123,92,255,.13);background:rgba(10,22,40,.72);backdrop-filter:blur(12px);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .title-wrap{min-width:220px}
+    h1{font-family:'Cormorant Garamond',serif;font-size:24px;line-height:1;font-weight:600;background:linear-gradient(135deg,var(--lav),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .subtitle{font-size:12px;color:var(--t3);margin-top:5px}
+    .top-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    button,.button-like{font-family:'Outfit',sans-serif}
+    .btn{border:1px solid rgba(167,139,250,.28);background:rgba(123,92,255,.11);color:var(--t2);padding:9px 14px;border-radius:50px;cursor:pointer;font-size:12px;font-weight:600;transition:.18s}
+    .btn:hover{border-color:rgba(167,139,250,.65);background:rgba(123,92,255,.22);color:#fff;box-shadow:0 0 18px rgba(123,92,255,.18)}
+    .btn-primary{background:linear-gradient(135deg,rgba(123,92,255,.92),rgba(90,108,255,.92));border-color:transparent;color:#fff;box-shadow:0 0 20px rgba(123,92,255,.25)}
+    .btn-primary:hover{box-shadow:0 0 28px rgba(123,92,255,.42)}
+    .btn-danger{color:#ffd8de;border-color:rgba(255,107,129,.25);background:rgba(255,107,129,.08)}
+    .btn-danger:hover{border-color:rgba(255,107,129,.58);background:rgba(255,107,129,.15)}
+
+    .workspace{flex:1;min-height:0;display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px;padding:14px}
+    .panel{min-height:0;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,rgba(15,28,63,.72),rgba(10,22,40,.64));backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,.18)}
+
+    .sidebar{display:flex;flex-direction:column;overflow:hidden}
+    .sidebar-head{padding:14px;border-bottom:1px solid rgba(123,92,255,.11)}
+    .search{width:100%;border-radius:13px;border:1px solid rgba(123,92,255,.2);background:rgba(7,15,32,.48);color:#fff;padding:11px 13px;outline:none;font-size:13px}
+    .search:focus{border-color:rgba(167,139,250,.55);box-shadow:0 0 0 3px rgba(123,92,255,.08)}
+    .filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+    select{appearance:none;width:100%;border-radius:11px;border:1px solid rgba(123,92,255,.18);background:#0f1c3f;color:var(--t2);padding:9px 28px 9px 10px;font-size:11px;outline:none}
+    .entries{flex:1;min-height:0;overflow-y:auto;padding:10px}
+    .entries::-webkit-scrollbar,.editor-scroll::-webkit-scrollbar{width:4px}.entries::-webkit-scrollbar-thumb,.editor-scroll::-webkit-scrollbar-thumb{background:rgba(123,92,255,.28);border-radius:6px}
+    .entry{border:1px solid transparent;border-radius:14px;padding:11px 12px;margin-bottom:7px;cursor:pointer;transition:.15s;background:rgba(123,92,255,.035)}
+    .entry:hover{border-color:rgba(167,139,250,.18);background:rgba(123,92,255,.08)}
+    .entry.active{border-color:rgba(167,139,250,.42);background:rgba(123,92,255,.14);box-shadow:0 0 18px rgba(123,92,255,.08)}
+    .entry-title{font-size:13px;font-weight:650;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .entry-preview{font-size:11px;color:var(--t3);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.45}
+    .entry-meta{display:flex;gap:6px;align-items:center;margin-top:7px;flex-wrap:wrap}
+    .tag{font-size:9px;padding:3px 7px;border-radius:50px;border:1px solid rgba(167,139,250,.14);color:var(--t3);background:rgba(123,92,255,.05)}
+    .date{font-size:9px;color:var(--t4);margin-left:auto}
+    .empty-list{padding:30px 12px;text-align:center;color:var(--t3);font-size:12px;line-height:1.6}
+
+    .editor{overflow:hidden;display:flex;flex-direction:column}
+    .editor-empty{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;color:var(--t3)}
+    .editor-empty .inside{max-width:430px}.editor-empty .icon{font-size:44px;margin-bottom:9px}.editor-empty h2{font-family:'Cormorant Garamond',serif;font-size:25px;color:#d9ceff;margin-bottom:8px}.editor-empty p{font-size:13px;line-height:1.7}
+    .editor-form{display:none;height:100%;flex-direction:column}
+    .editor-form.active{display:flex}
+    .editor-toolbar{padding:12px 14px;border-bottom:1px solid rgba(123,92,255,.11);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .save-state{font-size:10px;color:var(--t4);margin-left:auto}
+    .editor-scroll{flex:1;min-height:0;overflow-y:auto;padding:18px}
+    .helper{border:1px solid rgba(244,213,141,.14);background:rgba(244,213,141,.045);border-radius:14px;padding:11px 13px;font-size:12px;color:#d9d2b7;margin-bottom:16px;line-height:1.55}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}
+    label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)}
+    input[type=text],textarea,.field select{width:100%;border:1px solid rgba(123,92,255,.2);background:rgba(7,15,32,.48);color:#fff;border-radius:13px;padding:11px 12px;outline:none;font-family:'Outfit',sans-serif;font-size:13px}
+    input[type=text]:focus,textarea:focus,.field select:focus{border-color:rgba(167,139,250,.58);box-shadow:0 0 0 3px rgba(123,92,255,.08)}
+    textarea{resize:vertical;line-height:1.6;min-height:100px}.prompt-area{min-height:230px}
+    .footer-note{padding:10px 18px 14px;color:var(--t4);font-size:10px;text-align:center}
+    .toast{position:fixed;right:18px;bottom:18px;z-index:20;background:rgba(13,24,50,.95);border:1px solid rgba(167,139,250,.28);border-radius:14px;padding:11px 14px;color:#fff;font-size:12px;box-shadow:0 18px 50px rgba(0,0,0,.35);transform:translateY(20px);opacity:0;pointer-events:none;transition:.2s}.toast.show{transform:none;opacity:1}
+
+    @media(max-width:760px){
+      .topbar{padding:11px 12px}.title-wrap{min-width:0}.subtitle{display:none}.top-actions{margin-left:0;width:100%}.top-actions .btn{flex:1;text-align:center}
+      .workspace{grid-template-columns:1fr;grid-template-rows:235px minmax(0,1fr);padding:9px;gap:9px}.panel{border-radius:16px}.filters{grid-template-columns:1fr 1fr}.editor-scroll{padding:13px}.grid{grid-template-columns:1fr}.field.full{grid-column:auto}.prompt-area{min-height:180px}
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starry-canvas"></canvas>
+  <div class="app">
+    <div class="topbar">
+      <div class="title-wrap">
+        <h1>📓 Mon Journal Studio Prompt</h1>
+        <div class="subtitle">Une idée = une entrée. Garde tes prompts, tes idées et ce que tu en as fait.</div>
+      </div>
+      <div class="top-actions">
+        <button class="btn btn-primary" type="button" id="new-btn">＋ Nouvelle entrée</button>
+        <button class="btn" type="button" id="open-studio-top">⚡ Studio Prompt</button>
+      </div>
+    </div>
+
+    <main class="workspace">
+      <section class="panel sidebar">
+        <div class="sidebar-head">
+          <input id="search" class="search" type="search" placeholder="Rechercher dans mon journal…">
+          <div class="filters">
+            <select id="filter-personnage" aria-label="Filtrer par personnage">
+              <option value="">Tous les personnages</option>
+              <option>Diane</option><option>NyXia</option><option>Éric</option><option>Kael</option><option>Léna</option><option>Séléna</option><option>Alex</option><option>Studio</option>
+            </select>
+            <select id="filter-statut" aria-label="Filtrer par statut">
+              <option value="">Tous les statuts</option>
+              <option>À tester</option><option>Utilisé</option><option>À retravailler</option><option>Archivé</option>
+            </select>
+          </div>
+        </div>
+        <div class="entries" id="entries"></div>
+      </section>
+
+      <section class="panel editor">
+        <div class="editor-empty" id="editor-empty">
+          <div class="inside">
+            <div class="icon">✨</div>
+            <h2>Ton espace pour garder ce qui mérite de rester</h2>
+            <p>Crée une entrée pour conserver un prompt, une idée, un script ou une offre. Tu pourras ensuite le rouvrir directement dans Studio Prompt.</p>
+          </div>
+        </div>
+
+        <form class="editor-form" id="editor-form">
+          <div class="editor-toolbar">
+            <button class="btn btn-primary" type="submit">💾 Enregistrer</button>
+            <button class="btn" type="button" id="send-studio">⚡ Ouvrir dans Studio Prompt</button>
+            <button class="btn btn-danger" type="button" id="delete-btn">Supprimer</button>
+            <span class="save-state" id="save-state"></span>
+          </div>
+          <div class="editor-scroll">
+            <div class="helper">✨ <strong>Pas besoin que ce soit parfait.</strong> Colle ton prompt ou ton idée, range-la en quelques secondes, puis avance.</div>
+            <div class="grid">
+              <div class="field full">
+                <label for="nom">Nom de l'entrée</label>
+                <input id="nom" type="text" maxlength="140" placeholder="Ex. Publication lancement Portail Léna" required>
+              </div>
+              <div class="field">
+                <label for="type">Type</label>
+                <select id="type">
+                  <option>Prompt</option><option>Idée produit</option><option>Script</option><option>Offre</option><option>Formation</option><option>Autre</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="personnage">Personnage</label>
+                <select id="personnage">
+                  <option>Studio</option><option>Diane</option><option>NyXia</option><option>Éric</option><option>Kael</option><option>Léna</option><option>Séléna</option><option>Alex</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="statut">Statut</label>
+                <select id="statut"><option>À tester</option><option>Utilisé</option><option>À retravailler</option><option>Archivé</option></select>
+              </div>
+              <div class="field">
+                <label for="resultat">Résultat</label>
+                <select id="resultat"><option>Pas encore</option><option>OK</option><option>🔥 Fort</option></select>
+              </div>
+              <div class="field full">
+                <label for="contenu">📥 Prompt ou idée</label>
+                <textarea id="contenu" class="prompt-area" placeholder="Écris ou colle ton prompt ici…"></textarea>
+              </div>
+              <div class="field full">
+                <label for="notes">Notes</label>
+                <textarea id="notes" placeholder="Ce que tu veux retenir, modifier ou tester plus tard…"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="footer-note" id="storage-note">Journal privé enregistré dans ce navigateur.</div>
+        </form>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="/starry-bg.js" defer></script>
+  <script>
+  (function(){
+    var BASE_KEY='nyxia_journal_entries_v1';
+    var activeKey=BASE_KEY+':local';
+    var entries=[];
+    var currentId=null;
+    var els={
+      list:document.getElementById('entries'), empty:document.getElementById('editor-empty'), form:document.getElementById('editor-form'),
+      search:document.getElementById('search'), fp:document.getElementById('filter-personnage'), fs:document.getElementById('filter-statut'),
+      nom:document.getElementById('nom'), type:document.getElementById('type'), personnage:document.getElementById('personnage'), statut:document.getElementById('statut'), resultat:document.getElementById('resultat'), contenu:document.getElementById('contenu'), notes:document.getElementById('notes'),
+      state:document.getElementById('save-state'), toast:document.getElementById('toast'), storageNote:document.getElementById('storage-note')
+    };
+
+    function esc(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
+    function now(){return new Date().toISOString()}
+    function id(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():'j_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+    function niceDate(iso){try{return new Intl.DateTimeFormat('fr-CA',{year:'numeric',month:'short',day:'numeric'}).format(new Date(iso))}catch(e){return ''}}
+    function shortText(s,n){s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s}
+    function inferTitle(text){var s=String(text||'').replace(/^#+\s*/gm,'').trim();var first=(s.split('\n').find(function(x){return x.trim()})||'Nouvelle entrée').trim();return shortText(first,80)}
+    function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(function(){els.toast.classList.remove('show')},1800)}
+
+    function resolveStorageKey(){
+      var token='';
+      try{token=sessionStorage.getItem('nyxia_token')||''}catch(e){}
+      try{if(!token&&window.parent&&window.parent!==window)token=window.parent.sessionStorage.getItem('nyxia_token')||''}catch(e){}
+      if(!token){load();return}
+      fetch('/api/check-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})})
+        .then(function(r){return r.json()}).then(function(d){
+          if(d&&d.valid&&d.email){activeKey=BASE_KEY+':'+String(d.email).toLowerCase();els.storageNote.textContent='Journal privé lié à ce compte dans ce navigateur.'}
+          load();
+        }).catch(load)
+    }
+    function load(){
+      try{var raw=localStorage.getItem(activeKey);entries=raw?JSON.parse(raw):[];if(!Array.isArray(entries))entries=[]}catch(e){entries=[]}
+      renderList();
+      consumeIncoming();
+    }
+    function persist(){
+      try{localStorage.setItem(activeKey,JSON.stringify(entries));return true}catch(e){toast('Impossible d’enregistrer dans ce navigateur.');return false}
+    }
+
+    function renderList(){
+      var q=els.search.value.trim().toLowerCase(), fp=els.fp.value, fs=els.fs.value;
+      var filtered=entries.slice().sort(function(a,b){return String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt))}).filter(function(x){
+        var hay=[x.nom,x.contenu,x.notes,x.type,x.personnage,x.statut,x.resultat].join(' ').toLowerCase();
+        return (!q||hay.indexOf(q)!==-1)&&(!fp||x.personnage===fp)&&(!fs||x.statut===fs);
+      });
+      if(!filtered.length){els.list.innerHTML='<div class="empty-list">Aucune entrée ici pour le moment.<br>Ton prochain bon prompt mérite peut-être sa place. ✨</div>';return}
+      els.list.innerHTML=filtered.map(function(x){return '<div class="entry '+(x.id===currentId?'active':'')+'" data-id="'+esc(x.id)+'"><div class="entry-title">'+esc(x.nom||'Sans titre')+'</div><div class="entry-preview">'+esc(shortText(x.contenu||x.notes||'',130))+'</div><div class="entry-meta"><span class="tag">'+esc(x.personnage||'Studio')+'</span><span class="tag">'+esc(x.statut||'À tester')+'</span><span class="date">'+esc(niceDate(x.updatedAt||x.createdAt))+'</span></div></div>'}).join('');
+      Array.prototype.forEach.call(els.list.querySelectorAll('.entry'),function(node){node.addEventListener('click',function(){openEntry(this.getAttribute('data-id'))})});
+    }
+
+    function newEntry(prefill){
+      currentId=null;els.empty.style.display='none';els.form.classList.add('active');
+      els.nom.value=prefill&&prefill.nom||'';els.type.value=prefill&&prefill.type||'Prompt';els.personnage.value=prefill&&prefill.personnage||'Studio';els.statut.value=prefill&&prefill.statut||'À tester';els.resultat.value=prefill&&prefill.resultat||'Pas encore';els.contenu.value=prefill&&prefill.contenu||'';els.notes.value=prefill&&prefill.notes||'';
+      if(!els.nom.value&&els.contenu.value)els.nom.value=inferTitle(els.contenu.value);
+      els.state.textContent='Nouvelle entrée';renderList();setTimeout(function(){(els.contenu.value?els.nom:els.contenu).focus()},30)
+    }
+    function openEntry(entryId){
+      var x=entries.find(function(e){return e.id===entryId});if(!x)return;
+      currentId=x.id;els.empty.style.display='none';els.form.classList.add('active');
+      els.nom.value=x.nom||'';els.type.value=x.type||'Prompt';els.personnage.value=x.personnage||'Studio';els.statut.value=x.statut||'À tester';els.resultat.value=x.resultat||'Pas encore';els.contenu.value=x.contenu||'';els.notes.value=x.notes||'';els.state.textContent='Modifié '+niceDate(x.updatedAt||x.createdAt);renderList();
+    }
+    function saveCurrent(){
+      var data={nom:els.nom.value.trim()||inferTitle(els.contenu.value),type:els.type.value,personnage:els.personnage.value,statut:els.statut.value,resultat:els.resultat.value,contenu:els.contenu.value,notes:els.notes.value};
+      if(currentId){var idx=entries.findIndex(function(x){return x.id===currentId});if(idx>=0)entries[idx]=Object.assign({},entries[idx],data,{updatedAt:now()})}
+      else{currentId=id();entries.push(Object.assign({id:currentId,createdAt:now(),updatedAt:now()},data))}
+      if(persist()){els.state.textContent='✓ Enregistré';renderList();toast('Entrée enregistrée ✨')}
+    }
+    function removeCurrent(){
+      if(!currentId)return;
+      var x=entries.find(function(e){return e.id===currentId});if(!confirm('Supprimer « '+(x&&x.nom?x.nom:'cette entrée')+' » ?'))return;
+      entries=entries.filter(function(e){return e.id!==currentId});persist();currentId=null;els.form.classList.remove('active');els.empty.style.display='flex';renderList();toast('Entrée supprimée')
+    }
+
+    function openStudio(text){
+      text=String(text||els.contenu.value||'').trim();
+      try{localStorage.setItem('nyxia_studio_prefill',text)}catch(e){}
+      try{
+        if(window.parent&&window.parent!==window&&typeof window.parent.showPanel==='function'){
+          window.parent.showPanel('studio');
+          var sf=window.parent.document.getElementById('studio-iframe');
+          if(sf&&sf.contentWindow)setTimeout(function(){sf.contentWindow.postMessage({type:'nyxia_prefill_studio',text:text},location.origin)},120);
+          return;
+        }
+      }catch(e){}
+      window.location.href='/studio-prompt.html';
+    }
+
+    function importIncoming(d, silent){
+      if(!d||!String(d.contenu||'').trim())return;
+      var created=d.createdAt||now();
+      var item={id:id(),createdAt:created,updatedAt:now(),nom:d.nom||inferTitle(d.contenu||''),type:d.type||'Prompt',personnage:d.personnage||'Studio',statut:d.statut||'À tester',resultat:d.resultat||'Pas encore',contenu:d.contenu||'',notes:d.notes||''};
+      entries.push(item);currentId=item.id;persist();renderList();openEntry(item.id);if(!silent)toast('Ajouté au Journal ✨');
+    }
+    function consumeIncoming(){
+      var queue=[];
+      try{queue=JSON.parse(localStorage.getItem('nyxia_journal_incoming_queue')||'[]')}catch(e){queue=[]}
+      if(!Array.isArray(queue))queue=[];
+      // Compatibilité avec une ancienne entrée unique, si elle existe encore.
+      try{var legacy=localStorage.getItem('nyxia_journal_incoming');if(legacy){queue.push(JSON.parse(legacy));localStorage.removeItem('nyxia_journal_incoming')}}catch(e){}
+      if(!queue.length)return;
+      try{localStorage.removeItem('nyxia_journal_incoming_queue')}catch(e){}
+      queue.forEach(function(d,i){importIncoming(d,true)});
+      toast(queue.length===1?'Ajouté au Journal ✨':queue.length+' entrées ajoutées au Journal ✨');
+    }
+
+    document.getElementById('new-btn').addEventListener('click',function(){newEntry()});
+    document.getElementById('open-studio-top').addEventListener('click',function(){openStudio('')});
+    document.getElementById('send-studio').addEventListener('click',function(){openStudio(els.contenu.value)});
+    document.getElementById('delete-btn').addEventListener('click',removeCurrent);
+    els.form.addEventListener('submit',function(e){e.preventDefault();saveCurrent()});
+    [els.search,els.fp,els.fs].forEach(function(el){el.addEventListener(el===els.search?'input':'change',renderList)});
+    window.addEventListener('storage',function(e){if(e.key==='nyxia_journal_incoming_queue'||e.key==='nyxia_journal_incoming')consumeIncoming()});
+    window.addEventListener('message',function(e){if(e.origin!==location.origin||!e.data)return;if(e.data.type==='nyxia_journal_add'){importIncoming({nom:e.data.nom||inferTitle(e.data.text||''),type:e.data.entryType||'Prompt',personnage:e.data.personnage||'Studio',contenu:e.data.text||''})}});
+    resolveStorageKey();
+  })();
+  </script>
+</body>
+</html>
