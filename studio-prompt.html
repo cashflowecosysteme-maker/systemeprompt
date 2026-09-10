@@ -392,28 +392,47 @@
     div.querySelector('.btn-listen').addEventListener('click', function() {
       speakStudioFrench(this, stripMarkdown(text))
     })
-    div.querySelector('.btn-journal').addEventListener('click', function() {
+    div.querySelector('.btn-journal').addEventListener('click', async function() {
       var btn = this
       var clean = stripMarkdown(text)
       var incoming = {
+        id: (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('j_' + Date.now() + '_' + Math.random().toString(36).slice(2)),
         nom: inferJournalTitle(clean),
         type: 'Prompt',
         personnage: 'Studio',
+        statut: 'À tester',
+        resultat: 'Pas encore',
         contenu: clean,
+        notes: '',
         createdAt: new Date().toISOString()
       }
+      btn.disabled = true
+      btn.textContent = 'Enregistrement…'
       try {
-        var queue = []
-        try { queue = JSON.parse(localStorage.getItem('nyxia_journal_incoming_queue') || '[]') } catch (_) { queue = [] }
-        if (!Array.isArray(queue)) queue = []
-        queue.push(incoming)
-        if (queue.length > 50) queue = queue.slice(-50)
-        localStorage.setItem('nyxia_journal_incoming_queue', JSON.stringify(queue))
+        var r = await fetch('/api/journal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save', token: sessionToken, entry: incoming })
+        })
+        var d = await r.json().catch(function() { return {} })
+        if (!r.ok) throw new Error(d.error || 'Erreur Journal')
         btn.textContent = '✓ Ajouté au Journal'
-        setTimeout(function() { btn.textContent = '📓 Ajouter au Journal' }, 2200)
       } catch (e) {
-        alert('Impossible d’ajouter au Journal dans ce navigateur.')
+        // File d’attente locale de secours : le Journal la synchronisera à sa prochaine ouverture.
+        try {
+          var queue = []
+          try { queue = JSON.parse(localStorage.getItem('nyxia_journal_incoming_queue') || '[]') } catch (_) { queue = [] }
+          if (!Array.isArray(queue)) queue = []
+          queue.push(incoming)
+          if (queue.length > 50) queue = queue.slice(-50)
+          localStorage.setItem('nyxia_journal_incoming_queue', JSON.stringify(queue))
+          btn.textContent = '✓ Gardé pour synchronisation'
+        } catch (_) {
+          btn.textContent = 'Erreur'
+          alert('Impossible d’ajouter cette réponse au Journal.')
+        }
       }
+      setTimeout(function() { btn.textContent = '📓 Ajouter au Journal'; btn.disabled = false }, 2200)
     })
     div.querySelector('.btn-pdf').addEventListener('click', function() {
       exportStudioPdf(stripMarkdown(text), label)
