@@ -374,6 +374,18 @@
   /* ═══════ CHAT ═══════ */
 
   function useSuggestion(btn) {
+    var _au = btn.getAttribute('data-audio')
+    var _vi = btn.getAttribute('data-video')
+    var _im = btn.getAttribute('data-image')
+    var _intro = btn.getAttribute('data-intro') || ''
+    if (_au || _vi || _im) {
+      var _body = _intro
+      if (_vi) _body += (_body ? '\n\n' : '') + '[VIDEO: ' + _vi.trim() + ']'
+      if (_au) _body += (_body ? '\n\n' : '') + '[AUDIO: ' + _au.trim() + ']'
+      if (_im) _body += (_body ? '\n\n' : '') + '[PHOTO: ' + _im.trim() + ']'
+      addBotMessage(_body)
+      return
+    }
     var text = (btn.textContent || '').trim()
     if (!text) return
     var input = document.getElementById('chat-input')
@@ -444,6 +456,171 @@
   }
 
   /* ═══════ MESSAGES & IMAGES ═══════ */
+  // ═══════ MÉDIAS FORMATION VIVANTE — moteur commun Studio Prompt ═══════
+  function safeLivingVideoUrl(rawUrl) {
+    try {
+      var parsed = new URL(String(rawUrl || '').trim(), window.location.href)
+      return parsed.protocol === 'https:' ? parsed.href : ''
+    } catch (e) { return '' }
+  }
+
+  function livingVideoEmbedUrl(rawUrl) {
+    try {
+      var parsed = new URL(rawUrl)
+      var host = parsed.hostname.toLowerCase().replace(/^www\./, '')
+      var videoId = ''
+
+      if (host === 'youtu.be') videoId = parsed.pathname.split('/').filter(Boolean)[0] || ''
+      if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+        videoId = parsed.searchParams.get('v') || ''
+        if (!videoId) {
+          var youtubeParts = parsed.pathname.split('/').filter(Boolean)
+          if (youtubeParts[0] === 'embed' || youtubeParts[0] === 'shorts') videoId = youtubeParts[1] || ''
+        }
+      }
+      if (/^[A-Za-z0-9_-]{6,}$/.test(videoId)) {
+        return 'https://www.youtube-nocookie.com/embed/' + videoId
+      }
+
+      if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+        var vimeoMatch = parsed.pathname.match(/(?:video\/)?(\d+)/)
+        if (vimeoMatch) return 'https://player.vimeo.com/video/' + vimeoMatch[1]
+      }
+
+      if (host === 'iframe.videodelivery.net') return parsed.href
+      if (host === 'watch.cloudflarestream.com') {
+        var streamId = parsed.pathname.split('/').filter(Boolean)[0] || ''
+        if (/^[A-Za-z0-9_-]+$/.test(streamId)) return 'https://iframe.videodelivery.net/' + streamId
+      }
+      if (host === 'drive.google.com') {
+        var driveMatch = parsed.pathname.match(/\/file\/d\/([A-Za-z0-9_-]+)/)
+        var driveId2 = driveMatch ? driveMatch[1] : (parsed.searchParams.get('id') || '')
+        if (driveId2) return 'https://drive.google.com/file/d/' + driveId2 + '/preview'
+      }
+    } catch (e) {}
+    return ''
+  }
+
+  function appendLivingVideo(wrapper, videoUrl) {
+    var card = document.createElement('div')
+    card.style.cssText = 'width:min(100%,560px);margin-top:6px;padding:10px;border-radius:16px;border:1px solid rgba(123,92,255,0.22);background:linear-gradient(145deg,rgba(123,92,255,0.09),rgba(255,255,255,0.025));box-shadow:0 12px 30px rgba(20,12,48,0.16)'
+
+    var label = document.createElement('div')
+    label.textContent = '🎬 Formation vivante'
+    label.style.cssText = 'font-size:12px;font-weight:700;color:#c4b5fd;letter-spacing:.02em;margin:1px 2px 9px'
+    card.appendChild(label)
+
+    var frame = document.createElement('div')
+    frame.style.cssText = 'position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;border-radius:11px;background:#070713'
+    var embedUrl = livingVideoEmbedUrl(videoUrl)
+
+    if (embedUrl) {
+      var iframe = document.createElement('iframe')
+      iframe.src = embedUrl
+      iframe.title = 'Vidéo de formation'
+      iframe.loading = 'lazy'
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+      iframe.allowFullscreen = true
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin'
+      iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0'
+      frame.appendChild(iframe)
+    } else {
+      var video = document.createElement('video')
+      video.src = videoUrl
+      video.controls = true
+      video.playsInline = true
+      video.preload = 'metadata'
+      video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#070713'
+      frame.appendChild(video)
+    }
+
+    card.appendChild(frame)
+    wrapper.appendChild(card)
+  }
+
+  function foDriveId(u){ try{ var p=new URL(u); if(p.hostname.replace(/^www\./,'')!=='drive.google.com') return ''; var m=p.pathname.match(/\/file\/d\/([A-Za-z0-9_-]+)/); return m?m[1]:(p.searchParams.get('id')||''); }catch(e){ return ''; } }
+
+  function appendLivingAudio(wrapper, audioUrl, meta) {
+    meta = meta || {}
+    var _gid = foDriveId(audioUrl)
+    if (_gid) {
+      var dcard = document.createElement('div'); dcard.style.cssText = 'width:min(100%,460px);margin-top:6px'
+      var difr = document.createElement('iframe'); difr.src = 'https://drive.google.com/file/d/' + _gid + '/preview'; difr.allow = 'autoplay'
+      difr.style.cssText = 'width:100%;height:120px;border:0;border-radius:12px;background:#0f1c3f'
+      dcard.appendChild(difr); wrapper.appendChild(dcard); return
+    }
+    var card = document.createElement('div')
+    card.style.cssText = 'width:min(100%,460px);margin-top:6px;padding:12px 14px;border-radius:16px;border:1px solid rgba(123,92,255,0.22);background:linear-gradient(145deg,rgba(123,92,255,0.09),rgba(255,255,255,0.025));box-shadow:0 12px 30px rgba(20,12,48,0.16)'
+
+    var label = document.createElement('div')
+    label.textContent = '🎧 ' + (meta.title || 'Audio de formation')
+    label.style.cssText = 'font-size:12px;font-weight:700;color:#c4b5fd;letter-spacing:.02em;margin:0 2px 10px'
+    card.appendChild(label)
+
+    var audio = document.createElement('audio')
+    audio.src = audioUrl
+    audio.preload = 'metadata'
+    audio.style.display = 'none'
+    card.appendChild(audio)
+
+    var row = document.createElement('div')
+    row.style.cssText = 'display:flex;align-items:center;gap:11px'
+
+    var playBtn = document.createElement('button')
+    playBtn.type = 'button'
+    playBtn.innerHTML = '▶'
+    playBtn.setAttribute('aria-label', 'Lecture')
+    playBtn.style.cssText = 'flex-shrink:0;width:40px;height:40px;border-radius:50%;border:1px solid rgba(123,92,255,0.35);background:rgba(123,92,255,0.14);color:#e9e2ff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center'
+
+    var mid = document.createElement('div')
+    mid.style.cssText = 'flex:1;display:flex;flex-direction:column;gap:5px;min-width:0'
+
+    var range = document.createElement('input')
+    range.type = 'range'; range.min = 0; range.max = 1000; range.value = 0
+    range.style.cssText = 'width:100%;accent-color:#7B5CFF;cursor:pointer'
+
+    var time = document.createElement('div')
+    time.style.cssText = 'display:flex;justify-content:space-between;font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums'
+    var cur = document.createElement('span'); cur.textContent = '0:00'
+    var dur = document.createElement('span'); dur.textContent = '--:--'
+    time.appendChild(cur); time.appendChild(dur)
+
+    mid.appendChild(range); mid.appendChild(time)
+    row.appendChild(playBtn); row.appendChild(mid)
+    card.appendChild(row)
+    wrapper.appendChild(card)
+
+    function fmt(t) { if (!isFinite(t)) return '--:--'; t = Math.max(0, Math.floor(t)); var m = Math.floor(t / 60), s = t % 60; return m + ':' + (s < 10 ? '0' : '') + s }
+    var seeking = false
+    audio.addEventListener('loadedmetadata', function() { dur.textContent = fmt(audio.duration) })
+    audio.addEventListener('timeupdate', function() {
+      if (seeking) return
+      cur.textContent = fmt(audio.currentTime)
+      if (audio.duration) range.value = Math.round((audio.currentTime / audio.duration) * 1000)
+    })
+    audio.addEventListener('ended', function() { playBtn.innerHTML = '▶'; playBtn.setAttribute('aria-label', 'Lecture'); range.value = 0; cur.textContent = '0:00' })
+    audio.addEventListener('error', function() { label.textContent = '🎧 Audio momentanément indisponible' })
+    playBtn.addEventListener('click', function() {
+      if (audio.paused) { audio.play().then(function() { playBtn.innerHTML = '⏸'; playBtn.setAttribute('aria-label', 'Pause') }).catch(function() {}) }
+      else { audio.pause(); playBtn.innerHTML = '▶'; playBtn.setAttribute('aria-label', 'Lecture') }
+    })
+    range.addEventListener('input', function() { seeking = true; if (audio.duration) cur.textContent = fmt((range.value / 1000) * audio.duration) })
+    range.addEventListener('change', function() { if (audio.duration) audio.currentTime = (range.value / 1000) * audio.duration; seeking = false })
+  }
+
+  function appendLivingPhoto(wrapper, photoUrl) {
+    var card = document.createElement('div')
+    card.style.cssText = 'width:min(100%,460px);margin-top:6px;border-radius:14px;overflow:hidden;border:1px solid rgba(123,92,255,0.18);background:rgba(123,92,255,0.05)'
+    var img = document.createElement('img')
+    img.src = photoUrl
+    img.alt = 'Image de formation'
+    img.loading = 'lazy'
+    img.style.cssText = 'width:100%;display:block;max-height:420px;object-fit:contain;background:#070713'
+    img.onerror = function() { card.style.display = 'none' }
+    card.appendChild(img)
+    wrapper.appendChild(card)
+  }
+
   function addBotMessage(text) {
     var msgAgent = _currentAgent
     var msgs = document.getElementById('chat-messages-' + msgAgent)
@@ -457,21 +634,37 @@
     var parchMatch = text.match(parchRegex)
     var parchImgRegex = /\[(?:PROMPT|PARCHEMIN)_IMAGE\s*:\s*([\s\S]*?)\]/i
     var parchImgMatch = text.match(parchImgRegex)
-    var textWithoutImg = text.replace(imgRegex, '').replace(parchRegex, '').replace(parchImgRegex, '').trim()
+    var videoRegex = /\[VIDEO\s*:\s*([^\]\r\n]+)\]/i
+    var videoMatch = text.match(videoRegex)
+
+    // 🎧 Audio MP3 et 🖼️ images réelles de la Formation Vivante (peut y en avoir plusieurs)
+    var audioUrls = [], photoUrls = [], mm
+    var audioRegexG = /\[AUDIO\s*:\s*([^\]\r\n]+)\]/gi
+    while ((mm = audioRegexG.exec(text)) !== null) { var au = safeLivingVideoUrl(mm[1]); if (au) audioUrls.push(au) }
+    var photoRegexG = /\[PHOTO\s*:\s*([^\]\r\n]+)\]/gi
+    while ((mm = photoRegexG.exec(text)) !== null) { var pu = safeLivingVideoUrl(mm[1]); if (pu) photoUrls.push(pu) }
+
+    var textWithoutImg = text.replace(imgRegex, '').replace(parchRegex, '').replace(parchImgRegex, '').replace(videoRegex, '')
+      .replace(/\[AUDIO\s*:\s*[^\]\r\n]+\]/gi, '').replace(/\[PHOTO\s*:\s*[^\]\r\n]+\]/gi, '').trim()
     var imgDesc = imgMatch ? imgMatch[1].trim() : null
     var parchContent = parchMatch ? parchMatch[1].trim() : null
     var parchImgUrl = parchImgMatch ? parchImgMatch[1].trim() : null
+    var videoUrl = videoMatch ? safeLivingVideoUrl(videoMatch[1]) : ''
 
     var bubble = document.createElement('div'); bubble.className = 'msg-bubble'
     if (textWithoutImg) {
       bubble.innerHTML = cleanMarkdown(escHtml(textWithoutImg)).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
-    } else if (!imgDesc && !parchContent) {
+    } else if (!imgDesc && !parchContent && !videoMatch && !audioUrls.length && !photoUrls.length) {
       bubble.innerHTML = cleanMarkdown(escHtml(text)).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
+    } else {
+      bubble.style.display = 'none'
     }
     wrapper.appendChild(bubble)
 
-    // Carte de parchemin — séparée du texte, avec un bouton Copier qui ne prend QUE
-    // le contenu publiable (jamais les mots de l'agent autour).
+    if (videoUrl) appendLivingVideo(wrapper, videoUrl)
+    audioUrls.forEach(function(u) { appendLivingAudio(wrapper, u) })
+    photoUrls.forEach(function(u) { appendLivingPhoto(wrapper, u) })
+
     if (parchContent) {
       var parchWrap = document.createElement('div')
       parchWrap.style.cssText = 'background:rgba(123,92,255,0.06);border:1px solid rgba(123,92,255,0.18);border-radius:14px;padding:16px;margin-top:4px;max-width:460px'
@@ -554,13 +747,16 @@
 
     var bs = 'padding:2px 9px;border-radius:50px;border:1px solid rgba(123,92,255,0.15);background:rgba(123,92,255,0.04);color:var(--t4);font-family:Outfit,sans-serif;font-size:11px;cursor:pointer;transition:all .15s'
     var acts = document.createElement('div'); acts.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:2px'
-    var textForSpeak = textWithoutImg || text
+    var textForSpeak = textWithoutImg || (videoUrl ? '' : text)
+    var exportText = textWithoutImg || (videoUrl ? 'Formation vidéo' : text)
+    if (videoUrl) exportText += '\n\nVidéo : ' + videoUrl
+    var agentName = (ALPHA_INFO[msgAgent] && ALPHA_INFO[msgAgent].name) || 'NyXia'
 
     var spk = document.createElement('button'); spk.style.cssText = bs; spk.textContent = '🔊 Écouter'
     spk.addEventListener('click', function() { speakMsg(spk, textForSpeak) }); acts.appendChild(spk)
 
     var cpy = document.createElement('button'); cpy.style.cssText = bs; cpy.textContent = '📋 Copier'
-    cpy.addEventListener('click', function() { navigator.clipboard.writeText(text).then(function() { cpy.textContent = '✓'; setTimeout(function() { cpy.textContent = '📋 Copier' }, 2000) }) }); acts.appendChild(cpy)
+    cpy.addEventListener('click', function() { navigator.clipboard.writeText(exportText).then(function() { cpy.textContent = '✓'; setTimeout(function() { cpy.textContent = '📋 Copier' }, 2000) }) }); acts.appendChild(cpy)
 
     var ret = document.createElement('button'); ret.style.cssText = bs; ret.textContent = '↺ Réessayer'
     ret.addEventListener('click', function() {
@@ -573,11 +769,10 @@
       }
     }); acts.appendChild(ret)
 
-    var agentName = (ALPHA_INFO[msgAgent] && ALPHA_INFO[msgAgent].name) || 'Éric'
     var pdfBtn = document.createElement('button'); pdfBtn.style.cssText = bs; pdfBtn.textContent = '⬇ PDF'
     pdfBtn.addEventListener('click', function() {
       var w = window.open('', '_blank'); if (!w) return
-      var body = '<h2 style="color:#7B5CFF">' + agentName + ' — NyXia</h2>' + escHtml(text).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
+      var body = '<h2 style="color:#7B5CFF">' + agentName + ' — NyXia</h2>' + escHtml(exportText).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
       w.document.write('<!DOCTYPE html><html><head><title>' + agentName + ' — NyXia</title><style>body{font-family:Georgia,serif;max-width:760px;margin:48px auto;line-height:1.85}</style></head><body>' + body + '</body></html>')
       w.document.close(); setTimeout(function() { w.print() }, 300)
     }); acts.appendChild(pdfBtn)
@@ -773,7 +968,7 @@
   }
 
   function cleanForSpeech(str) {
-    return str
+    return String(str || '')
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/---+/g, '')
@@ -782,6 +977,9 @@
       .replace(/\[IMAGE[\s\S]*?\]/gi, '')
       .replace(/\[(?:PROMPT|PARCHEMIN)\][\s\S]*?\[\/(?:PROMPT|PARCHEMIN)\]/gi, '')
       .replace(/\[(?:PROMPT|PARCHEMIN)_IMAGE[\s\S]*?\]/gi, '')
+      .replace(/\[VIDEO\s*:\s*[^\]\r\n]+\]/gi, '')
+      .replace(/\[AUDIO\s*:\s*[^\]\r\n]+\]/gi, '')
+      .replace(/\[PHOTO\s*:\s*[^\]\r\n]+\]/gi, '')
       .replace(/[✦💜🚀💎🌐📱⭐✓►▶🪞🌿🕯️🌙✨📖🔥👑😉📚📜]/gu, '')
       .replace(/<br>/g, ' ')
       .replace(/<[^>]+>/g, '')
@@ -790,6 +988,19 @@
   }
 
   function escHtml(str) { var d = document.createElement('div'); d.textContent = str; return d.innerHTML }
+
+
+  // Ouverture d'une mini-formation depuis « Mes Formations Vivantes » du dashboard.
+  window.addEventListener('message', function(e) {
+    if (e.origin !== window.location.origin || !e.data || e.data.type !== 'nyxia_formation_open') return
+    var targetAgent = String(e.data.agent || '').toLowerCase()
+    if (targetAgent && targetAgent !== _currentAgent) return
+    var label = String(e.data.title || e.data.formationId || '').trim()
+    var mode = String(e.data.mode || (e.data.resume ? 'resume' : 'start')).toLowerCase()
+    var cmd = mode === 'restart' ? 'recommence ma formation' : (mode === 'advance' ? 'suite' : (mode === 'resume' ? 'continue ma formation' : 'commence ma formation'))
+    if (label) cmd += ' ' + label
+    sendMessageText(cmd, false)
+  })
 
   if (window.speechSynthesis) { try { window.speechSynthesis.getVoices() } catch (e) {} }
   </script>
