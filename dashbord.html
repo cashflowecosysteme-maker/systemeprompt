@@ -301,6 +301,9 @@
       <!-- SECTION : MON PARCOURS -->
       <div class="sidebar-section">
         <div class="sidebar-label">Mon Parcours</div>
+        <div class="nav-item" id="nav-ecosysteme" onclick="showPanel('ecosysteme')">
+          <span class="nav-icon">🌐</span> Mon Écosystème <span class="nav-arrow">›</span>
+        </div>
         <div class="nav-item" id="nav-formations" onclick="showPanel('formations')">
           <span class="nav-icon">🎓</span> Mes Formations Vivantes <span class="nav-arrow">›</span>
         </div>
@@ -353,6 +356,13 @@
         <div style="font-size:40px">🪞</div>
         <div style="color:var(--t2);font-size:16px">Mon Espace s'ouvre dans un nouvel onglet.</div>
         <a href="https://www.lemiroirnyxia.com/fr/login" target="_blank" rel="noopener" style="padding:10px 22px;border-radius:50px;background:linear-gradient(135deg,#7B5CFF,#5A6CFF);color:#fff;text-decoration:none;font-weight:600;font-size:13px">Ouvrir Mon Espace ↗</a>
+      </div>
+
+      <!-- Panel Mon Écosystème -->
+      <div class="panel" id="panel-ecosysteme" style="flex-direction:column">
+        <div style="flex:1;overflow:hidden;position:relative">
+          <iframe id="ecosysteme-iframe" src="/ecosysteme.html" style="width:100%;height:100%;border:none;display:block" title="Mon Écosystème NyXia"></iframe>
+        </div>
       </div>
 
       <!-- Panel Mes Formations Vivantes -->
