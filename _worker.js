@@ -1,3 +1,4 @@
+// BUILD FIX 2026-09-10 — Worker Studio Prompt nettoyé — 1 seul export default
 // ============================================================
 // NyXia — Studio Prompt — Cloudflare Worker (Backend API)
 // ============================================================
