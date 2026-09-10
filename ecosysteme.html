@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mon Écosystème — NyXia Studio Prompt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060a18;--p:#7B5CFF;--lav:#a78bfa;--gold:#f4c842;--t:#fff;--t2:#d6d9f0;--t3:#8891b8;--green:#34d399}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -12%,rgba(123,92,255,.18),transparent 42%),var(--bg);color:var(--t2);font-family:Outfit,sans-serif}
+#starry-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}.page{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:30px 24px 56px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--lav);margin-bottom:8px}.title{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,5vw,48px);line-height:1;margin:0;color:#fff}.subtitle{max-width:760px;margin:12px 0 0;color:var(--t3);font-size:15px;line-height:1.6}
+.hero-note{margin:20px 0 24px;padding:14px 16px;border:1px solid rgba(244,200,66,.18);background:rgba(244,200,66,.045);border-radius:16px;color:#d8d3bb;font-size:13px;line-height:1.55}.hero-note strong{color:#fff}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}.card{position:relative;overflow:hidden;min-height:210px;padding:20px;border-radius:20px;border:1px solid rgba(167,139,250,.18);background:linear-gradient(145deg,rgba(123,92,255,.09),rgba(255,255,255,.025));box-shadow:0 15px 45px rgba(0,0,0,.2);backdrop-filter:blur(14px);display:flex;flex-direction:column}.card:after{content:'';position:absolute;width:165px;height:165px;border-radius:50%;background:rgba(123,92,255,.13);filter:blur(40px);right:-80px;top:-90px;pointer-events:none}.card>*{position:relative;z-index:1}
+.icon{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;font-size:23px;background:rgba(123,92,255,.12);border:1px solid rgba(167,139,250,.23);box-shadow:0 0 22px rgba(123,92,255,.12);margin-bottom:14px}.kicker{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--lav);font-weight:700;margin-bottom:4px}.card h2{font-size:18px;color:#fff;margin:0 0 7px}.card p{font-size:13px;color:var(--t3);line-height:1.55;margin:0 0 15px}.tag{display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;font-size:11px;color:#d9d4ff;background:rgba(123,92,255,.08);border:1px solid rgba(167,139,250,.14);border-radius:99px;padding:5px 9px;margin-bottom:15px}.tag.gold{color:#eee3ad;border-color:rgba(244,200,66,.17);background:rgba(244,200,66,.05)}
+.actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;border:1px solid rgba(167,139,250,.30);background:rgba(123,92,255,.10);backdrop-filter:blur(12px);box-shadow:0 0 22px rgba(123,92,255,.12);color:#fff;border-radius:50px;padding:10px 15px;font:600 12.5px Outfit,sans-serif;cursor:pointer;transition:.2s}.btn:hover{transform:translateY(-1px);background:rgba(123,92,255,.17);box-shadow:0 0 28px rgba(123,92,255,.22)}.btn.primary{border-color:rgba(167,139,250,.45);background:linear-gradient(135deg,rgba(123,92,255,.26),rgba(167,139,250,.12))}
+.promo{border-color:rgba(244,200,66,.22);background:linear-gradient(145deg,rgba(244,200,66,.055),rgba(123,92,255,.06))}.promo .icon{border-color:rgba(244,200,66,.26);background:rgba(244,200,66,.07);box-shadow:0 0 24px rgba(244,200,66,.08)}
+.footer{margin-top:24px;text-align:center;color:var(--t3);font-size:11.5px;line-height:1.5}
+@media(max-width:760px){.page{padding:22px 15px 44px}.grid{grid-template-columns:1fr}.card{min-height:0}.title{font-size:36px}}
+</style>
+</head>
+<body>
+<canvas id="starry-canvas"></canvas>
+<main class="page">
+  <div class="eyebrow">Studio Prompt · NyXia</div>
+  <h1 class="title">🌐 Mon Écosystème</h1>
+  <p class="subtitle">Ton point de départ vers tout l'univers NyXia. Tu apprends, tu crées, tu développes ta visibilité et, si tu le souhaites, tu peux aussi partager l'écosystème sans devenir vendeuse.</p>
+  <div class="hero-note"><strong>Une seule porte d'entrée.</strong> Studio Prompt reste ton hall principal : les autres espaces s'ouvrent seulement quand tu en as besoin.</div>
+
+  <section class="grid">
+    <article class="card">
+      <div class="icon">🎓</div><div class="kicker">Apprendre</div><h2>Mes Formations Vivantes</h2>
+      <p>De petites formations guidées par les personnages de NyXia. Tu avances à ton rythme, une bouchée à la fois, et ta progression est conservée.</p>
+      <div class="tag">✨ Petites bouchées · progression sauvegardée</div>
+      <div class="actions"><button class="btn primary" onclick="openPanel('formations')">Voir mes formations →</button></div>
+    </article>
+
+    <article class="card">
+      <div class="icon">🔎</div><div class="kicker">Découvrir & partager</div><h2>Répertoire NyXia</h2>
+      <p>Explore les offres présentes dans l'écosystème. Les liens de recommandation peuvent suivre ton code de référence jusqu'à l'offre concernée.</p>
+      <div class="tag">🌐 Répertoire de l'écosystème</div>
+      <div class="actions"><a class="btn primary" href="https://repertoire.nyxia.top/" target="_blank" rel="noopener">Ouvrir le Répertoire ↗</a></div>
+    </article>
+
+    <article class="card promo">
+      <div class="icon">💜</div><div class="kicker">Bonus Studio Prompt</div><h2>Mon activité Promoteur</h2>
+      <p>Pas besoin de vendre comme un vendeur de tapis. 😄 Tu apprends à créer de vraies conversations à l'ère numérique, Éric t'accompagne, et l'équipe prend le relais lorsque vient le moment de conclure une vente.</p>
+      <div class="tag gold">10 % direct · 5 % niveau 2 · sur ventes admissibles</div>
+      <div class="actions"><a class="btn primary" href="https://promoteurs.nyxia.top/" target="_blank" rel="noopener">Ouvrir mon espace Promoteur ↗</a><button class="btn" onclick="openAgent('eric')">Parler à Éric →</button></div>
+    </article>
+
+    <article class="card">
+      <div class="icon">🪞</div><div class="kicker">Mon univers</div><h2>Mon Espace NyXia</h2>
+      <p>Retrouve ton espace principal NyXia et les autres accès de ton parcours. Les personnages de Studio Prompt restent tes guides pour t'orienter au bon endroit.</p>
+      <div class="tag">✦ Un univers · plusieurs portes</div>
+      <div class="actions"><a class="btn primary" href="https://www.lemiroirnyxia.com/fr/login" target="_blank" rel="noopener">Ouvrir Mon Espace ↗</a></div>
+    </article>
+
+    <article class="card">
+      <div class="icon">🔥</div><div class="kicker">Communication</div><h2>Éric · Communication à l'ère numérique</h2>
+      <p>Travaille tes publications, tes réponses et tes conversations sans achaler ta famille ni tes amis. Ici, on bâtit d'abord une vraie relation.</p>
+      <div class="tag">💬 Communication · confiance · relation humaine</div>
+      <div class="actions"><button class="btn primary" onclick="openAgent('eric')">Continuer avec Éric →</button></div>
+    </article>
+
+    <article class="card">
+      <div class="icon">👥</div><div class="kicker">Communauté</div><h2>Groupe privé Studio Prompt</h2>
+      <p>Retrouve les coulisses, les démonstrations, les échanges et les nouveautés autour de Studio Prompt et de l'écosystème NyXia.</p>
+      <div class="tag">💜 Communauté privée</div>
+      <div class="actions"><a class="btn primary" href="https://www.facebook.com/groups/nyxiastudioprompts" target="_blank" rel="noopener">Ouvrir le groupe ↗</a></div>
+    </article>
+  </section>
+
+  <div class="footer">NyXia t'oriente. Les personnages t'accompagnent. Tu n'as pas besoin de tout faire en même temps. 💜</div>
+</main>
+<script src="/starry-bg.js" defer></script>
+<script>
+function openPanel(name){try{if(parent&&typeof parent.showPanel==='function'){parent.showPanel(name);return}}catch(e){} location.href='/dashbord.html'}
+function openAgent(agent){try{if(parent&&typeof parent.openAgentTab==='function'){parent.openAgentTab(agent);return}}catch(e){} location.href='/dashbord.html'}
+</script>
+</body>
+</html>
