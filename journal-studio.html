@@ -164,7 +164,7 @@
               </div>
             </div>
           </div>
-          <div class="footer-note" id="storage-note">Journal privé enregistré dans ce navigateur.</div>
+          <div class="footer-note" id="storage-note">Journal privé synchronisé avec ton compte NyXia.</div>
         </form>
       </section>
     </main>
@@ -174,10 +174,11 @@
   <script src="/starry-bg.js" defer></script>
   <script>
   (function(){
-    var BASE_KEY='nyxia_journal_entries_v1';
-    var activeKey=BASE_KEY+':local';
+    var LEGACY_BASE_KEY='nyxia_journal_entries_v1';
     var entries=[];
     var currentId=null;
+    var sessionToken='';
+    var accountEmail='';
     var els={
       list:document.getElementById('entries'), empty:document.getElementById('editor-empty'), form:document.getElementById('editor-form'),
       search:document.getElementById('search'), fp:document.getElementById('filter-personnage'), fs:document.getElementById('filter-statut'),
@@ -193,24 +194,19 @@
     function inferTitle(text){var s=String(text||'').replace(/^#+\s*/gm,'').trim();var first=(s.split('\n').find(function(x){return x.trim()})||'Nouvelle entrée').trim();return shortText(first,80)}
     function toast(msg){els.toast.textContent=msg;els.toast.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(function(){els.toast.classList.remove('show')},1800)}
 
-    function resolveStorageKey(){
-      var token='';
-      try{token=sessionStorage.getItem('nyxia_token')||''}catch(e){}
-      try{if(!token&&window.parent&&window.parent!==window)token=window.parent.sessionStorage.getItem('nyxia_token')||''}catch(e){}
-      if(!token){load();return}
-      fetch('/api/check-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})})
-        .then(function(r){return r.json()}).then(function(d){
-          if(d&&d.valid&&d.email){activeKey=BASE_KEY+':'+String(d.email).toLowerCase();els.storageNote.textContent='Journal privé lié à ce compte dans ce navigateur.'}
-          load();
-        }).catch(load)
+    function resolveToken(){
+      try{sessionToken=sessionStorage.getItem('nyxia_token')||''}catch(e){}
+      try{if(!sessionToken&&window.parent&&window.parent!==window)sessionToken=window.parent.sessionStorage.getItem('nyxia_token')||''}catch(e){}
+      try{var q=new URLSearchParams(location.search);if(q.get('t'))sessionToken=q.get('t')}catch(e){}
+      return sessionToken;
     }
-    function load(){
-      try{var raw=localStorage.getItem(activeKey);entries=raw?JSON.parse(raw):[];if(!Array.isArray(entries))entries=[]}catch(e){entries=[]}
-      renderList();
-      consumeIncoming();
-    }
-    function persist(){
-      try{localStorage.setItem(activeKey,JSON.stringify(entries));return true}catch(e){toast('Impossible d’enregistrer dans ce navigateur.');return false}
+
+    async function api(action,payload){
+      var body=Object.assign({action:action,token:sessionToken},payload||{});
+      var r=await fetch('/api/journal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      var d=await r.json().catch(function(){return {error:'Réponse invalide du serveur.'}});
+      if(!r.ok)throw new Error(d.error||'Erreur Journal');
+      return d;
     }
 
     function renderList(){
@@ -235,16 +231,26 @@
       currentId=x.id;els.empty.style.display='none';els.form.classList.add('active');
       els.nom.value=x.nom||'';els.type.value=x.type||'Prompt';els.personnage.value=x.personnage||'Studio';els.statut.value=x.statut||'À tester';els.resultat.value=x.resultat||'Pas encore';els.contenu.value=x.contenu||'';els.notes.value=x.notes||'';els.state.textContent='Modifié '+niceDate(x.updatedAt||x.createdAt);renderList();
     }
-    function saveCurrent(){
-      var data={nom:els.nom.value.trim()||inferTitle(els.contenu.value),type:els.type.value,personnage:els.personnage.value,statut:els.statut.value,resultat:els.resultat.value,contenu:els.contenu.value,notes:els.notes.value};
-      if(currentId){var idx=entries.findIndex(function(x){return x.id===currentId});if(idx>=0)entries[idx]=Object.assign({},entries[idx],data,{updatedAt:now()})}
-      else{currentId=id();entries.push(Object.assign({id:currentId,createdAt:now(),updatedAt:now()},data))}
-      if(persist()){els.state.textContent='✓ Enregistré';renderList();toast('Entrée enregistrée ✨')}
+
+    async function saveCurrent(){
+      var data={id:currentId||id(),nom:els.nom.value.trim()||inferTitle(els.contenu.value),type:els.type.value,personnage:els.personnage.value,statut:els.statut.value,resultat:els.resultat.value,contenu:els.contenu.value,notes:els.notes.value};
+      els.state.textContent='Enregistrement…';
+      try{
+        var d=await api('save',{entry:data});
+        entries=Array.isArray(d.entries)?d.entries:entries;
+        currentId=d.entry&&d.entry.id?d.entry.id:data.id;
+        els.state.textContent='✓ Synchronisé';renderList();toast('Entrée enregistrée ✨');
+      }catch(e){els.state.textContent='Erreur';toast(e.message||'Enregistrement impossible')}
     }
-    function removeCurrent(){
+
+    async function removeCurrent(){
       if(!currentId)return;
       var x=entries.find(function(e){return e.id===currentId});if(!confirm('Supprimer « '+(x&&x.nom?x.nom:'cette entrée')+' » ?'))return;
-      entries=entries.filter(function(e){return e.id!==currentId});persist();currentId=null;els.form.classList.remove('active');els.empty.style.display='flex';renderList();toast('Entrée supprimée')
+      try{
+        var d=await api('delete',{id:currentId});
+        entries=Array.isArray(d.entries)?d.entries:entries.filter(function(e){return e.id!==currentId});
+        currentId=null;els.form.classList.remove('active');els.empty.style.display='flex';renderList();toast('Entrée supprimée');
+      }catch(e){toast(e.message||'Suppression impossible')}
     }
 
     function openStudio(text){
@@ -261,22 +267,52 @@
       window.location.href='/studio-prompt.html';
     }
 
-    function importIncoming(d, silent){
-      if(!d||!String(d.contenu||'').trim())return;
-      var created=d.createdAt||now();
-      var item={id:id(),createdAt:created,updatedAt:now(),nom:d.nom||inferTitle(d.contenu||''),type:d.type||'Prompt',personnage:d.personnage||'Studio',statut:d.statut||'À tester',resultat:d.resultat||'Pas encore',contenu:d.contenu||'',notes:d.notes||''};
-      entries.push(item);currentId=item.id;persist();renderList();openEntry(item.id);if(!silent)toast('Ajouté au Journal ✨');
+    async function importIncoming(d,silent){
+      if(!d||!String(d.contenu||'').trim())return null;
+      var item={id:d.id||id(),createdAt:d.createdAt||now(),nom:d.nom||inferTitle(d.contenu||''),type:d.type||'Prompt',personnage:d.personnage||'Studio',statut:d.statut||'À tester',resultat:d.resultat||'Pas encore',contenu:d.contenu||'',notes:d.notes||''};
+      try{
+        var r=await api('save',{entry:item});entries=Array.isArray(r.entries)?r.entries:entries;currentId=r.entry&&r.entry.id?r.entry.id:item.id;renderList();openEntry(currentId);if(!silent)toast('Ajouté au Journal ✨');return r.entry||item;
+      }catch(e){if(!silent)toast(e.message||'Ajout impossible');return null}
     }
-    function consumeIncoming(){
+
+    async function consumeIncoming(){
       var queue=[];
       try{queue=JSON.parse(localStorage.getItem('nyxia_journal_incoming_queue')||'[]')}catch(e){queue=[]}
       if(!Array.isArray(queue))queue=[];
-      // Compatibilité avec une ancienne entrée unique, si elle existe encore.
       try{var legacy=localStorage.getItem('nyxia_journal_incoming');if(legacy){queue.push(JSON.parse(legacy));localStorage.removeItem('nyxia_journal_incoming')}}catch(e){}
       if(!queue.length)return;
-      try{localStorage.removeItem('nyxia_journal_incoming_queue')}catch(e){}
-      queue.forEach(function(d,i){importIncoming(d,true)});
-      toast(queue.length===1?'Ajouté au Journal ✨':queue.length+' entrées ajoutées au Journal ✨');
+      try{
+        var incoming=queue.filter(function(d){return d&&String(d.contenu||'').trim()}).map(function(d){return {id:d.id||id(),createdAt:d.createdAt||now(),nom:d.nom||inferTitle(d.contenu||''),type:d.type||'Prompt',personnage:d.personnage||'Studio',statut:d.statut||'À tester',resultat:d.resultat||'Pas encore',contenu:d.contenu||'',notes:d.notes||''}});
+        var r=await api('import',{entries:incoming});entries=Array.isArray(r.entries)?r.entries:entries;localStorage.removeItem('nyxia_journal_incoming_queue');renderList();toast(incoming.length===1?'Ajouté au Journal ✨':incoming.length+' entrées ajoutées au Journal ✨');
+      }catch(e){toast('Journal en attente de synchronisation')}
+    }
+
+    async function migrateLegacyLocal(){
+      if(!accountEmail)return;
+      var key=LEGACY_BASE_KEY+':'+accountEmail.toLowerCase();
+      var local=[];
+      try{local=JSON.parse(localStorage.getItem(key)||'[]')}catch(e){local=[]}
+      if(!Array.isArray(local)||!local.length)return;
+      try{
+        var r=await api('import',{entries:local});entries=Array.isArray(r.entries)?r.entries:entries;localStorage.removeItem(key);renderList();
+        if(r.imported)toast(r.imported+' ancienne'+(r.imported>1?'s':'')+' entrée'+(r.imported>1?'s':'')+' synchronisée'+(r.imported>1?'s':'')+' ✨');
+      }catch(e){}
+    }
+
+    async function boot(){
+      resolveToken();
+      if(!sessionToken){els.storageNote.textContent='Reconnecte-toi pour accéder à ton Journal.';toast('Session manquante');return}
+      try{
+        var a=await fetch('/api/check-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:sessionToken})});
+        var auth=await a.json();
+        if(!auth.valid)throw new Error('Session expirée.');
+        accountEmail=String(auth.email||'').toLowerCase();
+        var d=await api('list');entries=Array.isArray(d.entries)?d.entries:[];
+        els.storageNote.textContent='Journal privé synchronisé avec ton compte NyXia.';
+        renderList();
+        await migrateLegacyLocal();
+        await consumeIncoming();
+      }catch(e){els.storageNote.textContent='Impossible de synchroniser le Journal. Reconnecte-toi.';toast(e.message||'Connexion au Journal impossible')}
     }
 
     document.getElementById('new-btn').addEventListener('click',function(){newEntry()});
@@ -287,7 +323,7 @@
     [els.search,els.fp,els.fs].forEach(function(el){el.addEventListener(el===els.search?'input':'change',renderList)});
     window.addEventListener('storage',function(e){if(e.key==='nyxia_journal_incoming_queue'||e.key==='nyxia_journal_incoming')consumeIncoming()});
     window.addEventListener('message',function(e){if(e.origin!==location.origin||!e.data)return;if(e.data.type==='nyxia_journal_add'){importIncoming({nom:e.data.nom||inferTitle(e.data.text||''),type:e.data.entryType||'Prompt',personnage:e.data.personnage||'Studio',contenu:e.data.text||''})}});
-    resolveStorageKey();
+    boot();
   })();
   </script>
 </body>
