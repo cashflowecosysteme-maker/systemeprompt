@@ -990,6 +990,16 @@
   function escHtml(str) { var d = document.createElement('div'); d.textContent = str; return d.innerHTML }
 
 
+  // Préremplissage depuis « Mes contenus prêts à publier ».
+  window.addEventListener('message', function(e) {
+    if (e.origin !== window.location.origin || !e.data || e.data.type !== 'nyxia_prefill') return
+    var input = document.getElementById('chat-input')
+    if (!input) return
+    input.value = String(e.data.text || '')
+    try { input.dispatchEvent(new Event('input', { bubbles: true })) } catch (_) {}
+    input.focus()
+  })
+
   // Ouverture d'une mini-formation depuis « Mes Formations Vivantes » du dashboard.
   window.addEventListener('message', function(e) {
     if (e.origin !== window.location.origin || !e.data || e.data.type !== 'nyxia_formation_open') return
