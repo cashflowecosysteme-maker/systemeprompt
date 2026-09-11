@@ -1,30 +1,123 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Mes contenus prêts à publier — NyXia</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#060a18;--p:#7B5CFF;--lav:#a78bfa;--gold:#f4c842;--t:#fff;--t2:#d6d9f0;--t3:#8891b8;--green:#34d399}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,rgba(123,92,255,.17),transparent 42%),var(--bg);color:var(--t2);font-family:Outfit,sans-serif}#starry-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}.page{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:28px 22px 54px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--lav)}h1{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,5vw,46px);line-height:1;margin:7px 0;color:#fff}.subtitle{color:var(--t3);font-size:14px;line-height:1.6;max-width:780px}.canva-tip{display:flex;gap:14px;align-items:center;margin:20px 0;padding:15px 16px;border-radius:18px;border:1px solid rgba(244,200,66,.18);background:linear-gradient(135deg,rgba(244,200,66,.055),rgba(123,92,255,.06))}.canva-tip .ico{font-size:26px}.canva-tip b{color:#fff}.canva-tip p{margin:3px 0 0;color:var(--t3);font-size:12.5px}.canva-tip button{margin-left:auto;white-space:nowrap}.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:20px 0}.filter{background:rgba(14,20,48,.68);border:1px solid rgba(167,139,250,.17);color:#fff;border-radius:12px;padding:10px 11px;font:500 12px Outfit,sans-serif;outline:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:15px}.card{overflow:hidden;border:1px solid rgba(167,139,250,.17);border-radius:20px;background:linear-gradient(145deg,rgba(123,92,255,.09),rgba(255,255,255,.025));box-shadow:0 16px 42px rgba(0,0,0,.2)}.preview{height:150px;background:rgba(10,16,40,.65);display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid rgba(167,139,250,.10)}.preview img{width:100%;height:100%;object-fit:cover}.placeholder{font-size:36px;opacity:.62}.body{padding:16px}.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.tag{font-size:10px;padding:4px 7px;border-radius:99px;border:1px solid rgba(167,139,250,.17);background:rgba(123,92,255,.07);color:#d9d4ff}.title{font-size:16px;font-weight:700;color:#fff;line-height:1.3}.copy{font-size:12px;color:var(--t3);line-height:1.55;margin:9px 0 13px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}.actions{display:flex;gap:7px;flex-wrap:wrap}.btn{border:1px solid rgba(167,139,250,.28);background:rgba(123,92,255,.10);color:#fff;border-radius:50px;padding:9px 12px;font:600 11.5px Outfit,sans-serif;cursor:pointer;text-decoration:none;transition:.2s}.btn:hover{background:rgba(123,92,255,.17);transform:translateY(-1px)}.btn.primary{background:linear-gradient(135deg,rgba(123,92,255,.28),rgba(167,139,250,.12));border-color:rgba(167,139,250,.4)}.empty{grid-column:1/-1;text-align:center;padding:40px 20px;border:1px dashed rgba(167,139,250,.2);border-radius:18px;color:var(--t3)}.empty strong{display:block;color:#fff;font-size:16px;margin-bottom:6px}.count{font-size:11px;color:var(--t3);margin:-5px 0 14px}.hidden{display:none!important}@media(max-width:780px){.filters{grid-template-columns:1fr 1fr}.canva-tip{align-items:flex-start;flex-wrap:wrap}.canva-tip button{margin-left:40px}}@media(max-width:480px){.page{padding:20px 14px 40px}.filters{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.canva-tip button{margin-left:0;width:100%}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -10%,rgba(123,92,255,.17),transparent 42%),var(--bg);color:var(--t2);font-family:Outfit,sans-serif}
+#starry-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+.page{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:28px 22px 54px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--lav)}
+h1{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,5vw,46px);line-height:1;margin:7px 0;color:#fff}
+.subtitle{color:var(--t3);font-size:14px;line-height:1.6;max-width:780px}
+.filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:20px 0}
+.filter{background:rgba(14,20,48,.68);border:1px solid rgba(167,139,250,.17);color:#fff;border-radius:12px;padding:10px 11px;font:500 12px Outfit,sans-serif;outline:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:15px}
+.card{overflow:hidden;border:1px solid rgba(167,139,250,.17);border-radius:20px;background:linear-gradient(145deg,rgba(123,92,255,.09),rgba(255,255,255,.025));box-shadow:0 16px 42px rgba(0,0,0,.2)}
+.preview{height:150px;background:rgba(10,16,40,.65);display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid rgba(167,139,250,.10)}
+.preview img{width:100%;height:100%;object-fit:cover}
+.placeholder{font-size:36px;opacity:.62}
+.body{padding:16px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tag{font-size:10px;padding:4px 7px;border-radius:99px;border:1px solid rgba(167,139,250,.17);background:rgba(123,92,255,.07);color:#d9d4ff}
+.title{font-size:16px;font-weight:700;color:#fff;line-height:1.3}
+.copy{font-size:12px;color:var(--t3);line-height:1.55;margin:9px 0 13px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+.actions{display:flex;gap:7px;flex-wrap:wrap}
+.btn{border:1px solid rgba(167,139,250,.28);background:rgba(123,92,255,.10);color:#fff;border-radius:50px;padding:9px 12px;font:600 11.5px Outfit,sans-serif;cursor:pointer;text-decoration:none;transition:.2s}
+.btn:hover{background:rgba(123,92,255,.17);transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,rgba(123,92,255,.28),rgba(167,139,250,.12));border-color:rgba(167,139,250,.4)}
+.empty{grid-column:1/-1;text-align:center;padding:40px 20px;border:1px dashed rgba(167,139,250,.2);border-radius:18px;color:var(--t3)}
+.empty strong{display:block;color:#fff;font-size:16px;margin-bottom:6px}
+.count{font-size:11px;color:var(--t3);margin:-5px 0 14px}
+.hidden{display:none!important}
+@media(max-width:780px){.filters{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.page{padding:20px 14px 40px}.filters{grid-template-columns:1fr}.grid{grid-template-columns:1fr}}
 </style>
-</head><body><canvas id="starry-canvas"></canvas><main class="page">
-<div class="eyebrow">Studio Prompt · NyXia</div><h1>📣 Mes contenus prêts à publier</h1>
-<p class="subtitle">Des modèles Canva modifiables et des textes déjà préparés pour communiquer sur l’univers NyXia. Publie tel quel, personnalise dans Canva ou demande à Éric de l’adapter à ta façon de parler.</p>
-<div class="canva-tip"><div class="ico">🎨</div><div><b>Tu débutes avec Canva ?</b><p>Une mini-formation de 12 minutes te montre seulement l’essentiel pour modifier un modèle déjà prêt.</p></div><button class="btn primary" onclick="startCanva()">Mini-formation Canva →</button></div>
-<div class="filters"><select class="filter" id="f-portail"><option value="">Tous les portails</option></select><select class="filter" id="f-platform"><option value="">Toutes les plateformes</option></select><select class="filter" id="f-format"><option value="">Tous les formats</option></select><select class="filter" id="f-intention"><option value="">Toutes les intentions</option></select></div>
-<div class="count" id="count">Chargement…</div><section class="grid" id="grid"><div class="empty">✨ Je rassemble tes contenus…</div></section>
-</main><script src="/starry-bg.js" defer></script><script>
+</head>
+<body>
+<canvas id="starry-canvas"></canvas>
+<main class="page">
+  <div class="eyebrow">Studio Prompt · NyXia</div>
+  <h1>📣 Mes contenus prêts à publier</h1>
+  <p class="subtitle">Des modèles Canva modifiables et des textes déjà préparés pour communiquer sur l’univers NyXia. Publie tel quel, personnalise dans Canva ou demande à Éric de l’adapter à ta façon de parler.</p>
+
+  <div class="filters">
+    <select class="filter" id="f-portail"><option value="">Tous les portails</option></select>
+    <select class="filter" id="f-platform"><option value="">Toutes les plateformes</option></select>
+    <select class="filter" id="f-format"><option value="">Tous les formats</option></select>
+    <select class="filter" id="f-intention"><option value="">Toutes les intentions</option></select>
+  </div>
+
+  <div class="count" id="count">Chargement…</div>
+  <section class="grid" id="grid"><div class="empty">✨ Je rassemble tes contenus…</div></section>
+</main>
+<script src="/starry-bg.js" defer></script>
+<script>
 var ROWS=[];
 function token(){try{return sessionStorage.getItem('nyxia_token')||(parent&&parent.sessionStorage&&parent.sessionStorage.getItem('nyxia_token'))||''}catch(e){return ''}}
 function esc(s){var d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML}
 function uniq(k){return Array.from(new Set(ROWS.map(function(r){return r[k]}).filter(Boolean))).sort(function(a,b){return String(a).localeCompare(String(b),'fr')})}
 function fillSelect(id,vals){var el=document.getElementById(id),keep=el.options[0].outerHTML;el.innerHTML=keep+vals.map(function(v){return '<option value="'+esc(v)+'">'+esc(v)+'</option>'}).join('')}
-function render(){var fp=document.getElementById('f-portail').value,fl=document.getElementById('f-platform').value,ff=document.getElementById('f-format').value,fi=document.getElementById('f-intention').value;var rows=ROWS.filter(function(r){return(!fp||r.portail===fp)&&(!fl||r.plateforme===fl)&&(!ff||r.format===ff)&&(!fi||r.intention===fi)});document.getElementById('count').textContent=rows.length+' contenu'+(rows.length>1?'s':'')+' disponible'+(rows.length>1?'s':'');var g=document.getElementById('grid');if(!rows.length){g.innerHTML='<div class="empty"><strong>Ta bibliothèque est prête 💜</strong>Aucun contenu ne correspond à ces filtres pour le moment. Tes modèles Canva pourront être ajoutés sans modifier cette page.</div>';return}g.innerHTML=rows.map(function(r){var preview=r.previewUrl?'<img src="'+esc(r.previewUrl)+'" alt="">':'<div class="placeholder">🎨</div>';var canva=r.canvaUrl?'<a class="btn primary" href="'+esc(r.canvaUrl)+'" target="_blank" rel="noopener">🎨 Modifier dans Canva</a>':'';return '<article class="card"><div class="preview">'+preview+'</div><div class="body"><div class="tags"><span class="tag">'+esc(r.portail)+'</span><span class="tag">'+esc(r.plateforme)+'</span><span class="tag">'+esc(r.format)+'</span></div><div class="title">'+esc(r.titre)+'</div><div class="copy">'+esc(r.texte||'Visuel prêt à personnaliser dans Canva.')+'</div><div class="actions">'+canva+(r.texte?'<button class="btn" onclick="copyText(\''+String(r.id).replace(/'/g,"\\'")+'\')">📋 Copier le texte</button>':'')+'<button class="btn" onclick="adapt(\''+String(r.id).replace(/'/g,"\\'")+'\')">🔥 Adapter avec Éric</button></div></div></article>'}).join('')}
-async function load(){var t=token();if(!t){document.getElementById('grid').innerHTML='<div class="empty">Session expirée — reconnecte-toi à Studio Prompt.</div>';return}try{var r=await fetch('/api/contenus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:t})});var d=await r.json();if(!r.ok)throw new Error(d.error||'Erreur');ROWS=d.contenus||[];fillSelect('f-portail',uniq('portail'));fillSelect('f-platform',uniq('plateforme'));fillSelect('f-format',uniq('format'));fillSelect('f-intention',uniq('intention'));render()}catch(e){document.getElementById('grid').innerHTML='<div class="empty">Impossible de charger les contenus pour le moment.</div>';document.getElementById('count').textContent=''} }
-function copyText(id){var r=ROWS.find(function(x){return x.id===id});if(!r)return;navigator.clipboard.writeText(r.texte||'').then(function(){var e=event&&event.currentTarget;if(e){var old=e.textContent;e.textContent='Copié ✓';setTimeout(function(){e.textContent=old},1300)}})}
-function adapt(id){var r=ROWS.find(function(x){return x.id===id});if(!r)return;var msg='Éric, aide-moi à adapter ce contenu prêt à publier pour qu’il soit naturel et relationnel, sans ton de vente dure.\n\nPortail : '+r.portail+'\nPlateforme : '+r.plateforme+'\nFormat : '+r.format+'\nIntention : '+r.intention+'\n\nTexte de départ :\n'+(r.texte||'(Je veux surtout adapter le visuel et l’angle.)');try{if(parent&&typeof parent.openAgentWithPrefill==='function'){parent.openAgentWithPrefill('eric',msg);return}}catch(e){}alert('Ouvre Éric dans Mes Conversations pour personnaliser ce contenu.')}
-function startCanva(){try{if(parent&&typeof parent.openFormationFromCard==='function'){parent.openFormationFromCard('diane','canva-modifier-modele','Canva sans prise de tête — modifier un modèle de base','start');return}}catch(e){}alert('Ouvre Diane dans Mes Conversations et écris : « commence ma formation Canva »')}
-['f-portail','f-platform','f-format','f-intention'].forEach(function(id){document.getElementById(id).addEventListener('change',render)});window.addEventListener('message',function(e){if(e.origin===location.origin&&e.data&&e.data.type==='nyxia_contenus_refresh')load()});load();
-</script></body></html>
+function render(){
+  var fp=document.getElementById('f-portail').value,
+      fl=document.getElementById('f-platform').value,
+      ff=document.getElementById('f-format').value,
+      fi=document.getElementById('f-intention').value;
+  var rows=ROWS.filter(function(r){return(!fp||r.portail===fp)&&(!fl||r.plateforme===fl)&&(!ff||r.format===ff)&&(!fi||r.intention===fi)});
+  document.getElementById('count').textContent=rows.length+' contenu'+(rows.length>1?'s':'')+' disponible'+(rows.length>1?'s':'');
+  var g=document.getElementById('grid');
+  if(!rows.length){
+    g.innerHTML='<div class="empty"><strong>Ta bibliothèque est prête 💜</strong>Aucun contenu ne correspond à ces filtres pour le moment. Tes modèles Canva pourront être ajoutés sans modifier cette page.</div>';
+    return;
+  }
+  g.innerHTML=rows.map(function(r){
+    var preview=r.previewUrl?'<img src="'+esc(r.previewUrl)+'" alt="">':'<div class="placeholder">🎨</div>';
+    var canva=r.canvaUrl?'<a class="btn primary" href="'+esc(r.canvaUrl)+'" target="_blank" rel="noopener">🎨 Modifier dans Canva</a>':'';
+    return '<article class="card"><div class="preview">'+preview+'</div><div class="body"><div class="tags"><span class="tag">'+esc(r.portail)+'</span><span class="tag">'+esc(r.plateforme)+'</span><span class="tag">'+esc(r.format)+'</span></div><div class="title">'+esc(r.titre)+'</div><div class="copy">'+esc(r.texte||'Visuel prêt à personnaliser dans Canva.')+'</div><div class="actions">'+canva+(r.texte?'<button class="btn" onclick="copyText(\''+String(r.id).replace(/'/g,"\\'")+'\')">📋 Copier le texte</button>':'')+'<button class="btn" onclick="adapt(\''+String(r.id).replace(/'/g,"\\'")+'\')">🔥 Adapter avec Éric</button></div></div></article>';
+  }).join('');
+}
+async function load(){
+  var t=token();
+  if(!t){document.getElementById('grid').innerHTML='<div class="empty">Session expirée — reconnecte-toi à Studio Prompt.</div>';return}
+  try{
+    var r=await fetch('/api/contenus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:t})});
+    var d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Erreur');
+    ROWS=d.contenus||[];
+    fillSelect('f-portail',uniq('portail'));
+    fillSelect('f-platform',uniq('plateforme'));
+    fillSelect('f-format',uniq('format'));
+    fillSelect('f-intention',uniq('intention'));
+    render();
+  }catch(e){
+    document.getElementById('grid').innerHTML='<div class="empty">Impossible de charger les contenus pour le moment.</div>';
+    document.getElementById('count').textContent='';
+  }
+}
+function copyText(id){
+  var r=ROWS.find(function(x){return x.id===id});
+  if(!r)return;
+  navigator.clipboard.writeText(r.texte||'').then(function(){
+    var e=event&&event.currentTarget;
+    if(e){var old=e.textContent;e.textContent='Copié ✓';setTimeout(function(){e.textContent=old},1300)}
+  });
+}
+function adapt(id){
+  var r=ROWS.find(function(x){return x.id===id});
+  if(!r)return;
+  var msg='Éric, aide-moi à adapter ce contenu prêt à publier pour qu’il soit naturel et relationnel, sans ton de vente dure.\n\nPortail : '+r.portail+'\nPlateforme : '+r.plateforme+'\nFormat : '+r.format+'\nIntention : '+r.intention+'\n\nTexte de départ :\n'+(r.texte||'(Je veux surtout adapter le visuel et l’angle.)');
+  try{if(parent&&typeof parent.openAgentWithPrefill==='function'){parent.openAgentWithPrefill('eric',msg);return}}catch(e){}
+  alert('Ouvre Éric dans Mes Conversations pour personnaliser ce contenu.');
+}
+['f-portail','f-platform','f-format','f-intention'].forEach(function(id){document.getElementById(id).addEventListener('change',render)});
+window.addEventListener('message',function(e){if(e.origin===location.origin&&e.data&&e.data.type==='nyxia_contenus_refresh')load()});
+load();
+</script>
+</body>
+</html>
