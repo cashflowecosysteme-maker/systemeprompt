@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NyXia Studio Prompt — L’IA devient enfin simple à utiliser</title>
+  <meta name="description" content="Studio Prompt NyXia : un environnement vivant avec plusieurs modèles IA, des personnages spécialisés, des contenus prêts à publier, des mini-formations et un Univers NyXia qui évolue avec tes accès.">
+  <link rel="icon" type="image/png" href="/FavIcon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#060a18;--card:#0e1430;--card2:#111936;
+      --p:#7B5CFF;--p2:#5A6CFF;--lav:#a78bfa;--blue:#4FA3FF;
+      --gold:#F4C842;--green:#34d399;--text:#f4f2ff;--muted:#b9b3d6;--soft:#8179a7;
+      --border:rgba(123,92,255,.22);--r:22px;--shadow:0 20px 70px rgba(0,0,0,.35);
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);line-height:1.65;overflow-x:hidden}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:
+      radial-gradient(55% 35% at 75% 0%,rgba(123,92,255,.22),transparent 70%),
+      radial-gradient(45% 30% at 8% 30%,rgba(79,163,255,.12),transparent 70%),
+      radial-gradient(55% 35% at 50% 100%,rgba(244,200,66,.06),transparent 75%)}
+    #starry-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+    a{text-decoration:none;color:inherit}
+    img{display:block;max-width:100%}
+    .page{position:relative;z-index:1}
+    .wrap{width:min(1160px,calc(100% - 36px));margin:auto}
+    .narrow{width:min(840px,calc(100% - 36px));margin:auto}
+    .display{font-family:'Cormorant Garamond',serif;font-weight:700;line-height:1.05}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border:1px solid rgba(167,139,250,.26);border-radius:999px;background:rgba(123,92,255,.09);color:#d9d1ff;font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    .gold{color:var(--gold)}
+    .gradient{background:linear-gradient(135deg,#fff 18%,#d9d1ff 48%,var(--lav));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .muted{color:var(--muted)}
+    .tiny{font-size:.82rem;color:var(--soft)}
+
+    /* Header */
+    .topbar{position:sticky;top:0;z-index:30;background:rgba(6,10,24,.72);backdrop-filter:blur(18px);border-bottom:1px solid rgba(123,92,255,.12)}
+    .topbar-in{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:700}
+    .brand img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(167,139,250,.55);box-shadow:0 0 26px rgba(123,92,255,.35)}
+    .brand small{display:block;color:var(--soft);font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+    .nav{display:flex;align-items:center;gap:18px;font-size:.88rem;color:var(--muted)}
+    .nav a:hover{color:#fff}
+    .nav .mini-cta{padding:9px 15px;border-radius:999px;border:1px solid rgba(167,139,250,.35);background:rgba(123,92,255,.12);color:#fff;font-weight:700}
+    @media(max-width:800px){.nav a:not(.mini-cta){display:none}}
+
+    /* Common */
+    section{padding:78px 0}
+    .section-head{text-align:center;max-width:780px;margin:0 auto 38px}
+    .section-head h2{font-size:clamp(2rem,5vw,3.25rem);margin:12px 0 14px}
+    .section-head p{color:var(--muted);font-size:1.03rem}
+    .glass{background:linear-gradient(180deg,rgba(17,25,54,.82),rgba(9,14,34,.78));border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);backdrop-filter:blur(18px)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 24px;border-radius:14px;font-weight:800;transition:.22s ease;border:1px solid transparent;cursor:pointer;font-family:inherit}
+    .btn:hover{transform:translateY(-2px)}
+    .btn-primary{background:linear-gradient(135deg,var(--p),var(--p2));box-shadow:0 10px 34px rgba(123,92,255,.35);color:white}
+    .btn-ghost{background:rgba(123,92,255,.09);border-color:rgba(167,139,250,.28);color:#eeeaff}
+    .checks{display:grid;gap:10px;margin-top:20px}
+    .check{display:flex;gap:10px;align-items:flex-start;color:var(--muted)}
+    .check b{color:#fff}
+    .check::before{content:"✓";display:grid;place-items:center;flex:0 0 22px;height:22px;border-radius:50%;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.25);color:var(--green);font-weight:900;font-size:.78rem;margin-top:2px}
+
+    /* Hero */
+    .hero{padding:72px 0 58px;text-align:center}
+    .hero h1{font-size:clamp(2.75rem,7vw,5.4rem);max-width:980px;margin:18px auto 18px}
+    .hero .lead{max-width:760px;margin:auto;color:var(--muted);font-size:clamp(1.05rem,2vw,1.28rem)}
+    .hero .lead strong{color:#fff}
+    .hero-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:28px 0 16px}
+    .hero-note{color:var(--soft);font-size:.86rem}
+    .hero-visual{margin:44px auto 0;max-width:980px;padding:12px;position:relative}
+    .hero-visual::before{content:"";position:absolute;inset:12% 14%;background:rgba(123,92,255,.28);filter:blur(90px);z-index:-1;border-radius:50%}
+    .hero-visual img{width:100%;border-radius:26px;filter:drop-shadow(0 30px 70px rgba(0,0,0,.45))}
+
+    /* Pain */
+    .pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .pain-card{padding:25px}
+    .pain-card .icon{font-size:1.8rem;margin-bottom:12px}
+    .pain-card h3{font-size:1.08rem;margin-bottom:7px}
+    .pain-card p{color:var(--muted);font-size:.92rem}
+    @media(max-width:800px){.pain-grid{grid-template-columns:1fr}}
+
+    /* Comparison */
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch}
+    .compare-card{padding:30px}
+    .compare-card h3{font-size:1.55rem;margin-bottom:12px}
+    .compare-card ul{list-style:none;display:grid;gap:12px;color:var(--muted)}
+    .compare-card li{padding-left:26px;position:relative}
+    .compare-card li::before{position:absolute;left:0;top:0}
+    .compare-card.chat li::before{content:"•";color:var(--soft)}
+    .compare-card.nyxia{border-color:rgba(167,139,250,.45);box-shadow:0 20px 65px rgba(123,92,255,.15)}
+    .compare-card.nyxia li::before{content:"✦";color:var(--gold)}
+    .compare-punch{text-align:center;margin-top:24px;font-family:'Cormorant Garamond',serif;font-size:clamp(1.45rem,3vw,2rem);color:#fff}
+    @media(max-width:760px){.compare{grid-template-columns:1fr}}
+
+    /* Feature */
+    .feature{display:grid;grid-template-columns:1.02fr .98fr;gap:44px;align-items:center;padding:32px 0}
+    .feature.rev{grid-template-columns:.98fr 1.02fr}
+    .feature.rev .feature-media{order:2}
+    .feature.rev .feature-copy{order:1}
+    .feature-copy h3{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,4vw,3rem);line-height:1.08;margin:10px 0 14px}
+    .feature-copy p{color:var(--muted)}
+    .feature-media{position:relative}
+    .feature-media::before{content:"";position:absolute;inset:12%;background:rgba(123,92,255,.18);filter:blur(55px);z-index:-1}
+    .feature-media img{border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,.42);width:100%}
+    @media(max-width:860px){.feature,.feature.rev{grid-template-columns:1fr;gap:24px}.feature.rev .feature-media,.feature.rev .feature-copy{order:initial}}
+
+    /* backstage */
+    .backstage{padding:34px}
+    .backstage-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:25px}
+    .backstage-item{padding:20px;border:1px solid rgba(123,92,255,.16);border-radius:16px;background:rgba(123,92,255,.045)}
+    .backstage-item span{font-size:1.45rem;display:block;margin-bottom:8px}
+    .backstage-item h4{font-size:.98rem;margin-bottom:5px}
+    .backstage-item p{color:var(--soft);font-size:.86rem}
+    @media(max-width:820px){.backstage-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:540px){.backstage-grid{grid-template-columns:1fr}.backstage{padding:24px}}
+
+    /* Characters */
+    .character-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:28px}
+    .character{text-align:center;padding:15px 8px;border:1px solid rgba(123,92,255,.14);border-radius:16px;background:rgba(14,20,48,.55)}
+    .character img{width:68px;height:68px;object-fit:cover;border-radius:50%;margin:0 auto 8px;border:2px solid rgba(167,139,250,.38)}
+    .character b{font-size:.9rem;display:block}
+    .character small{font-size:.7rem;color:var(--soft)}
+    @media(max-width:850px){.character-grid{grid-template-columns:repeat(4,1fr)}}
+    @media(max-width:520px){.character-grid{grid-template-columns:repeat(2,1fr)}}
+
+    /* Pricing */
+    .pricing{display:grid;grid-template-columns:1.08fr .92fr;gap:20px;align-items:stretch;margin-top:36px}
+    .price-card{padding:34px;position:relative;overflow:hidden}
+    .price-card.featured{border-color:rgba(244,200,66,.5);box-shadow:0 24px 80px rgba(123,92,255,.18),0 0 48px rgba(244,200,66,.06)}
+    .price-card.featured::before{content:"MEILLEURE VALEUR";position:absolute;right:-42px;top:26px;transform:rotate(35deg);background:var(--gold);color:#241800;font-size:.68rem;font-weight:900;letter-spacing:.08em;padding:7px 50px}
+    .price-label{font-size:.78rem;color:var(--gold);font-weight:800;letter-spacing:.11em;text-transform:uppercase}
+    .price{font-size:3.3rem;font-weight:800;line-height:1;margin:14px 0 6px}
+    .price small{font-size:1rem;color:var(--muted);font-weight:500}
+    .strike{color:var(--soft);text-decoration:line-through;font-size:.94rem}
+    .save{display:inline-block;margin:12px 0;padding:7px 11px;border-radius:999px;background:rgba(52,211,153,.10);border:1px solid rgba(52,211,153,.22);color:#8af0c7;font-size:.8rem;font-weight:700}
+    .price-card .btn{width:100%;margin-top:22px}
+    .payment-note{text-align:center;margin-top:9px;color:var(--soft);font-size:.75rem}
+    .trial{display:inline-flex;gap:7px;align-items:center;margin:10px 0;padding:8px 12px;border-radius:999px;background:rgba(123,92,255,.10);border:1px solid rgba(167,139,250,.22);font-size:.8rem;font-weight:700;color:#ddd6ff}
+    @media(max-width:800px){.pricing{grid-template-columns:1fr}}
+
+    /* bump */
+    .bump{margin-top:22px;padding:24px;display:flex;gap:20px;align-items:center}
+    .bump-icon{font-size:2.4rem;flex:0 0 auto}
+    .bump h3{font-size:1.1rem;margin-bottom:4px}
+    .bump p{color:var(--muted);font-size:.9rem}
+    .bump-price{margin-left:auto;font-size:1.5rem;font-weight:800;color:#fff;white-space:nowrap}
+    @media(max-width:650px){.bump{align-items:flex-start;flex-wrap:wrap}.bump-price{margin-left:0}}
+
+    /* FAQ */
+    .faq{display:grid;gap:12px;max-width:880px;margin:auto}
+    details{background:rgba(14,20,48,.72);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+    summary{cursor:pointer;font-weight:700;color:#fff;list-style:none;padding-right:28px;position:relative}
+    summary::after{content:"+";position:absolute;right:0;color:var(--lav);font-size:1.3rem;top:-4px}
+    details[open] summary::after{content:"–"}
+    details p{color:var(--muted);font-size:.92rem;margin-top:12px}
+
+    /* Final */
+    .final{padding-bottom:110px}
+    .final-card{text-align:center;padding:48px 30px;background:linear-gradient(145deg,rgba(123,92,255,.16),rgba(14,20,48,.72));border:1px solid rgba(167,139,250,.28);border-radius:28px;box-shadow:0 30px 100px rgba(0,0,0,.38)}
+    .final-card h2{font-size:clamp(2.3rem,5vw,3.8rem);max-width:760px;margin:12px auto}
+    .final-card p{max-width:680px;margin:0 auto 24px;color:var(--muted)}
+    footer{position:relative;z-index:1;padding:26px;text-align:center;border-top:1px solid rgba(123,92,255,.1);color:var(--soft);font-size:.78rem}
+
+    @media(max-width:520px){
+      .wrap,.narrow{width:min(100% - 24px,1160px)}
+      section{padding:58px 0}
+      .hero{padding-top:52px}
+      .hero h1{font-size:2.6rem}
+      .price-card,.compare-card{padding:24px}
+      .feature-media img,.hero-visual img{border-radius:18px}
+    }
+  </style>
+</head>
+<body>
+  <canvas id="starry-canvas"></canvas>
+  <div class="page">
+
+    <header class="topbar">
+      <div class="wrap topbar-in">
+        <a class="brand" href="#top">
+          <img src="/NyXia.png" alt="NyXia">
+          <span>NyXia Studio Prompt<small>Ton environnement IA vivant</small></span>
+        </a>
+        <nav class="nav" aria-label="Navigation principale">
+          <a href="#difference">Pourquoi Studio Prompt</a>
+          <a href="#coulisses">En coulisses</a>
+          <a href="#offre">L’offre</a>
+          <a class="mini-cta" href="#offre">Voir le lancement</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="wrap">
+          <span class="eyebrow">✦ Offre de lancement Studio Prompt</span>
+          <h1 class="display gradient">Tu n’as pas besoin d’apprendre à parler à l’IA.<br>Ton équipe est déjà prête.</h1>
+          <p class="lead">Studio Prompt est un <strong>environnement de travail vivant</strong> qui réunit plusieurs modèles IA puissants, des personnages spécialisés, des ressources, des mini-formations et ton Univers NyXia — au même endroit.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#offre">✨ Découvrir l’offre de lancement</a>
+            <a class="btn btn-ghost" href="#difference">Mais j’ai déjà ChatGPT…</a>
+          </div>
+          <div class="hero-note">Simple devant. Beaucoup plus puissant derrière.</div>
+
+          <div class="hero-visual">
+            <img src="/studio-vente-01-hero.png" alt="Studio Prompt NyXia et son équipe de personnages" onerror="this.closest('.hero-visual').style.display='none'">
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Le vrai problème</span>
+            <h2 class="display">L’IA est puissante.<br>Mais encore faut-il savoir quoi lui demander.</h2>
+            <p>Tu peux avoir accès au meilleur modèle du monde et quand même perdre du temps à chercher le bon prompt, réexpliquer ton contexte ou recommencer à zéro.</p>
+          </div>
+          <div class="pain-grid">
+            <article class="pain-card glass"><div class="icon">🧠</div><h3>« Je ne sais pas quoi lui demander. »</h3><p>La page blanche existe aussi avec l’IA. Studio Prompt te donne des points de départ, des spécialistes et une direction.</p></article>
+            <article class="pain-card glass"><div class="icon">🌀</div><h3>« Je dois tout réexpliquer. »</h3><p>Un outil généraliste te donne de la puissance. Un environnement structuré te donne de la continuité.</p></article>
+            <article class="pain-card glass"><div class="icon">🧩</div><h3>« J’ai trop d’outils partout. »</h3><p>Prompts, contenus, formations, ressources, portails et personnages vivent dans le même univers.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="difference">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">L’objection qu’on veut répondre tout de suite</span>
+            <h2 class="display">« Pourquoi Studio Prompt si j’ai déjà ChatGPT ? »</h2>
+            <p>Parce que Studio Prompt n’essaie pas de remplacer ChatGPT. Il construit autour de l’IA tout ce que tu devrais normalement organiser toi-même.</p>
+          </div>
+          <div class="compare">
+            <article class="compare-card glass chat">
+              <h3>Avec un chat IA généraliste</h3>
+              <ul>
+                <li>Tu dois savoir quoi demander.</li>
+                <li>Tu dois définir le bon rôle et le bon contexte.</li>
+                <li>Tu dois organiser tes ressources ailleurs.</li>
+                <li>Tu dois choisir toi-même l’approche à utiliser.</li>
+                <li>Tu reconstruis ton système autour de l’outil.</li>
+              </ul>
+            </article>
+            <article class="compare-card glass nyxia">
+              <h3>Avec Studio Prompt NyXia</h3>
+              <ul>
+                <li>NyXia t’oriente vers la bonne expertise.</li>
+                <li>Chaque personnage arrive déjà avec une mission claire.</li>
+                <li>Contenus, ressources et mini-formations sont reliés.</li>
+                <li>Ton Univers NyXia reconnaît ce que tu possèdes.</li>
+                <li>La technologie reste en arrière-plan. Toi, tu avances.</li>
+              </ul>
+            </article>
+          </div>
+          <div class="compare-punch">ChatGPT te donne accès à une intelligence.<br><span class="gold">Studio Prompt te donne un environnement pour savoir quoi en faire.</span></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap feature">
+          <div class="feature-media"><img src="/studio-vente-02-modeles-ia.png" alt="Les modèles IA disponibles dans Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+          <div class="feature-copy">
+            <span class="eyebrow">7 familles de modèles IA</span>
+            <h3>Tu ne dépends pas d’un seul cerveau.</h3>
+            <p>Studio Prompt réunit plusieurs grands modèles IA — notamment ChatGPT, Claude, Grok, Gemini, DeepSeek, Mistral et Z/GLM — dans un même environnement.</p>
+            <div class="checks">
+              <div class="check"><span><b>Choisis le modèle</b> selon ta façon de travailler.</span></div>
+              <div class="check"><span>Les personnages peuvent s’appuyer sur des <b>moteurs IA puissants et évolutifs</b>.</span></div>
+              <div class="check"><span>Quand de nouvelles versions sont intégrées au Studio, <b>tu profites de l’évolution sans reconstruire ton système</b>.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="coulisses">
+        <div class="wrap">
+          <div class="backstage glass">
+            <div class="section-head" style="margin-bottom:0">
+              <span class="eyebrow">✦ Ce qui travaille pour toi en coulisses</span>
+              <h2 class="display">Tu vois une interface simple.<br>Derrière, tout un écosystème travaille pour toi.</h2>
+              <p>La complexité technique n’est pas ton travail. Elle reste derrière le rideau pour que ton expérience demeure claire et naturelle.</p>
+            </div>
+            <div class="backstage-grid">
+              <div class="backstage-item"><span>✦</span><h4>Orientation intelligente</h4><p>NyXia t’aide à choisir la bonne porte au lieu de te laisser chercher seule.</p></div>
+              <div class="backstage-item"><span>🧠</span><h4>Personnages spécialisés</h4><p>Chaque personnage possède un rôle, une mission et des ressources adaptées à son univers.</p></div>
+              <div class="backstage-item"><span>🔗</span><h4>Accès synchronisés</h4><p>Ton Univers NyXia reconnaît automatiquement les portails auxquels tu as accès.</p></div>
+              <div class="backstage-item"><span>📚</span><h4>Ressources reliées</h4><p>Contenus, formations et outils restent accessibles au même endroit.</p></div>
+              <div class="backstage-item"><span>⚙️</span><h4>Automatisations invisibles</h4><p>Une partie du travail se fait sans t’obliger à comprendre ce qui roule derrière.</p></div>
+              <div class="backstage-item"><span>🌱</span><h4>Un environnement qui évolue</h4><p>Le Studio peut s’enrichir au fil des outils, ressources et avancées IA intégrées.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Ton équipe</span>
+            <h2 class="display">Tu ne parles pas à “une IA”.<br>Tu vas voir la bonne personne pour le bon besoin.</h2>
+            <p>Les personnages ne servent pas à décorer l’interface. Ils donnent une structure humaine à des expertises différentes.</p>
+          </div>
+          <div class="character-grid">
+            <div class="character"><img src="/NyXia.png" alt="NyXia"><b>NyXia</b><small>Orientation & produits</small></div>
+            <div class="character"><img src="/Diane.png" alt="Diane"><b>Diane</b><small>Mini-formations</small></div>
+            <div class="character"><img src="/Eric.png" alt="Éric"><b>Éric</b><small>Communication</small></div>
+            <div class="character"><img src="/Alex.png" alt="Alex"><b>Alex</b><small>Écriture</small></div>
+            <div class="character"><img src="/Lena.png" alt="Léna"><b>Léna</b><small>Spiritualité</small></div>
+            <div class="character"><img src="/Selena.png" alt="Séléna"><b>Séléna</b><small>Reconnexion à soi</small></div>
+            <div class="character"><img src="/Kael.png" alt="Kael"><b>Kael</b><small>Relations</small></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap feature rev">
+          <div class="feature-media"><img src="/studio-vente-03-ressources.png" alt="Banque de ressources Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+          <div class="feature-copy">
+            <span class="eyebrow">Banque de ressources</span>
+            <h3>Tu ne repars pas de zéro chaque fois.</h3>
+            <p>Images, vidéos, sons et ressources utiles sont réunis dans ton environnement pour passer plus vite de l’idée au contenu concret.</p>
+            <div class="checks">
+              <div class="check"><span>Recherche de médias directement dans ton espace.</span></div>
+              <div class="check"><span>Des ressources qui accompagnent tes créations sans multiplier les onglets.</span></div>
+              <div class="check"><span>Une interface pensée pour aller à l’essentiel.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap feature">
+          <div class="feature-media"><img src="/studio-vente-04-parchemins.png" alt="Contenus prêts à publier Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+          <div class="feature-copy">
+            <span class="eyebrow">📣 Mes contenus prêts à publier</span>
+            <h3>Créer, adapter, publier.</h3>
+            <p>Des modèles Canva modifiables et des textes déjà préparés pour communiquer plus facilement autour de l’univers NyXia.</p>
+            <div class="checks">
+              <div class="check"><span><b>Modifier dans Canva</b> à partir d’un modèle existant.</span></div>
+              <div class="check"><span><b>Copier le texte</b> et publier tel quel si tu veux aller vite.</span></div>
+              <div class="check"><span><b>Demander à Éric de l’adapter</b> à ta façon de parler.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap feature rev">
+          <div class="feature-media"><img src="/studio-vente-05-promoteur.png" alt="Activité Promoteur NyXia" onerror="this.closest('.feature-media').style.display='none'"></div>
+          <div class="feature-copy">
+            <span class="eyebrow">💜 Ton activité Promoteur</span>
+            <h3>Tu peux aussi faire rayonner l’écosystème.</h3>
+            <p>Studio Prompt ouvre une porte vers l’activité Promoteur NyXia : apprendre à communiquer, créer de vraies conversations et recommander les offres quand une personne lève la main.</p>
+            <div class="checks">
+              <div class="check"><span>Pas besoin de harceler tes proches.</span></div>
+              <div class="check"><span>Ton lien garde l’attribution lorsqu’une personne est intéressée.</span></div>
+              <div class="check"><span>Le closer peut prendre le relais lorsque vient le temps de vendre une offre plus importante.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap feature">
+          <div class="feature-media"><img src="/studio-vente-06-formations.png" alt="Mini-formations vivantes Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+          <div class="feature-copy">
+            <span class="eyebrow">🎓 Mini-formations Studio Prompt</span>
+            <h3>Tu n’as pas seulement des outils.<br>Tu apprends à t’en servir.</h3>
+            <p>De petites formations exclusives à Studio Prompt, en bouchées simples, pour t’aider à avancer sans te noyer dans des heures de théorie.</p>
+            <div class="checks">
+              <div class="check"><span>Courtes et simples à consommer.</span></div>
+              <div class="check"><span>Reliées aux personnages et aux outils du Studio.</span></div>
+              <div class="check"><span>Les formations complètes des autres Portails NyXia conservent leur propre accès.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap feature rev">
+          <div class="feature-media"><img src="/studio-vente-07-univers.png" alt="Mon Univers NyXia dans Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+          <div class="feature-copy">
+            <span class="eyebrow">🌌 Mon Univers NyXia</span>
+            <h3>Ton portail sait quelles portes sont déjà à toi.</h3>
+            <p>Studio Prompt devient ton hall central. Tu vois ce qui est inclus, ce que tu possèdes déjà et les autres univers que tu peux découvrir.</p>
+            <div class="checks">
+              <div class="check"><span>Un accès acheté peut apparaître automatiquement comme <b>actif</b>.</span></div>
+              <div class="check"><span>Une porte non acquise reste simplement à <b>découvrir</b>.</span></div>
+              <div class="check"><span>Ton environnement grandit avec toi au lieu de devenir un labyrinthe.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="offre">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Offre de lancement</span>
+            <h2 class="display">Choisis la façon qui te ressemble.</h2>
+            <p>Tu veux la meilleure valeur pour l’année ou tu préfères commencer sans gros engagement? Les deux portes mènent au même Studio Prompt.</p>
+          </div>
+
+          <div class="pricing">
+            <article class="price-card glass featured">
+              <div class="price-label">Accès 12 mois — lancement</div>
+              <div class="price">497 $ <small>CAD / 12 mois</small></div>
+              <div class="strike">Comparatif mensuel sur 12 mois : 828 $</div>
+              <div class="save">Tu économises 331 $ — environ 40 %</div>
+              <div class="checks">
+                <div class="check"><span>12 mois complets à Studio Prompt.</span></div>
+                <div class="check"><span>Tous les personnages et outils inclus au Studio.</span></div>
+                <div class="check"><span>Plusieurs familles de modèles IA dans un seul environnement.</span></div>
+                <div class="check"><span>Klarna, Afterpay ou Affirm disponibles selon admissibilité via le paiement Stripe.</span></div>
+              </div>
+              <a id="cta-annual" class="btn btn-primary" href="#" data-checkout="annual">⭐ Choisir 497 $ / 12 mois</a>
+              <div class="payment-note">Paiement unique pour 12 mois — offre de lancement à durée limitée.</div>
+            </article>
+
+            <article class="price-card glass">
+              <div class="price-label">Option flexible</div>
+              <div class="trial">🎁 Lancement : 3 jours gratuits</div>
+              <div class="price">69 $ <small>CAD / mois</small></div>
+              <p class="muted">Aujourd’hui : 0 $. Puis 69 $/mois à partir du 4e jour, sauf annulation avant la fin de l’essai.</p>
+              <div class="checks">
+                <div class="check"><span>Accès immédiat pendant ton essai.</span></div>
+                <div class="check"><span>Même Studio Prompt, mêmes outils.</span></div>
+                <div class="check"><span>Abonnement mensuel automatique après l’essai.</span></div>
+                <div class="check"><span>Annulation disponible à tout moment.</span></div>
+              </div>
+              <a id="cta-monthly" class="btn btn-ghost" href="#" data-checkout="monthly">💜 Essayer gratuitement 3 jours</a>
+              <div class="payment-note">Carte requise à l’inscription. Conditions affichées au paiement.</div>
+            </article>
+          </div>
+
+          <div class="bump glass">
+            <div class="bump-icon">⚡</div>
+            <div>
+              <h3>Au panier : Kit de démarrage NyXia</h3>
+              <p>Une feuille de route simple pour savoir quoi faire pendant tes premiers jours, quel personnage utiliser et comment passer rapidement de « je découvre » à « je crée et j’avance ».</p>
+            </div>
+            <div class="bump-price">+ 27 $</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow">Questions fréquentes</span>
+            <h2 class="display">Avant d’entrer…</h2>
+          </div>
+          <div class="faq">
+            <details><summary>J’ai déjà ChatGPT. Est-ce que Studio Prompt fait doublon?</summary><p>Non. ChatGPT est un moteur très puissant. Studio Prompt est l’environnement construit autour : personnages spécialisés, orientation, ressources, contenus, mini-formations et accès NyXia reliés. Tu peux d’ailleurs utiliser plusieurs familles de modèles IA à l’intérieur du Studio.</p></details>
+            <details><summary>Les personnages sont-ils de “petites IA” moins puissantes?</summary><p>Non. Les personnages servent surtout à structurer l’expertise et l’expérience. Leur cerveau peut s’appuyer sur des modèles IA puissants. Le personnage reste familier; le moteur derrière peut évoluer à mesure que de nouvelles versions sont intégrées.</p></details>
+            <details><summary>Est-ce que les autres Portails NyXia sont tous inclus?</summary><p>Non. Studio Prompt est ta porte d’entrée dans l’écosystème et comprend ses propres outils et mini-formations. Les formations complètes et certains autres Portails NyXia possèdent leur propre accès. Ton Univers NyXia te montre clairement ce qui est actif, inclus ou à découvrir.</p></details>
+            <details><summary>Comment fonctionne l’essai de 3 jours?</summary><p>Tu entres immédiatement dans Studio Prompt. Si tu ne l’annules pas avant la fin de l’essai, l’abonnement de 69 $ CAD par mois démarre automatiquement à partir du 4e jour. L’annulation demeure disponible à tout moment.</p></details>
+            <details><summary>Pourquoi le 497 $ est-il beaucoup moins cher que 12 mois à 69 $?</summary><p>C’est volontaire : il s’agit du prix annuel de lancement. À 69 $ pendant 12 mois, le total est de 828 $. Le lancement annuel à 497 $ représente donc 331 $ d’économie, soit environ 40 %.</p></details>
+            <details><summary>Puis-je payer le 497 $ en plusieurs versements?</summary><p>Le paiement annuel peut être offert avec Klarna, Afterpay ou Affirm selon les options disponibles sur ta facture Stripe et l’admissibilité de l’acheteur.</p></details>
+          </div>
+        </div>
+      </section>
+
+      <section class="final">
+        <div class="wrap">
+          <div class="final-card">
+            <span class="eyebrow">✦ Studio Prompt NyXia</span>
+            <h2 class="display gradient">La technologie reste en arrière-plan.<br>Toi, tu avances.</h2>
+            <p>Entre avec une idée, une question ou même simplement « je ne sais pas par où commencer ». Ton environnement est là pour t’aider à trouver la prochaine porte.</p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#offre">⭐ Voir l’offre annuelle à 497 $</a>
+              <a class="btn btn-ghost" href="#offre">🎁 Voir les 3 jours gratuits</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>© 2026 NyXia — Studio Prompt · Créé par Diane Boyer · Les résultats dépendent de l’utilisation, du contexte et des actions de chaque personne.</footer>
+  </div>
+
+  <script src="/starry-bg.js" defer></script>
+  <script>
+    /* ==============================================================
+       LIENS DE PAIEMENT — À REMPLACER AVANT MISE EN LIGNE
+       annual  : facture / lien Stripe 497 $ avec Klarna/Afterpay/Affirm
+       monthly : tunnel Systeme.io avec 3 jours gratuits puis 69 $/mois
+       ============================================================== */
+    const CHECKOUT_URLS = {
+      annual: '',
+      monthly: ''
+    };
+
+    document.querySelectorAll('[data-checkout]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        const key = btn.getAttribute('data-checkout');
+        const url = CHECKOUT_URLS[key];
+        if (!url) {
+          e.preventDefault();
+          alert('Le lien de paiement « ' + key + ' » doit encore être ajouté dans CHECKOUT_URLS à la fin de index.html.');
+        } else {
+          btn.href = url;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
