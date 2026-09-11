@@ -613,6 +613,73 @@
     wrapper.appendChild(card)
   }
 
+  function livingDocumentEmbedUrl(rawUrl) {
+    try {
+      var parsed = new URL(String(rawUrl || '').trim())
+      if (parsed.protocol !== 'https:') return ''
+      var host = parsed.hostname.toLowerCase().replace(/^www\./, '')
+      var path = parsed.pathname || ''
+
+      // PDF direct
+      if (/\.pdf$/i.test(path)) return parsed.href
+
+      // Fichier Google Drive partagé (PDF, cahier étudiant, document, etc.)
+      if (host === 'drive.google.com') {
+        var driveMatch = path.match(/\/file\/d\/([A-Za-z0-9_-]+)/)
+        var driveId = driveMatch ? driveMatch[1] : (parsed.searchParams.get('id') || '')
+        if (driveId) return 'https://drive.google.com/file/d/' + driveId + '/preview'
+      }
+
+      // Google Docs / Présentations / Feuilles de calcul
+      if (host === 'docs.google.com') {
+        var docMatch = path.match(/^\/(document|presentation|spreadsheets)\/d\/([A-Za-z0-9_-]+)/)
+        if (docMatch) return 'https://docs.google.com/' + docMatch[1] + '/d/' + docMatch[2] + '/preview'
+      }
+    } catch (e) {}
+    return ''
+  }
+
+  function appendLivingLink(wrapper, linkUrl) {
+    var safeUrl = safeLivingVideoUrl(linkUrl)
+    if (!safeUrl) return
+
+    var card = document.createElement('div')
+    card.style.cssText = 'width:min(100%,560px);margin-top:6px;padding:12px;border-radius:16px;border:1px solid rgba(123,92,255,0.22);background:linear-gradient(145deg,rgba(123,92,255,0.09),rgba(255,255,255,0.025));box-shadow:0 12px 30px rgba(20,12,48,0.16)'
+
+    var embedUrl = livingDocumentEmbedUrl(safeUrl)
+    if (embedUrl) {
+      var label = document.createElement('div')
+      label.textContent = '📄 Document de formation'
+      label.style.cssText = 'font-size:12px;font-weight:700;color:#c4b5fd;margin:0 2px 10px'
+      card.appendChild(label)
+
+      var iframe = document.createElement('iframe')
+      iframe.src = embedUrl
+      iframe.title = 'Document de formation'
+      iframe.loading = 'lazy'
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin'
+      iframe.style.cssText = 'width:100%;height:460px;border:0;border-radius:12px;background:#070713;display:block'
+      card.appendChild(iframe)
+    }
+
+    var a = document.createElement('a')
+    a.href = safeUrl
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.textContent = embedUrl ? '↗ Ouvrir le document dans un nouvel onglet' : '🔗 Ouvrir le lien dans un nouvel onglet'
+    a.style.cssText = 'display:flex;align-items:center;justify-content:center;margin-top:' + (embedUrl ? '10px' : '0') + ';padding:10px 14px;border-radius:50px;border:1px solid rgba(123,92,255,0.35);background:rgba(123,92,255,0.12);color:#fff;text-decoration:none;font-size:12px;font-weight:700'
+    card.appendChild(a)
+    wrapper.appendChild(card)
+  }
+
+  function formatBotHtml(raw) {
+    var html = cleanMarkdown(escHtml(String(raw || ''))).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    html = html.replace(/https:\/\/[^\s<]+/g, function(url) {
+      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" style="color:#c4b5fd;text-decoration:underline;word-break:break-word">' + url + '</a>'
+    })
+    return html.replace(/\n/g, '<br>')
+  }
+
   function addBotMessage(text) {
     var msgAgent = _currentAgent
     var msgs = document.getElementById('chat-messages-' + msgAgent)
@@ -629,15 +696,17 @@
     var videoRegex = /\[VIDEO\s*:\s*([^\]\r\n]+)\]/i
     var videoMatch = text.match(videoRegex)
 
-    // 🎧 Audio MP3 et 🖼️ images réelles de la Formation Vivante (peut y en avoir plusieurs)
-    var audioUrls = [], photoUrls = [], mm
+    // 🎧 Audio MP3, 🖼️ images et 🔗 liens réels de la Formation Vivante (peut y en avoir plusieurs)
+    var audioUrls = [], photoUrls = [], linkUrls = [], mm
     var audioRegexG = /\[AUDIO\s*:\s*([^\]\r\n]+)\]/gi
     while ((mm = audioRegexG.exec(text)) !== null) { var au = safeLivingVideoUrl(mm[1]); if (au) audioUrls.push(au) }
     var photoRegexG = /\[PHOTO\s*:\s*([^\]\r\n]+)\]/gi
     while ((mm = photoRegexG.exec(text)) !== null) { var pu = safeLivingVideoUrl(mm[1]); if (pu) photoUrls.push(pu) }
+    var linkRegexG = /\[LINK\s*:\s*([^\]\r\n]+)\]/gi
+    while ((mm = linkRegexG.exec(text)) !== null) { var lu = safeLivingVideoUrl(mm[1]); if (lu) linkUrls.push(lu) }
 
     var textWithoutImg = text.replace(imgRegex, '').replace(parchRegex, '').replace(parchImgRegex, '').replace(videoRegex, '')
-      .replace(/\[AUDIO\s*:\s*[^\]\r\n]+\]/gi, '').replace(/\[PHOTO\s*:\s*[^\]\r\n]+\]/gi, '').trim()
+      .replace(/\[AUDIO\s*:\s*[^\]\r\n]+\]/gi, '').replace(/\[PHOTO\s*:\s*[^\]\r\n]+\]/gi, '').replace(/\[LINK\s*:\s*[^\]\r\n]+\]/gi, '').trim()
     var imgDesc = imgMatch ? imgMatch[1].trim() : null
     var parchContent = parchMatch ? parchMatch[1].trim() : null
     var parchImgUrl = parchImgMatch ? parchImgMatch[1].trim() : null
@@ -645,9 +714,9 @@
 
     var bubble = document.createElement('div'); bubble.className = 'msg-bubble'
     if (textWithoutImg) {
-      bubble.innerHTML = cleanMarkdown(escHtml(textWithoutImg)).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
-    } else if (!imgDesc && !parchContent && !videoMatch && !audioUrls.length && !photoUrls.length) {
-      bubble.innerHTML = cleanMarkdown(escHtml(text)).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')
+      bubble.innerHTML = formatBotHtml(textWithoutImg)
+    } else if (!imgDesc && !parchContent && !videoMatch && !audioUrls.length && !photoUrls.length && !linkUrls.length) {
+      bubble.innerHTML = formatBotHtml(text)
     } else {
       bubble.style.display = 'none'
     }
@@ -656,6 +725,7 @@
     if (videoUrl) appendLivingVideo(wrapper, videoUrl)
     audioUrls.forEach(function(u) { appendLivingAudio(wrapper, u) })
     photoUrls.forEach(function(u) { appendLivingPhoto(wrapper, u) })
+    linkUrls.forEach(function(u) { appendLivingLink(wrapper, u) })
 
     if (parchContent) {
       var parchWrap = document.createElement('div')
@@ -742,6 +812,7 @@
     var textForSpeak = textWithoutImg || (videoUrl ? '' : text)
     var exportText = textWithoutImg || (videoUrl ? 'Formation vidéo' : text)
     if (videoUrl) exportText += '\n\nVidéo : ' + videoUrl
+    if (linkUrls.length) exportText += '\n\nLien' + (linkUrls.length > 1 ? 's' : '') + ' :\n' + linkUrls.join('\n')
     var agentName = (ALPHA_INFO[msgAgent] && ALPHA_INFO[msgAgent].name) || 'NyXia'
 
     var spk = document.createElement('button'); spk.style.cssText = bs; spk.textContent = '🔊 Écouter'
