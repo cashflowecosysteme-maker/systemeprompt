@@ -3,18 +3,18 @@
 </style></head><body><canvas id="starry-canvas"></canvas><main class="page"><div class="eyebrow">Studio Prompt · Ton hall central</div><h1>🌌 Mon Univers NyXia</h1><p class="sub">Tous tes accès, tes ressources et tes possibilités au même endroit. Studio Prompt reste ta porte d’entrée : tu choisis simplement où tu veux aller ensuite.</p><div class="note"><b>Un seul univers, plusieurs portes.</b> Tu n’as pas besoin de tout utiliser en même temps. NyXia et les personnages sont là pour t’orienter.</div>
 
 <div class="access-title"><div><h2>✨ Mes accès NyXia</h2><p>Ce qui est déjà à toi, ce qui est inclus et ce que tu peux découvrir ensuite.</p></div></div>
-<section class="access-list" aria-label="Mes accès NyXia">
+<section class="access-list" id="nyxia-access-list" aria-label="Mes accès NyXia">
   <button class="access-row current" type="button" aria-label="Studio Prompt actif"><span class="access-icon">🎨</span><span class="access-name">Studio Prompt</span><span class="access-spacer"></span><span class="status active">Actif ✓</span></button>
   <button class="access-row" type="button" onclick="panel('contenus')"><span class="access-icon">📣</span><span class="access-name">Mes contenus prêts à publier</span><span class="access-spacer"></span><span class="status">Inclus</span><span class="chev">›</span></button>
   <button class="access-row" type="button" onclick="panel('formations')"><span class="access-icon">🎓</span><span class="access-name">Mini-formations Studio Prompt</span><span class="access-spacer"></span><span class="status">Inclus</span><span class="chev">›</span></button>
   <button class="access-row" type="button" onclick="bridge('repertoire')"><span class="access-icon">🌐</span><span class="access-name">Répertoire NyXia</span><span class="access-spacer"></span><span class="status">Accéder</span><span class="chev">↗</span></button>
   <button class="access-row" type="button" onclick="bridge('promoteurs')"><span class="access-icon">💜</span><span class="access-name">Promoteur NyXia</span><span class="access-spacer"></span><span class="status bonus">Bonus disponible</span><span class="chev">↗</span></button>
-  <button class="access-row" type="button" onclick="discover('https://portailalex.nyxia.top/')"><span class="access-icon">✍️</span><span class="access-name">Portail Alex</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
-  <button class="access-row" type="button" onclick="discover('https://portaillena.nyxia.top/')"><span class="access-icon">🔮</span><span class="access-name">Portail Léna</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
-  <button class="access-row" type="button" onclick="discover('https://portailselena.nyxia.top/')"><span class="access-icon">🪞</span><span class="access-name">Portail Séléna</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
-  <button class="access-row" type="button" onclick="discover('https://portailkael.nyxia.top/')"><span class="access-icon">💞</span><span class="access-name">Portail Kael</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
-  <button class="access-row" type="button" onclick="discover('https://portailkael.nyxia.top/')"><span class="access-icon">✦</span><span class="access-name">Portail NyXia</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
-  <button class="access-row" type="button" onclick="discover('https://portaildiane.nyxia.top/')"><span class="access-icon">💫</span><span class="access-name">Portail Diane</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
+  <button class="access-row" type="button" data-portal="alex" data-discover="https://portailalex.nyxia.top/" onclick="discover('https://portailalex.nyxia.top/')"><span class="access-icon">✍️</span><span class="access-name">Portail Alex</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
+  <button class="access-row" type="button" data-portal="lena" data-discover="https://portaillena.nyxia.top/" onclick="discover('https://portaillena.nyxia.top/')"><span class="access-icon">🔮</span><span class="access-name">Portail Léna</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
+  <button class="access-row" type="button" data-portal="selena" data-discover="https://portailselena.nyxia.top/" onclick="discover('https://portailselena.nyxia.top/')"><span class="access-icon">🪞</span><span class="access-name">Portail Séléna</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
+  <button class="access-row" type="button" data-portal="kael" data-discover="https://portailkael.nyxia.top/" onclick="discover('https://portailkael.nyxia.top/')"><span class="access-icon">💞</span><span class="access-name">Portail Kael</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
+  <button class="access-row" type="button" data-portal="nyxia" data-discover="https://portailkael.nyxia.top/" onclick="discover('https://portailkael.nyxia.top/')"><span class="access-icon">✦</span><span class="access-name">Portail NyXia</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
+  <button class="access-row" type="button" data-portal="diane" data-discover="https://portaildiane.nyxia.top/" onclick="discover('https://portaildiane.nyxia.top/')"><span class="access-icon">💫</span><span class="access-name">Portail Diane</span><span class="access-spacer"></span><span class="status discover">Découvrir</span><span class="chev">›</span></button>
 </section>
 
 <section class="grid">
@@ -28,5 +28,97 @@
 function panel(n){try{if(parent&&typeof parent.showPanel==='function'){parent.showPanel(n);return}}catch(e){}}
 function agent(n){try{if(parent&&typeof parent.openAgentTab==='function'){parent.openAgentTab(n);return}}catch(e){}}
 function discover(url){window.open(url,'_blank','noopener')}
+
+const NYXIA_PORTAL_RULES = {
+  alex:   { aliases:['alex','portail-alex','portailalex','portal_alex'] },
+  lena:   { aliases:['lena','léna','portail-lena','portaillena','portal_lena'] },
+  selena: { aliases:['selena','séléna','portail-selena','portailselena','portal_selena'] },
+  kael:   { aliases:['kael','portail-kael','portailkael','portal_kael'] },
+  nyxia:  { aliases:['nyxia','portail-nyxia','portailnyxia','portal_nyxia'] },
+  diane:  { aliases:['diane','portail-diane','portaildiane','portal_diane'] }
+};
+
+function normPortalId(v){
+  return String(v||'').toLowerCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+function portalOwned(key, products, portals){
+  var rule = NYXIA_PORTAL_RULES[key] || {aliases:[key]};
+  var aliases = rule.aliases.map(normPortalId);
+  var owned = (products||[]).map(normPortalId);
+
+  // Accès réels = ce qui est coché dans Clients portails.
+  if (owned.some(function(v){ return aliases.indexOf(v) >= 0; })) return true;
+
+  // Tolère aussi un produit qui porte "portail-xxx" ou "xxx".
+  return owned.some(function(v){
+    return aliases.some(function(a){ return v === a || v.endsWith('-'+a) || a.endsWith('-'+v); });
+  });
+}
+
+function setPortalRowState(key, owned){
+  var row = document.querySelector('.access-row[data-portal="'+key+'"]');
+  if (!row) return;
+  var status = row.querySelector('.status');
+  var chev = row.querySelector('.chev');
+  var discoverUrl = row.getAttribute('data-discover') || '';
+
+  if (owned) {
+    row.classList.add('current');
+    row.onclick = null; // Important : un accès actif ne renvoie jamais vers la page de vente.
+    row.setAttribute('aria-label', (row.querySelector('.access-name')?.textContent || key) + ' — accès actif');
+    if (status) {
+      status.textContent = 'Accès actif ✓';
+      status.classList.remove('discover');
+      status.classList.add('active');
+    }
+    if (chev) chev.textContent = '';
+  } else {
+    row.classList.remove('current');
+    row.onclick = function(){ discover(discoverUrl); };
+    if (status) {
+      status.textContent = 'Découvrir';
+      status.classList.remove('active');
+      status.classList.add('discover');
+    }
+    if (chev) chev.textContent = '›';
+  }
+}
+
+async function refreshNyxiaAccess(){
+  var token = sessionStorage.getItem('nyxia_token') || '';
+  if (!token) {
+    try {
+      token = (parent && parent.sessionStorage) ? (parent.sessionStorage.getItem('nyxia_token') || '') : '';
+    } catch(e){}
+  }
+  if (!token) return;
+
+  try {
+    var res = await fetch('/api/univers/access', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:token})
+    });
+    if (!res.ok) return;
+    var data = await res.json();
+    var products = Array.isArray(data.products) ? data.products : [];
+    var portals = Array.isArray(data.portals) ? data.portals : [];
+
+    Object.keys(NYXIA_PORTAL_RULES).forEach(function(key){
+      setPortalRowState(key, portalOwned(key, products, portals));
+    });
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', refreshNyxiaAccess);
+window.addEventListener('focus', refreshNyxiaAccess);
+window.addEventListener('pageshow', refreshNyxiaAccess);
+// Si Mon Univers reste ouvert dans son iframe, on relit aussi les accès périodiquement.
+// Ainsi un accès accordé dans le Super Admin finit par apparaître sans reconnexion.
+setInterval(refreshNyxiaAccess, 30000);
+
 function bridge(n){try{if(parent&&typeof parent.openNyxiaBridge==='function'){parent.openNyxiaBridge(n);return}}catch(e){}window.open(n==='promoteurs'?'https://promoteurs.nyxia.top/':'https://repertoire.nyxia.top/','_blank','noopener')}
 </script></body></html>
