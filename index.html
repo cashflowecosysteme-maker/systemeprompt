@@ -117,6 +117,89 @@
     @media(max-width:820px){.backstage-grid{grid-template-columns:1fr 1fr}}
     @media(max-width:540px){.backstage-grid{grid-template-columns:1fr}.backstage{padding:24px}}
 
+
+    /* Floating visual slots — place an image on the RIGHT of each sales block */
+    .feature-media.image-slot{
+      min-height:360px;
+      border:1px dashed rgba(167,139,250,.34);
+      border-radius:24px;
+      background:
+        radial-gradient(circle at 50% 45%,rgba(123,92,255,.17),transparent 46%),
+        linear-gradient(145deg,rgba(123,92,255,.07),rgba(14,20,48,.35));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:visible;
+      box-shadow:
+        inset 0 0 45px rgba(123,92,255,.05),
+        0 0 55px rgba(123,92,255,.10);
+    }
+    .feature-media.image-slot::after{
+      content:"";
+      position:absolute;
+      width:62%;
+      height:62%;
+      border-radius:50%;
+      background:rgba(123,92,255,.18);
+      filter:blur(70px);
+      z-index:-1;
+      animation:slotGlow 4s ease-in-out infinite;
+    }
+    @keyframes slotGlow{
+      0%,100%{transform:scale(.92);opacity:.55}
+      50%{transform:scale(1.08);opacity:1}
+    }
+    .feature-media.image-slot img{
+      width:min(92%,620px);
+      max-height:430px;
+      object-fit:contain;
+      border-radius:22px;
+      box-shadow:none;
+      filter:drop-shadow(0 18px 34px rgba(0,0,0,.40))
+             drop-shadow(0 0 24px rgba(123,92,255,.22));
+      animation:floatVisual 5s ease-in-out infinite;
+      position:relative;
+      z-index:2;
+    }
+    @keyframes floatVisual{
+      0%,100%{transform:translateY(0)}
+      50%{transform:translateY(-10px)}
+    }
+    .slot-placeholder{
+      position:absolute;
+      inset:22px;
+      border-radius:18px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      gap:8px;
+      color:#9f96c4;
+      font-size:.86rem;
+      padding:24px;
+      pointer-events:none;
+    }
+    .slot-placeholder strong{
+      color:#ddd6ff;
+      font-size:1rem;
+      font-weight:700;
+    }
+    .slot-placeholder code{
+      color:#c7bfff;
+      background:rgba(123,92,255,.08);
+      border:1px solid rgba(123,92,255,.16);
+      padding:5px 8px;
+      border-radius:8px;
+      font-size:.76rem;
+    }
+    .image-slot.has-image .slot-placeholder{display:none}
+    @media(max-width:860px){
+      .feature-media.image-slot{min-height:280px}
+      .feature-media.image-slot img{max-height:340px}
+    }
+
     /* Characters */
     .character-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-top:28px}
     .character{text-align:center;padding:15px 8px;border:1px solid rgba(123,92,255,.14);border-radius:16px;background:rgba(14,20,48,.55)}
@@ -261,7 +344,6 @@
 
       <section>
         <div class="wrap feature">
-          <div class="feature-media"><img src="/studio-vente-02-modeles-ia.png" alt="Les modèles IA disponibles dans Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
           <div class="feature-copy">
             <span class="eyebrow">7 familles de modèles IA</span>
             <h3>Tu ne dépends pas d’un seul cerveau.</h3>
@@ -271,6 +353,17 @@
               <div class="check"><span>Les personnages peuvent s’appuyer sur des <b>moteurs IA puissants et évolutifs</b>.</span></div>
               <div class="check"><span>Quand de nouvelles versions sont intégrées au Studio, <b>tu profites de l’évolution sans reconstruire ton système</b>.</span></div>
             </div>
+          </div>
+          <div class="feature-media image-slot">
+            <div class="slot-placeholder">
+              <span style="font-size:2rem">✦</span>
+              <strong>Visuel flottant — modèles IA</strong>
+              <span>PNG transparent conseillé · effet glow prévu dans le HTML</span>
+              <code>studio-prompt-glow-01-modeles-ia.png</code>
+            </div>
+            <img src="/studio-prompt-glow-01-modeles-ia.png" alt="Visuel flottant — modèles IA"
+                 onload="this.parentElement.classList.add('has-image')"
+                 onerror="this.style.display='none'">
           </div>
         </div>
       </section>
@@ -315,8 +408,7 @@
       </section>
 
       <section>
-        <div class="wrap feature rev">
-          <div class="feature-media"><img src="/studio-vente-03-ressources.png" alt="Banque de ressources Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+        <div class="wrap feature">
           <div class="feature-copy">
             <span class="eyebrow">Banque de ressources</span>
             <h3>Tu ne repars pas de zéro chaque fois.</h3>
@@ -327,12 +419,22 @@
               <div class="check"><span>Une interface pensée pour aller à l’essentiel.</span></div>
             </div>
           </div>
+          <div class="feature-media image-slot">
+            <div class="slot-placeholder">
+              <span style="font-size:2rem">✦</span>
+              <strong>Visuel flottant — ressources</strong>
+              <span>PNG transparent conseillé · effet glow prévu dans le HTML</span>
+              <code>studio-prompt-glow-02-ressources.png</code>
+            </div>
+            <img src="/studio-prompt-glow-02-ressources.png" alt="Visuel flottant — ressources"
+                 onload="this.parentElement.classList.add('has-image')"
+                 onerror="this.style.display='none'">
+          </div>
         </div>
       </section>
 
       <section>
         <div class="wrap feature">
-          <div class="feature-media"><img src="/studio-vente-04-parchemins.png" alt="Contenus prêts à publier Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
           <div class="feature-copy">
             <span class="eyebrow">📣 Mes contenus prêts à publier</span>
             <h3>Créer, adapter, publier.</h3>
@@ -343,12 +445,22 @@
               <div class="check"><span><b>Demander à Éric de l’adapter</b> à ta façon de parler.</span></div>
             </div>
           </div>
+          <div class="feature-media image-slot">
+            <div class="slot-placeholder">
+              <span style="font-size:2rem">✦</span>
+              <strong>Visuel flottant — créer, adapter, publier</strong>
+              <span>PNG transparent conseillé · effet glow prévu dans le HTML</span>
+              <code>studio-prompt-glow-03-creer-publier.png</code>
+            </div>
+            <img src="/studio-prompt-glow-03-creer-publier.png" alt="Visuel flottant — créer, adapter, publier"
+                 onload="this.parentElement.classList.add('has-image')"
+                 onerror="this.style.display='none'">
+          </div>
         </div>
       </section>
 
       <section>
-        <div class="wrap feature rev">
-          <div class="feature-media"><img src="/studio-vente-05-promoteur.png" alt="Activité Promoteur NyXia" onerror="this.closest('.feature-media').style.display='none'"></div>
+        <div class="wrap feature">
           <div class="feature-copy">
             <span class="eyebrow">💜 Ton activité Promoteur</span>
             <h3>Tu peux aussi faire rayonner l’écosystème.</h3>
@@ -359,12 +471,22 @@
               <div class="check"><span>Le closer peut prendre le relais lorsque vient le temps de vendre une offre plus importante.</span></div>
             </div>
           </div>
+          <div class="feature-media image-slot">
+            <div class="slot-placeholder">
+              <span style="font-size:2rem">✦</span>
+              <strong>Visuel flottant — rayonnement NyXia</strong>
+              <span>PNG transparent conseillé · effet glow prévu dans le HTML</span>
+              <code>studio-prompt-glow-04-rayonner.png</code>
+            </div>
+            <img src="/studio-prompt-glow-04-rayonner.png" alt="Visuel flottant — rayonnement NyXia"
+                 onload="this.parentElement.classList.add('has-image')"
+                 onerror="this.style.display='none'">
+          </div>
         </div>
       </section>
 
       <section>
         <div class="wrap feature">
-          <div class="feature-media"><img src="/studio-vente-06-formations.png" alt="Mini-formations vivantes Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
           <div class="feature-copy">
             <span class="eyebrow">🎓 Mini-formations Studio Prompt</span>
             <h3>Tu n’as pas seulement des outils.<br>Tu apprends à t’en servir.</h3>
@@ -375,12 +497,22 @@
               <div class="check"><span>Les formations complètes des autres Portails NyXia conservent leur propre accès.</span></div>
             </div>
           </div>
+          <div class="feature-media image-slot">
+            <div class="slot-placeholder">
+              <span style="font-size:2rem">✦</span>
+              <strong>Visuel flottant — mini-formations</strong>
+              <span>PNG transparent conseillé · effet glow prévu dans le HTML</span>
+              <code>studio-prompt-glow-05-formations.png</code>
+            </div>
+            <img src="/studio-prompt-glow-05-formations.png" alt="Visuel flottant — mini-formations"
+                 onload="this.parentElement.classList.add('has-image')"
+                 onerror="this.style.display='none'">
+          </div>
         </div>
       </section>
 
       <section>
-        <div class="wrap feature rev">
-          <div class="feature-media"><img src="/studio-vente-07-univers.png" alt="Mon Univers NyXia dans Studio Prompt" onerror="this.closest('.feature-media').style.display='none'"></div>
+        <div class="wrap feature">
           <div class="feature-copy">
             <span class="eyebrow">🌌 Mon Univers NyXia</span>
             <h3>Ton portail sait quelles portes sont déjà à toi.</h3>
@@ -390,6 +522,17 @@
               <div class="check"><span>Une porte non acquise reste simplement à <b>découvrir</b>.</span></div>
               <div class="check"><span>Ton environnement grandit avec toi au lieu de devenir un labyrinthe.</span></div>
             </div>
+          </div>
+          <div class="feature-media image-slot">
+            <div class="slot-placeholder">
+              <span style="font-size:2rem">✦</span>
+              <strong>Visuel flottant — Mon Univers NyXia</strong>
+              <span>PNG transparent conseillé · effet glow prévu dans le HTML</span>
+              <code>studio-prompt-glow-06-univers.png</code>
+            </div>
+            <img src="/studio-prompt-glow-06-univers.png" alt="Visuel flottant — Mon Univers NyXia"
+                 onload="this.parentElement.classList.add('has-image')"
+                 onerror="this.style.display='none'">
           </div>
         </div>
       </section>
