@@ -249,12 +249,11 @@ export default {
     try {
       if (path === '/api/login' && request.method === 'POST') return await handleLogin(request, env);
       if (path === '/api/check-auth' && request.method === 'POST') return await handleCheckAuth(request, env);
+      if (path === '/api/univers/access' && request.method === 'POST') return await handleUniversAccess(request, env);
       if (path === '/api/logout' && request.method === 'POST') return await handleLogout(request, env);
       if (path === '/api/chat' && request.method === 'POST') return await handleChat(request, env);
       if (path === '/api/studio-chat' && request.method === 'POST') return await handleStudioChat(request, env);
       if (path === '/api/journal' && request.method === 'POST') return await handleJournal(request, env);
-      if (path === '/api/contenus' && request.method === 'POST') return await handleReadyContents(request, env);
-      if (path === '/api/admin/contenus' && request.method === 'POST') return await handleAdminReadyContents(request, env);
 
       if (path === '/api/formation/list' && request.method === 'POST') return await handleFormationList(request, env);
       if (path === '/api/formation/module' && request.method === 'POST') return await handleFormationModule(request, env);
@@ -335,6 +334,64 @@ async function handleCheckAuth(request, env) {
   if (!raw) return json({ valid: false });
   const session = JSON.parse(raw);
   return json({ valid: true, email: session.email, firstname: session.firstname });
+}
+
+// ───────────── MON UNIVERS NYXIA — ACCÈS DYNAMIQUES ─────────────
+// Source de vérité :
+//   univers:portals  = portails créés dans Super Admin > Portails
+//   client:{email}   = accès cochés dans Super Admin > Clients portails
+// La session Studio Prompt ne garde que le courriel : on relit donc client:{email}
+// à chaque appel. Un accès ajouté par Diane apparaît sans recréer le compte.
+async function handleUniversAccess(request, env) {
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+
+  const token = String(body.token || '').trim();
+  if (!token) return json({ error: 'Session manquante.' }, 401);
+
+  const sessionRaw = await env.CASHFLOW_KV.get(`session:${token}`);
+  if (!sessionRaw) return json({ error: 'Session expirée.' }, 401);
+
+  let session;
+  try { session = JSON.parse(sessionRaw); }
+  catch (_) { return json({ error: 'Session invalide.' }, 401); }
+
+  const email = String(session.email || '').toLowerCase().trim();
+  if (!email) return json({ error: 'Courriel de session introuvable.' }, 401);
+
+  let client = {};
+  const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
+  if (clientRaw) {
+    try { client = JSON.parse(clientRaw) || {}; } catch (_) {}
+  }
+
+  let portals = [];
+  const portalsRaw = await env.CASHFLOW_KV.get('univers:portals');
+  if (portalsRaw) {
+    try {
+      const parsed = JSON.parse(portalsRaw);
+      if (Array.isArray(parsed)) portals = parsed;
+    } catch (_) {}
+  }
+
+  const products = Array.isArray(client.products)
+    ? client.products.map(v => String(v || '').toLowerCase().trim()).filter(Boolean)
+    : [];
+
+  return json({
+    success: true,
+    email,
+    firstname: session.firstname || client.firstName || client.name || '',
+    active: client.active !== false,
+    products,
+    portals: portals
+      .filter(p => p && p.active !== false)
+      .map(p => ({
+        id: String(p.id || '').toLowerCase().trim(),
+        name: String(p.name || '').trim(),
+        active: p.active !== false
+      }))
+  });
 }
 
 async function handleLogout(request, env) {
@@ -1647,47 +1704,6 @@ async function handlePersonnagesDelete(request, env) {
   return json({ success: true });
 }
 
-// Mini-formations natives de Studio Prompt — disponibles même avant d'ajouter du contenu en KV.
-const BUILTIN_STUDIO_FORMATIONS = {
-  diane: [{
-    id: 'canva-modifier-modele',
-    titre: 'Canva sans prise de tête — modifier un modèle de base',
-    description: 'Pars d’un modèle déjà prêt, personnalise l’essentiel et publie sans repartir d’une page blanche.',
-    ordre: 1,
-    dureeMinutes: 12,
-    modules: [
-      {
-        id: 'canva-m1', numero: 1, titre: 'Pars du modèle, pas de zéro',
-        blocs: [
-          { type: 'texte', contenu: 'Ton modèle Canva est déjà ta structure. Tu n’as pas besoin de tout refaire : ouvre le modèle, fais une copie pour toi et garde la mise en page qui fonctionne déjà.' },
-          { type: 'intervention', contenu: 'Règle simple : si le modèle est déjà beau, change seulement ce qui doit vraiment te ressembler. Moins tu touches à tout, plus ça reste facile. 💜' }
-        ]
-      },
-      {
-        id: 'canva-m2', numero: 2, titre: 'Change le texte et la photo',
-        blocs: [
-          { type: 'texte', contenu: 'Clique sur le texte existant et remplace-le par ton message. Pour une photo, sélectionne l’image du modèle puis utilise Remplacer ou glisse ta propre photo dans le cadre.' },
-          { type: 'exercice', contenu: 'Prends un modèle aujourd’hui. Change seulement le titre, une phrase et une photo. Ne modifie rien d’autre pour ce premier essai.' }
-        ]
-      },
-      {
-        id: 'canva-m3', numero: 3, titre: 'Adapte les couleurs sans te perdre',
-        blocs: [
-          { type: 'texte', contenu: 'Si tu veux personnaliser les couleurs, limite-toi à 2 ou 3 couleurs principales. Clique sur un élément, ouvre la couleur et remplace-la par une couleur de ta marque.' },
-          { type: 'intervention', contenu: 'Tu n’as pas besoin de devenir graphiste. Le but est que le modèle reste cohérent et reconnaissable, pas de réinventer Canva à chaque publication. 😄' }
-        ]
-      },
-      {
-        id: 'canva-m4', numero: 4, titre: 'Télécharge et publie',
-        blocs: [
-          { type: 'texte', contenu: 'Quand ton modèle est prêt : Partager → Télécharger. Pour une publication ou une image, PNG est un excellent choix. Pour une vidéo ou un Reel, choisis MP4.' },
-          { type: 'exercice', contenu: 'Télécharge ton modèle personnalisé et publie-le, ou garde-le prêt dans ton téléphone. Ton objectif est terminé dès que ton contenu est utilisable — pas quand il est parfait.' }
-        ]
-      }
-    ]
-  }]
-};
-
 const FORMATION_AGENTS = new Set(['nyxia','diane','eric','kael','lena','selena','alex']);
 function studioAgentOk(agent) {
   return !!(SYSTEM_PROMPTS[agent] || FORMATION_AGENTS.has(agent));
@@ -1731,11 +1747,7 @@ async function listFormations(env, agent) {
         if (doc && doc.id) out.push(doc);
       }
     }
-  } catch (_) { /* KV indisponible : les formations natives restent disponibles */ }
-  const builtins = (BUILTIN_STUDIO_FORMATIONS[agent] || []);
-  for (const f of builtins) {
-    if (f && f.id && !out.some(x => x && x.id === f.id)) out.push(f);
-  }
+  } catch (_) { /* KV indisponible : aucune formation */ }
   out.sort((a, b) => (a.ordre || 0) - (b.ordre || 0) || String(a.titre || '').localeCompare(String(b.titre || '')));
   return out;
 }
@@ -1751,8 +1763,7 @@ async function getFormation(env, agent, id) {
       const raw = await env.CASHFLOW_KV.get(k);
       if (raw) return JSON.parse(raw);
     }
-    const builtin = (BUILTIN_STUDIO_FORMATIONS[agent] || []).find(f => f && f.id === id);
-    return builtin || null;
+    return null;
   } catch (_) { return null; }
 }
 
@@ -1870,7 +1881,7 @@ function buildActiveModuleInjection(formation, module, prenom) {
   const blocs = Array.isArray(module.blocs) ? module.blocs : [];
   const parts = [
     `🎯 MODULE ACTIF — Formation « ${formation.titre} » · Module ${module.numero} : ${module.titre}`,
-    `Voici le contenu réel de ce module, dans l'ordre. Fais-le vivre UN BLOC À LA FOIS (jamais tout d'un coup), vérifie la compréhension entre chaque, et aide la personne à appliquer ce qu’elle apprend à SA situation, son projet ou son objectif, selon la spécialité du personnage. Pour un bloc média, copie l'adresse EXACTE après « ADRESSE … APPROUVÉE » dans le marqueur correspondant.`
+    `Voici le contenu réel de ce module, dans l'ordre. Fais-le vivre UN BLOC À LA FOIS (jamais tout d'un coup), vérifie la compréhension entre chaque, et aide la personne à appliquer à SON livre. Pour un bloc média, copie l'adresse EXACTE après « ADRESSE … APPROUVÉE » dans le marqueur correspondant.`
   ];
   blocs.forEach((b, i) => parts.push('\n' + formationBlocToPromptLines(b, i, prenom)));
   return parts.join('\n');
@@ -1878,51 +1889,10 @@ function buildActiveModuleInjection(formation, module, prenom) {
 
 // ───────────── FORMATION VIVANTE — PILOTAGE DÉTERMINISTE ─────────────
 // Quand la personne pilote sa formation (commence / continue / module X / suite),
-// on livre EXACTEMENT le bon bloc lu depuis l’outil Formations, sans passer par le LLM,
+// on livre EXACTEMENT le bon bloc lu depuis l'outil Formations Alex, sans passer par le LLM,
 // pour garantir le comportement demandé (Module 1 → 1er bloc ; intervention envoyée telle quelle ; reprise fidèle).
 
 function isHttpsUrl(u) { return /^https:\/\//i.test(String(u || '').trim()); }
-
-
-// Sécurité des médias de Formation Vivante : seuls les liens HTTPS fournis par le bloc approuvé sont rendus.
-function normalizeApprovedVideoUrl(rawUrl) {
-  try {
-    const parsed = new URL(String(rawUrl || '').trim());
-    return parsed.protocol === 'https:' ? parsed.href : '';
-  } catch (_) {
-    return '';
-  }
-}
-
-function sanitizeLivingVideoMarkers(content, approvedUrls) {
-  const allowed = new Set((approvedUrls || []).map(normalizeApprovedVideoUrl).filter(Boolean));
-  let videoAlreadyUsed = false;
-  return String(content || '')
-    .replace(/\[VIDEO\s*:\s*([^\]\r\n]+)\]/giu, (_marker, rawUrl) => {
-      const normalized = normalizeApprovedVideoUrl(rawUrl);
-      if (!normalized || !allowed.has(normalized) || videoAlreadyUsed) return '';
-      videoAlreadyUsed = true;
-      return `[VIDEO: ${normalized}]`;
-    })
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function sanitizeApprovedMediaMarkers(content, markerName, approvedUrls, max) {
-  const allowed = new Set((approvedUrls || []).map(normalizeApprovedVideoUrl).filter(Boolean));
-  let count = 0;
-  const limit = Number.isFinite(max) ? max : 3;
-  const re = new RegExp(`\\[${markerName}\\s*:\\s*([^\\]\\r\\n]+)\\]`, 'giu');
-  return String(content || '')
-    .replace(re, (_marker, rawUrl) => {
-      const normalized = normalizeApprovedVideoUrl(rawUrl);
-      if (!normalized || !allowed.has(normalized) || count >= limit) return '';
-      count++;
-      return `[${markerName}: ${normalized}]`;
-    })
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
 
 // Analyse fine de l'intention de pilotage. Retourne { action, moduleNumero } ou { action: null }.
 function parseFormationControl(message) {
@@ -1961,12 +1931,12 @@ function pickLatestProgressFormation(formations, progressAll) {
 
 // Petit repère de navigation (pas du contenu de formation : simple accompagnement du formateur).
 function formationNavHint(isLastOfModule, isLastOfFormation) {
-  if (isLastOfFormation) return '— Tu arrives au bout de cette formation ✨ Dis-moi « suite » pour la conclure, ou pose-moi tes questions pour appliquer tout ça à ta situation ou à ton projet.';
+  if (isLastOfFormation) return '— Tu arrives au bout de cette formation ✨ Dis-moi « suite » pour la conclure, ou pose-moi tes questions pour appliquer tout ça à ton livre.';
   if (isLastOfModule) return '— Tu as terminé ce module 🎉 Dis « suite » pour passer au suivant, ou pose-moi tes questions sur cette étape.';
   return '— Quand tu es prêt·e, dis « suite » pour la prochaine étape 💜 (ou pose-moi tes questions).';
 }
 
-// Construit la réponse du personnage à partir d’un bloc — uniquement les champs saisis dans l’outil.
+// Construit la réponse d'Alex à partir d'un bloc — uniquement les champs saisis par Diane dans l'outil.
 function renderFormationBlocForChat(bloc, ctx) {
   const type = String((bloc && bloc.type) || 'texte').toLowerCase();
   const prenom = (ctx && ctx.prenom) || 'toi';
@@ -2068,7 +2038,7 @@ async function runFormationControlTurn(env, session, agent, message) {
             blocIndex: Math.max(0, modules[moduleIdx].blocs.length - 1),
             completedModuleId: markCompletedModuleId
           });
-          return { content: `Bravo 🎉 Tu as parcouru toute la formation « ${formation.titre} » !\n\nOn peut maintenant reprendre n'importe quel module ensemble, ou appliquer ce que tu viens d’apprendre à ta situation ou à ton projet. Dis-moi « module X » quand tu veux revoir une étape.` };
+          return { content: `Bravo 🎉 Tu as parcouru toute la formation « ${formation.titre} » !\n\nOn peut maintenant reprendre n'importe quel module ensemble, ou avancer sur ton propre livre. Dis-moi « module X » quand tu veux revoir une étape.` };
         }
       }
     }
@@ -2130,8 +2100,6 @@ async function handleFormationList(request, env) {
     id: f.id,
     titre: f.titre || '',
     description: f.description || '',
-    ordre: Number(f.ordre || 0),
-    dureeMinutes: Number(f.dureeMinutes || f.durationMinutes || f.duree || 0) || 0,
     modules: normalizeFormationModules(f).map(m => ({
       id: m.id, numero: m.numero, titre: m.titre, blocsCount: (m.blocs || []).length
     })),
@@ -2182,101 +2150,6 @@ async function handleFormationProgressRoute(request, env) {
   return json({ progress });
 }
 
-
-// ───────────── CONTENUS PRÊTS À PUBLIER — BIBLIOTHÈQUE CANVA ─────────────
-const READY_CONTENTS_KEY = 'studio:contenus-prets:v1';
-const READY_CONTENTS_MAX = 600;
-
-function cleanReadyText(v, max = 12000) {
-  return String(v == null ? '' : v).slice(0, max).trim();
-}
-function cleanReadyUrl(v) {
-  const s = cleanReadyText(v, 1800);
-  if (!s) return '';
-  try {
-    const u = new URL(s);
-    return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : '';
-  } catch (_) { return ''; }
-}
-function normalizeReadyContent(input, previous = null) {
-  const now = new Date().toISOString();
-  const allowedPortails = new Set(['Studio Prompt','Alex','Léna','Séléna','Éric / CashFlow','Kael','Praticiens','NyXia','Autre']);
-  const allowedPlatforms = new Set(['Facebook','Instagram','TikTok','Multi-plateforme']);
-  const allowedFormats = new Set(['Publication','Story','Reel','Carrousel','Vidéo courte','Autre']);
-  const allowedIntentions = new Set(['Créer une conversation','Faire découvrir','Éduquer','Témoignage','Coulisses','Invitation','Autre']);
-  const pick = (set, v, fallback) => set.has(v) ? v : (set.has(fallback) ? fallback : [...set][0]);
-  return {
-    id: cleanReadyText(input?.id || previous?.id || crypto.randomUUID(), 100),
-    titre: cleanReadyText(input?.titre || previous?.titre || 'Contenu prêt à publier', 180),
-    portail: pick(allowedPortails, input?.portail, previous?.portail || 'Studio Prompt'),
-    plateforme: pick(allowedPlatforms, input?.plateforme, previous?.plateforme || 'Multi-plateforme'),
-    format: pick(allowedFormats, input?.format, previous?.format || 'Publication'),
-    intention: pick(allowedIntentions, input?.intention, previous?.intention || 'Créer une conversation'),
-    texte: cleanReadyText(input?.texte ?? previous?.texte ?? '', 20000),
-    canvaUrl: cleanReadyUrl(input?.canvaUrl ?? previous?.canvaUrl ?? ''),
-    previewUrl: cleanReadyUrl(input?.previewUrl ?? previous?.previewUrl ?? ''),
-    actif: input?.actif === false ? false : (previous?.actif === false && input?.actif == null ? false : true),
-    ordre: Number.isFinite(Number(input?.ordre)) ? Number(input.ordre) : Number(previous?.ordre || 0),
-    createdAt: previous?.createdAt || now,
-    updatedAt: now
-  };
-}
-async function readReadyContents(env) {
-  if (!env.CASHFLOW_KV) return [];
-  const raw = await env.CASHFLOW_KV.get(READY_CONTENTS_KEY);
-  if (!raw) return [];
-  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch (_) { return []; }
-}
-async function writeReadyContents(env, rows) {
-  if (!env.CASHFLOW_KV) throw new Error('CASHFLOW_KV non configuré.');
-  await env.CASHFLOW_KV.put(READY_CONTENTS_KEY, JSON.stringify(rows.slice(0, READY_CONTENTS_MAX)));
-}
-async function handleReadyContents(request, env) {
-  const body = await request.json().catch(() => ({}));
-  const session = await getSessionFromToken(env, body.token);
-  if (!session) return json({ error: 'Session expirée. Reconnecte-toi.' }, 401);
-  const rows = (await readReadyContents(env))
-    .filter(r => r && r.actif !== false)
-    .sort((a,b) => Number(a.ordre||0)-Number(b.ordre||0) || String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-  return json({ success: true, contenus: rows });
-}
-async function handleAdminReadyContents(request, env) {
-  if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
-  const body = await request.json().catch(() => ({}));
-  const action = String(body.action || 'list').toLowerCase();
-  let rows = await readReadyContents(env);
-  if (action === 'list') {
-    rows.sort((a,b) => Number(a.ordre||0)-Number(b.ordre||0) || String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-    return json({ success: true, contenus: rows });
-  }
-  if (action === 'save') {
-    const input = body.contenu || {};
-    const idx = rows.findIndex(r => r && r.id === input.id);
-    const prev = idx >= 0 ? rows[idx] : null;
-    const saved = normalizeReadyContent(input, prev);
-    if (idx >= 0) rows[idx] = saved; else rows.push(saved);
-    await writeReadyContents(env, rows);
-    return json({ success: true, contenu: saved });
-  }
-  if (action === 'delete') {
-    const id = cleanReadyText(body.id, 100);
-    rows = rows.filter(r => r && r.id !== id);
-    await writeReadyContents(env, rows);
-    return json({ success: true });
-  }
-  if (action === 'import') {
-    const incoming = Array.isArray(body.contenus) ? body.contenus : [];
-    for (const item of incoming) {
-      const idx = rows.findIndex(r => r && item && r.id === item.id);
-      const prev = idx >= 0 ? rows[idx] : null;
-      const saved = normalizeReadyContent(item || {}, prev);
-      if (idx >= 0) rows[idx] = saved; else rows.push(saved);
-    }
-    await writeReadyContents(env, rows);
-    return json({ success: true, count: rows.length });
-  }
-  return json({ error: 'Action inconnue.' }, 400);
-}
 
 // ───────────── JOURNAL STUDIO PROMPT — KV PAR MEMBRE ─────────────
 
