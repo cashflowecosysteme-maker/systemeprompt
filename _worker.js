@@ -1,4 +1,4 @@
-// BUILD FIX 2026-09-10 — Worker Studio Prompt nettoyé — 1 seul export default
+// BUILD FIX 2026-09-11 — Studio Prompt — Formations Vivantes corrigées — 1 seul export default
 // ============================================================
 // NyXia — Studio Prompt — Cloudflare Worker (Backend API)
 // ============================================================
@@ -415,7 +415,12 @@ async function handleChat(request, env) {
   try {
     const controlled = await runFormationControlTurn(env, session, agent, message || '');
     if (controlled && controlled.content) return json({ content: controlled.content });
-  } catch (e) {}
+  } catch (e) {
+    console.error('Erreur Formation Vivante :', e);
+    return json({
+      content: 'Une petite erreur technique empêche la Formation Vivante de démarrer. Réessaie dans un instant 💜'
+    }, 500);
+  }
 
   let systemPrompt = (SYSTEM_PROMPTS[agent] || SYSTEM_PROMPTS.nyxia)
     .replace(/\{first_name\}/g, userName || session.firstname || session.firstName || 'toi');
@@ -1881,7 +1886,7 @@ function buildActiveModuleInjection(formation, module, prenom) {
   const blocs = Array.isArray(module.blocs) ? module.blocs : [];
   const parts = [
     `🎯 MODULE ACTIF — Formation « ${formation.titre} » · Module ${module.numero} : ${module.titre}`,
-    `Voici le contenu réel de ce module, dans l'ordre. Fais-le vivre UN BLOC À LA FOIS (jamais tout d'un coup), vérifie la compréhension entre chaque, et aide la personne à appliquer à SON livre. Pour un bloc média, copie l'adresse EXACTE après « ADRESSE … APPROUVÉE » dans le marqueur correspondant.`
+    `Voici le contenu réel de ce module, dans l'ordre. Fais-le vivre UN BLOC À LA FOIS (jamais tout d'un coup), vérifie la compréhension entre chaque, et aide la personne à appliquer ce qu’elle apprend à SA situation, son projet ou son objectif, selon la spécialité du personnage. Pour un bloc média, copie l'adresse EXACTE après « ADRESSE … APPROUVÉE » dans le marqueur correspondant.`
   ];
   blocs.forEach((b, i) => parts.push('\n' + formationBlocToPromptLines(b, i, prenom)));
   return parts.join('\n');
@@ -1889,10 +1894,50 @@ function buildActiveModuleInjection(formation, module, prenom) {
 
 // ───────────── FORMATION VIVANTE — PILOTAGE DÉTERMINISTE ─────────────
 // Quand la personne pilote sa formation (commence / continue / module X / suite),
-// on livre EXACTEMENT le bon bloc lu depuis l'outil Formations Alex, sans passer par le LLM,
+// on livre EXACTEMENT le bon bloc lu depuis l’outil Formations, sans passer par le LLM,
 // pour garantir le comportement demandé (Module 1 → 1er bloc ; intervention envoyée telle quelle ; reprise fidèle).
 
 function isHttpsUrl(u) { return /^https:\/\//i.test(String(u || '').trim()); }
+
+// Sécurité des médias de Formation Vivante : seuls les liens HTTPS fournis par le bloc approuvé sont rendus.
+function normalizeApprovedVideoUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || '').trim());
+    return parsed.protocol === 'https:' ? parsed.href : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function sanitizeLivingVideoMarkers(content, approvedUrls) {
+  const allowed = new Set((approvedUrls || []).map(normalizeApprovedVideoUrl).filter(Boolean));
+  let videoAlreadyUsed = false;
+  return String(content || '')
+    .replace(/\[VIDEO\s*:\s*([^\]\r\n]+)\]/giu, (_marker, rawUrl) => {
+      const normalized = normalizeApprovedVideoUrl(rawUrl);
+      if (!normalized || !allowed.has(normalized) || videoAlreadyUsed) return '';
+      videoAlreadyUsed = true;
+      return `[VIDEO: ${normalized}]`;
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sanitizeApprovedMediaMarkers(content, markerName, approvedUrls, max) {
+  const allowed = new Set((approvedUrls || []).map(normalizeApprovedVideoUrl).filter(Boolean));
+  let count = 0;
+  const limit = Number.isFinite(max) ? max : 3;
+  const re = new RegExp(`\\[${markerName}\\s*:\\s*([^\\]\\r\\n]+)\\]`, 'giu');
+  return String(content || '')
+    .replace(re, (_marker, rawUrl) => {
+      const normalized = normalizeApprovedVideoUrl(rawUrl);
+      if (!normalized || !allowed.has(normalized) || count >= limit) return '';
+      count++;
+      return `[${markerName}: ${normalized}]`;
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 // Analyse fine de l'intention de pilotage. Retourne { action, moduleNumero } ou { action: null }.
 function parseFormationControl(message) {
@@ -1931,12 +1976,12 @@ function pickLatestProgressFormation(formations, progressAll) {
 
 // Petit repère de navigation (pas du contenu de formation : simple accompagnement du formateur).
 function formationNavHint(isLastOfModule, isLastOfFormation) {
-  if (isLastOfFormation) return '— Tu arrives au bout de cette formation ✨ Dis-moi « suite » pour la conclure, ou pose-moi tes questions pour appliquer tout ça à ton livre.';
+  if (isLastOfFormation) return '— Tu arrives au bout de cette formation ✨ Dis-moi « suite » pour la conclure, ou pose-moi tes questions pour appliquer tout ça à ta situation ou à ton projet.';
   if (isLastOfModule) return '— Tu as terminé ce module 🎉 Dis « suite » pour passer au suivant, ou pose-moi tes questions sur cette étape.';
   return '— Quand tu es prêt·e, dis « suite » pour la prochaine étape 💜 (ou pose-moi tes questions).';
 }
 
-// Construit la réponse d'Alex à partir d'un bloc — uniquement les champs saisis par Diane dans l'outil.
+// Construit la réponse du personnage à partir d’un bloc — uniquement les champs saisis dans l’outil.
 function renderFormationBlocForChat(bloc, ctx) {
   const type = String((bloc && bloc.type) || 'texte').toLowerCase();
   const prenom = (ctx && ctx.prenom) || 'toi';
@@ -2038,7 +2083,7 @@ async function runFormationControlTurn(env, session, agent, message) {
             blocIndex: Math.max(0, modules[moduleIdx].blocs.length - 1),
             completedModuleId: markCompletedModuleId
           });
-          return { content: `Bravo 🎉 Tu as parcouru toute la formation « ${formation.titre} » !\n\nOn peut maintenant reprendre n'importe quel module ensemble, ou avancer sur ton propre livre. Dis-moi « module X » quand tu veux revoir une étape.` };
+          return { content: `Bravo 🎉 Tu as parcouru toute la formation « ${formation.titre} » !\n\nOn peut maintenant reprendre n'importe quel module ensemble, ou appliquer ce que tu viens d’apprendre à ta situation ou à ton projet. Dis-moi « module X » quand tu veux revoir une étape.` };
         }
       }
     }
