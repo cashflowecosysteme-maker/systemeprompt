@@ -301,7 +301,31 @@ export default {
     }
 
     // Fichiers statiques (login, dashboard, chats, images, Journal, etc.)
-    if (env.ASSETS) return env.ASSETS.fetch(request);
+    if (env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+
+      // Formation Vivante — moteur média commun à TOUS les personnages.
+      // On injecte un seul script partagé dans chaque page chat-* afin que les
+      // liens, PDF et documents fonctionnent partout sans dupliquer la logique
+      // dans Diane, Éric, NyXia, Kael, Léna, Séléna, Alex, ni les futurs chats.
+      const staticPath = new URL(request.url).pathname;
+      const isCharacterChat = /^\/chat-[a-z0-9_-]+\.html$/i.test(staticPath);
+      const contentType = assetResponse.headers.get('content-type') || '';
+      if (isCharacterChat && assetResponse.ok && contentType.includes('text/html')) {
+        let html = await assetResponse.text();
+        const sharedScript = '<script src="/formation-vivante-media.js" defer></script>';
+        if (!html.includes('/formation-vivante-media.js')) {
+          if (/<\/body>/i.test(html)) html = html.replace(/<\/body>/i, sharedScript + '\n</body>');
+          else html += '\n' + sharedScript;
+        }
+        const headers = new Headers(assetResponse.headers);
+        headers.delete('content-length');
+        headers.set('cache-control', 'no-cache');
+        return new Response(html, { status: assetResponse.status, statusText: assetResponse.statusText, headers });
+      }
+
+      return assetResponse;
+    }
     return json({ error: 'Route introuvable.' }, 404);
   }
 };
