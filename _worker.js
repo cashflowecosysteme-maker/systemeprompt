@@ -254,6 +254,8 @@ export default {
       if (path === '/api/chat' && request.method === 'POST') return await handleChat(request, env);
       if (path === '/api/studio-chat' && request.method === 'POST') return await handleStudioChat(request, env);
       if (path === '/api/journal' && request.method === 'POST') return await handleJournal(request, env);
+      if (path === '/api/contenus' && request.method === 'POST') return await handleReadyContents(request, env);
+      if (path === '/api/admin/contenus' && request.method === 'POST') return await handleAdminReadyContents(request, env);
 
       if (path === '/api/formation/list' && request.method === 'POST') return await handleFormationList(request, env);
       if (path === '/api/formation/module' && request.method === 'POST') return await handleFormationModule(request, env);
@@ -1879,6 +1881,7 @@ function formationBlocToPromptLines(bloc, idx, prenom) {
   if (t === 'video' || t === 'vidéo') return `BLOC ${n} — VIDÉO\n${bloc.titre ? 'Titre : ' + bloc.titre + '\n' : ''}${bloc.intro ? 'Intro suggérée : ' + bloc.intro + '\n' : ''}ADRESSE VIDÉO APPROUVÉE : ${bloc.url || ''}`;
   if (t === 'exercice') return `BLOC ${n} — EXERCICE\n${bloc.objectif ? 'Objectif : ' + bloc.objectif + '\n' : ''}Consigne : ${bloc.consigne || bloc.contenu || ''}`;
   if (t === 'intervention') return `BLOC ${n} — INTERVENTION (utilise le prénom ${prenom || 'de la personne'})\n${P(bloc.contenu || '')}`;
+  if (t === 'lien') return `BLOC ${n} — LIEN\n${bloc.titre ? 'Titre : ' + bloc.titre + '\n' : ''}${bloc.intro ? 'Intro suggérée : ' + P(bloc.intro) + '\n' : ''}ADRESSE LIEN APPROUVÉE : ${bloc.url || ''}`;
   return `BLOC ${n} — ${t.toUpperCase()}\n${bloc.contenu || bloc.url || ''}`;
 }
 
@@ -2002,6 +2005,10 @@ function renderFormationBlocForChat(bloc, ctx) {
   } else if (type === 'exercice') {
     if (bloc.objectif) parts.push('🎯 ' + String(bloc.objectif).trim());
     if (bloc.consigne) parts.push(String(bloc.consigne).trim());
+  } else if (type === 'lien') {
+    if (bloc.intro) parts.push(applyPrenom(String(bloc.intro).trim(), prenom));
+    if (bloc.titre) parts.push('🔗 ' + String(bloc.titre).trim());
+    if (isHttpsUrl(bloc.url)) parts.push('[LINK: ' + String(bloc.url).trim() + ']');
   } else {
     parts.push(String(bloc.contenu || bloc.url || '').trim());
   }
@@ -2195,6 +2202,101 @@ async function handleFormationProgressRoute(request, env) {
   return json({ progress });
 }
 
+
+// ───────────── CONTENUS PRÊTS À PUBLIER — BIBLIOTHÈQUE TEMPLATES ─────────────
+const READY_CONTENTS_KEY = 'studio:contenus-prets:v1';
+const READY_CONTENTS_MAX = 600;
+
+function cleanReadyText(v, max = 12000) {
+  return String(v == null ? '' : v).slice(0, max).trim();
+}
+function cleanReadyUrl(v) {
+  const s = cleanReadyText(v, 1800);
+  if (!s) return '';
+  try {
+    const u = new URL(s);
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? u.toString() : '';
+  } catch (_) { return ''; }
+}
+function normalizeReadyContent(input, previous = null) {
+  const now = new Date().toISOString();
+  const allowedPortails = new Set(['Studio Prompt','Alex','Léna','Séléna','Éric / CashFlow','Kael','Praticiens','NyXia','Autre']);
+  const allowedPlatforms = new Set(['Facebook','Instagram','TikTok','Multi-plateforme']);
+  const allowedFormats = new Set(['Publication','Story','Reel','Carrousel','Vidéo courte','Autre']);
+  const allowedIntentions = new Set(['Créer une conversation','Faire découvrir','Éduquer','Témoignage','Coulisses','Invitation','Autre']);
+  const pick = (set, v, fallback) => set.has(v) ? v : (set.has(fallback) ? fallback : [...set][0]);
+  return {
+    id: cleanReadyText(input?.id || previous?.id || crypto.randomUUID(), 100),
+    titre: cleanReadyText(input?.titre || previous?.titre || 'Contenu prêt à publier', 180),
+    portail: pick(allowedPortails, input?.portail, previous?.portail || 'Studio Prompt'),
+    plateforme: pick(allowedPlatforms, input?.plateforme, previous?.plateforme || 'Multi-plateforme'),
+    format: pick(allowedFormats, input?.format, previous?.format || 'Publication'),
+    intention: pick(allowedIntentions, input?.intention, previous?.intention || 'Créer une conversation'),
+    texte: cleanReadyText(input?.texte ?? previous?.texte ?? '', 20000),
+    canvaUrl: cleanReadyUrl(input?.canvaUrl ?? previous?.canvaUrl ?? ''),
+    previewUrl: cleanReadyUrl(input?.previewUrl ?? previous?.previewUrl ?? ''),
+    actif: input?.actif === false ? false : (previous?.actif === false && input?.actif == null ? false : true),
+    ordre: Number.isFinite(Number(input?.ordre)) ? Number(input.ordre) : Number(previous?.ordre || 0),
+    createdAt: previous?.createdAt || now,
+    updatedAt: now
+  };
+}
+async function readReadyContents(env) {
+  if (!env.CASHFLOW_KV) return [];
+  const raw = await env.CASHFLOW_KV.get(READY_CONTENTS_KEY);
+  if (!raw) return [];
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch (_) { return []; }
+}
+async function writeReadyContents(env, rows) {
+  if (!env.CASHFLOW_KV) throw new Error('CASHFLOW_KV non configuré.');
+  await env.CASHFLOW_KV.put(READY_CONTENTS_KEY, JSON.stringify(rows.slice(0, READY_CONTENTS_MAX)));
+}
+async function handleReadyContents(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const session = await getSessionFromToken(env, body.token);
+  if (!session) return json({ error: 'Session expirée. Reconnecte-toi.' }, 401);
+  const rows = (await readReadyContents(env))
+    .filter(r => r && r.actif !== false)
+    .sort((a,b) => Number(a.ordre||0)-Number(b.ordre||0) || String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  return json({ success: true, contenus: rows });
+}
+async function handleAdminReadyContents(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
+  const body = await request.json().catch(() => ({}));
+  const action = String(body.action || 'list').toLowerCase();
+  let rows = await readReadyContents(env);
+  if (action === 'list') {
+    rows.sort((a,b) => Number(a.ordre||0)-Number(b.ordre||0) || String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    return json({ success: true, contenus: rows });
+  }
+  if (action === 'save') {
+    const input = body.contenu || {};
+    const idx = rows.findIndex(r => r && r.id === input.id);
+    const prev = idx >= 0 ? rows[idx] : null;
+    const saved = normalizeReadyContent(input, prev);
+    if (idx >= 0) rows[idx] = saved; else rows.push(saved);
+    await writeReadyContents(env, rows);
+    return json({ success: true, contenu: saved });
+  }
+  if (action === 'delete') {
+    const id = cleanReadyText(body.id, 100);
+    rows = rows.filter(r => r && r.id !== id);
+    await writeReadyContents(env, rows);
+    return json({ success: true });
+  }
+  if (action === 'import') {
+    const incoming = Array.isArray(body.contenus) ? body.contenus : [];
+    for (const item of incoming) {
+      const idx = rows.findIndex(r => r && item && r.id === item.id);
+      const prev = idx >= 0 ? rows[idx] : null;
+      const saved = normalizeReadyContent(item || {}, prev);
+      if (idx >= 0) rows[idx] = saved; else rows.push(saved);
+    }
+    await writeReadyContents(env, rows);
+    return json({ success: true, count: rows.length });
+  }
+  return json({ error: 'Action inconnue.' }, 400);
+}
 
 // ───────────── JOURNAL STUDIO PROMPT — KV PAR MEMBRE ─────────────
 
