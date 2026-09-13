@@ -159,6 +159,14 @@ const OPENROUTER_FALLBACK_MODEL = 'mistralai/mistral-small-3.2-24b-instruct';
 const SESSION_TTL = 60 * 60 * 24 * 7;   // 7 jours
 const ADMIN_SESSION_TTL = 60 * 60 * 12; // 12 heures
 
+// Boutique NyXia — même CASHFLOW_KV que le Studio Prompt et le Super Admin.
+// Une seule source de vérité : jamais de prix, promo ou lien commercial codé dans un personnage.
+const BOUTIQUE_PRODUCT_PREFIX = 'boutique:product:';
+const BOUTIQUE_INDEX_KEY = 'boutique:products:index';
+const BOUTIQUE_SETTINGS_KEY = 'boutique:settings';
+const BOUTIQUE_PUBLIC_ORIGIN = 'https://boutique.nyxia.top';
+let _boutiqueChatCache = { expiresAt: 0, products: null, settings: null };
+
 // Pouvoir partagé par TOUS les personnages —
 // pour que la Gardienne n'ait jamais besoin de retourner voir NyXia juste pour une image.
 const IMAGE_GENERATION_INSTRUCTIONS = `
@@ -231,6 +239,31 @@ RÈGLES DE DÉCOUVERTE :
 
 OBJECTIF : que le Membre se dise « j'aime apprendre avec cette personne » parce qu'il vient réellement d'apprendre ou comprendre quelque chose avec toi.`;
 
+const STUDIO_RELATIONSHIP_COMMERCE_INSTRUCTIONS = `
+
+🪞 BOUTIQUE + RENDEZ-VOUS — VENDRE SANS POUSSER
+
+Le Studio Prompt est le Grand Hall d'entrée de l'univers NyXia. La personne doit d'abord vivre une vraie conversation avec toi, apprendre quelque chose et sentir ta façon d'enseigner. Une prochaine étape commerciale n'apparaît QUE lorsqu'elle devient naturellement utile.
+
+RÈGLES ABSOLUES :
+- N'ajoute PAS une offre, un produit ou un rendez-vous à la fin de chaque réponse. Tu n'es jamais un vendeur de tapis.
+- Apporte d'abord de la valeur. Laisse la curiosité et le besoin réel ouvrir la porte suivante.
+- Tu peux proposer un produit de la Boutique NyXia quand ce produit répond réellement à ce que la personne vient d'exprimer, quand elle parle d'un livre/outil/exercice précis, ou quand elle demande où se procurer quelque chose.
+- Tu peux proposer le rendez-vous gratuit quand la personne veut approfondir, quand son besoin dépasse le petit premier pas offert dans Studio Prompt, ou quand elle demande comment aller plus loin dans ton portail.
+- Tu peux mentionner ton portail et ta méthode quand cela éclaire naturellement la suite : A.M.I.E.™, DDM, CashFlow™ ou toute autre méthode réellement présente dans ton contexte. N'invente jamais le nom d'une méthode.
+- Tu n'as PAS besoin de proposer produit + rendez-vous ensemble. Choisis ce qui est le plus logique. Les deux peuvent apparaître ensemble seulement si cela sert vraiment la personne.
+- Un code promo n'existe QUE s'il apparaît comme ACTIF dans les données Boutique fournies plus bas. N'invente jamais un code, un rabais, une date, un prix, une disponibilité ou un lien.
+- Si aucun produit pertinent n'est fourni dans les données Boutique, ne prétends pas qu'il existe.
+- Si aucun lien de rendez-vous n'est fourni, tu peux dire qu'un échange avec l'équipe peut être pertinent, mais ne fabrique jamais d'URL.
+- Quand tu donnes un lien, utilise un lien Markdown clair : [Voir dans la Boutique NyXia](URL) ou [Prendre un rendez-vous gratuit](URL).
+- Le rendez-vous proposé par l'équipe est un échange gratuit de 30 à 40 minutes. Présente-le comme une conversation pour voir si le parcours correspond à la personne, jamais comme une pression à acheter.
+
+EXEMPLES DE TON NATUREL (à adapter, jamais à réciter mécaniquement) :
+- « Tu sais, ce que tu viens de me décrire rejoint vraiment ce que j'approfondis dans mon portail. Si tu veux, on peut aussi voir si ce parcours correspond à ce que tu recherches. »
+- « Il y a justement une ressource dans notre Boutique NyXia qui peut être un bon premier pas pour ce que tu travailles en ce moment. »
+
+OBJECTIF RELATIONNEL : attirer l'attention → créer une interaction → apporter une vraie valeur → bâtir la confiance → laisser la curiosité ouvrir naturellement la prochaine étape.`;
+
 const PROMPT_MARKER_INSTRUCTIONS = `
 
 📋 LE MARQUEUR DE PROMPT (obligatoire à chaque livraison de prompt)
@@ -291,6 +324,177 @@ function isExplicitPromptRequest(message) {
     || /\bmod[eè]le\s+(?:[àa]\s+)?(?:copier|coller|r[eé]utiliser)/.test(s)
     || /\b(?:copier|coller)\s+(?:dans|sur)\s+(?:chatgpt|claude|grok|gemini|mistral|deepseek|z\b|une?\s+ia)/.test(s)
     || /\b(?:consigne|instruction)\s+(?:pour|destin[eé]e?\s+[àa])\s+(?:chatgpt|claude|grok|gemini|mistral|deepseek|une?\s+ia)/.test(s);
+}
+
+function boutiqueNormalize(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function boutiqueTokens(value) {
+  const stop = new Set(['avec','dans','pour','mais','plus','moins','tout','tous','toute','toutes','une','des','les','leur','leurs','notre','votre','mon','ton','son','mes','tes','ses','que','qui','quoi','dont','est','sont','etre','avoir','faire','cela','ceci','comme','sur','pas','oui','non','moi','toi','nous','vous','elle','elles','ils','aux','du','de','la','le','un','en','et','ou','a']);
+  return boutiqueNormalize(value).split(/\s+/).filter(t => t.length >= 3 && !stop.has(t));
+}
+
+function boutiquePromoActive(product) {
+  if (!product || !product.promoCode) return false;
+  if (!product.promoExpiresAt) return true;
+  const expires = Date.parse(product.promoExpiresAt);
+  return !Number.isFinite(expires) || expires >= Date.now();
+}
+
+function boutiquePriceLabel(product) {
+  if (!product) return '';
+  if (product.priceLabel) return String(product.priceLabel);
+  if (product.price === null || product.price === undefined || product.price === '') return '';
+  const value = Number(product.price);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  const currency = String(product.currency || 'CAD').toUpperCase();
+  return value.toFixed(value % 1 ? 2 : 0) + ' ' + currency;
+}
+
+async function boutiqueAllProducts(env) {
+  if (!env.CASHFLOW_KV) return [];
+  let ids = [];
+  try {
+    const raw = await env.CASHFLOW_KV.get(BOUTIQUE_INDEX_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) ids = parsed.filter(Boolean);
+    }
+  } catch (_) {}
+
+  if (!ids.length) {
+    let cursor;
+    do {
+      const listed = await env.CASHFLOW_KV.list({ prefix: BOUTIQUE_PRODUCT_PREFIX, cursor });
+      for (const key of (listed.keys || [])) ids.push(key.name.slice(BOUTIQUE_PRODUCT_PREFIX.length));
+      cursor = listed.list_complete ? null : listed.cursor;
+    } while (cursor);
+  }
+
+  const unique = [...new Set(ids.map(id => String(id || '').trim()).filter(Boolean))].slice(0, 500);
+  const rows = await Promise.all(unique.map(async id => {
+    try {
+      const raw = await env.CASHFLOW_KV.get(BOUTIQUE_PRODUCT_PREFIX + id);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) { return null; }
+  }));
+
+  return rows.filter(p => p && p.active !== false);
+}
+
+async function boutiqueSettingsForChat(env) {
+  if (!env.CASHFLOW_KV) return {};
+  try {
+    const raw = await env.CASHFLOW_KV.get(BOUTIQUE_SETTINGS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) { return {}; }
+}
+
+async function boutiqueSnapshotForChat(env) {
+  const now = Date.now();
+  if (_boutiqueChatCache.products && _boutiqueChatCache.settings && _boutiqueChatCache.expiresAt > now) {
+    return { products: _boutiqueChatCache.products, settings: _boutiqueChatCache.settings };
+  }
+  const [products, settings] = await Promise.all([boutiqueAllProducts(env), boutiqueSettingsForChat(env)]);
+  // Petit cache d'isolate : évite de relire toute la Boutique à chaque message,
+  // tout en laissant les changements du Super Admin apparaître rapidement.
+  _boutiqueChatCache = { expiresAt: now + 30000, products, settings };
+  return { products, settings };
+}
+
+function boutiqueProductScore(product, agent, message) {
+  const msg = boutiqueNormalize(message);
+  const title = boutiqueNormalize(product.title || '');
+  const hay = boutiqueNormalize([
+    product.title, product.shortDescription, product.description, product.category,
+    product.type, product.promoText, product.portal
+  ].filter(Boolean).join(' '));
+  let score = 0;
+  if (product.portal === agent) score += 4;
+  if (product.featured) score += 1;
+  if (title && msg.includes(title)) score += 30;
+  const tokens = boutiqueTokens(message);
+  for (const token of tokens) if (hay.includes(token)) score += 2;
+  return score;
+}
+
+function boutiqueCommerceIntent(message) {
+  const s = boutiqueNormalize(message);
+  return /\b(acheter|achat|boutique|prix|cout|coute|procurer|commander|disponible|rabais|promo|promotion|code|livre|journal|outil|formation|produit|reservation|rendez vous|appel)\b/.test(s);
+}
+
+async function buildBoutiqueChatContext(env, agent, message) {
+  if (!env.CASHFLOW_KV) return '';
+  const snapshot = await boutiqueSnapshotForChat(env);
+  const all = snapshot.products || [];
+  const settings = snapshot.settings || {};
+  const own = all.filter(p => String(p.portal || '').toLowerCase() === String(agent || '').toLowerCase());
+
+  // On autorise aussi un produit d'un autre univers si la personne le nomme clairement.
+  const scoredAll = all.map(p => ({ p, score: boutiqueProductScore(p, agent, message) }))
+    .sort((a, b) => b.score - a.score || (Number(a.p.order) || 0) - (Number(b.p.order) || 0));
+  const strongCrossMatches = scoredAll.filter(x => x.score >= 8).map(x => x.p);
+
+  let candidates;
+  if (boutiqueCommerceIntent(message)) {
+    candidates = [...strongCrossMatches, ...own];
+  } else {
+    const ownScored = scoredAll.filter(x => String(x.p.portal || '').toLowerCase() === String(agent || '').toLowerCase() && x.score > 4).map(x => x.p);
+    const ownFallback = own.slice().sort((a,b) => (Number(b.featured)-Number(a.featured)) || (Number(a.order)||0)-(Number(b.order)||0));
+    candidates = [...strongCrossMatches, ...ownScored, ...ownFallback];
+  }
+
+  const seen = new Set();
+  candidates = candidates.filter(p => {
+    const id = String(p.id || p.slug || p.title || '');
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).slice(0, boutiqueCommerceIntent(message) ? 14 : 8);
+
+  const lines = [];
+  if (candidates.length) {
+    lines.push('\n\n🛍️ DONNÉES BOUTIQUE NYXIA EN TEMPS RÉEL — SOURCE DE VÉRITÉ');
+    lines.push('Utilise seulement ces données si elles deviennent naturellement pertinentes dans cette conversation. Ne récite pas la liste.');
+    for (const p of candidates) {
+      const id = String(p.id || p.slug || '').trim();
+      const productUrl = id ? BOUTIQUE_PUBLIC_ORIGIN + '/produit.html?id=' + encodeURIComponent(id) : BOUTIQUE_PUBLIC_ORIGIN;
+      const price = boutiquePriceLabel(p);
+      const promoActive = boutiquePromoActive(p);
+      const bits = [
+        'Produit: ' + String(p.title || id || 'Sans titre'),
+        'univers=' + String(p.portal || 'non précisé'),
+        'type=' + String(p.type || p.category || 'non précisé')
+      ];
+      if (price) bits.push('prix=' + price);
+      if (p.shortDescription) bits.push('description=' + String(p.shortDescription).replace(/\s+/g,' ').slice(0,260));
+      if (promoActive) {
+        bits.push('PROMO ACTIVE code=' + String(p.promoCode));
+        if (p.promoText) bits.push('promo=' + String(p.promoText).replace(/\s+/g,' ').slice(0,180));
+        if (p.promoExpiresAt) bits.push('expiration=' + String(p.promoExpiresAt));
+      }
+      if (p.ctaType) bits.push('cta=' + String(p.ctaType));
+      bits.push('fiche=' + productUrl);
+      lines.push('- ' + bits.join(' | '));
+    }
+  }
+
+  const appointmentUrl = String(settings.appointmentUrl || '').trim();
+  if (/^https:\/\//i.test(appointmentUrl)) {
+    lines.push('\n📅 RENDEZ-VOUS ÉQUIPE DISPONIBLE');
+    lines.push('- Échange gratuit de 30 à 40 minutes pour voir si le parcours correspond à la personne.');
+    lines.push('- Lien officiel actuel: ' + appointmentUrl);
+    if (settings.appointmentLabel) lines.push('- Libellé actuel: ' + String(settings.appointmentLabel));
+  }
+
+  if (!lines.length) return '';
+  lines.push('\n⚠️ Ne propose rien automatiquement. La pertinence conversationnelle passe avant la conversion.');
+  return lines.join('\n');
 }
 
 // ───────────── ROUTAGE PRINCIPAL ─────────────
@@ -513,6 +717,17 @@ async function handleChat(request, env) {
   systemPrompt += TERMINOLOGIE_OFFICIELLE;
   systemPrompt += PEDAGOGIE_FORMATEUR;
   systemPrompt += STUDIO_DISCOVERY_INSTRUCTIONS;
+  systemPrompt += STUDIO_RELATIONSHIP_COMMERCE_INSTRUCTIONS;
+
+  // Boutique + rendez-vous : même CASHFLOW_KV que le Super Admin et boutique.nyxia.top.
+  // Les données sont relues à chaque tour : prix, promos et liens restent donc à jour sans modifier les personnages.
+  try {
+    const boutiqueCtx = await buildBoutiqueChatContext(env, agent, message || '');
+    if (boutiqueCtx) systemPrompt += boutiqueCtx;
+  } catch (e) {
+    console.error('Contexte Boutique NyXia indisponible :', e);
+    // Le professeur continue normalement : une panne boutique ne doit jamais casser le chat.
+  }
 
   // Les cartes [PROMPT] et la banque de modèles ne sont injectées QUE lorsque
   // le Membre demande réellement un prompt réutilisable. Une conversation,
