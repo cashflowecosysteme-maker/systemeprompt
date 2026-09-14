@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#060A18">
+  <link rel="icon" type="image/png" href="/FavIcon.png">
+  <title>Studio Prompt — Continuer l'expérience NyXia</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --nyx-bg:#060A18;
+      --nyx-violet:#7B5CFF;
+      --nyx-lavender:#A78BFA;
+      --nyx-gold:#F4C86A;
+      --nyx-text:#E9E6F8;
+      --nyx-muted:#A7A5BE;
+    }
+
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{min-height:100%;background:var(--nyx-bg)}
+
+    body{
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(123,92,255,.18), transparent 34%),
+        radial-gradient(circle at 82% 72%, rgba(167,139,250,.10), transparent 30%),
+        linear-gradient(160deg,#060A18 0%,#0B1027 52%,#060A18 100%);
+      color:var(--nyx-text);
+      font-family:'Outfit',sans-serif;
+      overflow-x:hidden;
+    }
+
+    #starry-canvas{
+      position:fixed;
+      inset:0;
+      width:100%;
+      height:100%;
+      z-index:0;
+      pointer-events:none;
+    }
+
+    .ambient{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      background:
+        radial-gradient(ellipse 52% 38% at 50% 0%, rgba(123,92,255,.13), transparent 72%),
+        radial-gradient(ellipse 36% 26% at 50% 100%, rgba(244,200,106,.055), transparent 75%);
+    }
+
+    .page{
+      position:relative;
+      z-index:1;
+      width:min(1180px,calc(100% - 34px));
+      margin:0 auto;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:52px 0;
+    }
+
+    .shell{
+      width:100%;
+      border:1px solid rgba(167,139,250,.22);
+      border-radius:34px;
+      background:
+        linear-gradient(145deg,rgba(255,255,255,.035),rgba(255,255,255,.008)),
+        rgba(6,10,24,.62);
+      backdrop-filter:blur(22px);
+      -webkit-backdrop-filter:blur(22px);
+      box-shadow:
+        0 32px 90px rgba(0,0,0,.48),
+        0 0 65px rgba(123,92,255,.13),
+        inset 0 1px 0 rgba(255,255,255,.06);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .shell:before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      padding:1px;
+      background:linear-gradient(135deg,rgba(244,200,106,.54),rgba(167,139,250,.16),rgba(123,92,255,.26));
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;
+      mask-composite:exclude;
+      pointer-events:none;
+    }
+
+    .topline{
+      height:3px;
+      background:linear-gradient(90deg,transparent,var(--nyx-violet),var(--nyx-gold),var(--nyx-lavender),transparent);
+      opacity:.9;
+      box-shadow:0 0 26px rgba(123,92,255,.7);
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0,1.18fr) minmax(290px,.82fr);
+      gap:34px;
+      align-items:center;
+      padding:54px 58px 38px;
+    }
+
+    .eyebrow{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid rgba(244,200,106,.34);
+      background:rgba(244,200,106,.06);
+      color:#F8D98B;
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      margin-bottom:20px;
+    }
+
+    .eyebrow:before{
+      content:"✦";
+      color:var(--nyx-lavender);
+      text-shadow:0 0 14px rgba(167,139,250,.8);
+    }
+
+    h1{
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(45px,6vw,74px);
+      line-height:.96;
+      font-weight:600;
+      letter-spacing:-.035em;
+      color:#fff;
+      margin-bottom:22px;
+      text-wrap:balance;
+    }
+
+    h1 .accent{
+      display:block;
+      background:linear-gradient(110deg,#fff 6%,#D9CCFF 38%,#A78BFA 62%,#F4C86A 100%);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color:transparent;
+      filter:drop-shadow(0 0 18px rgba(123,92,255,.18));
+    }
+
+    .lead{
+      max-width:700px;
+      font-size:17px;
+      line-height:1.72;
+      color:#D8D5E9;
+      font-weight:400;
+    }
+
+    .lead strong{color:#fff;font-weight:650}
+
+    .visual{
+      position:relative;
+      min-height:380px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      isolation:isolate;
+    }
+
+    .visual:before{
+      content:"";
+      position:absolute;
+      width:310px;
+      height:310px;
+      border-radius:50%;
+      background:
+        radial-gradient(circle,rgba(167,139,250,.20),rgba(123,92,255,.09) 46%,transparent 72%);
+      z-index:-2;
+      box-shadow:
+        0 0 80px rgba(123,92,255,.24),
+        inset 0 0 70px rgba(244,200,106,.035);
+    }
+
+    .visual:after{
+      content:"";
+      position:absolute;
+      width:74%;
+      height:38px;
+      bottom:7px;
+      border-radius:50%;
+      background:radial-gradient(ellipse,rgba(123,92,255,.44),rgba(167,139,250,.15) 42%,transparent 72%);
+      filter:blur(17px);
+      z-index:-1;
+    }
+
+    .nyxia{
+      width:min(100%,350px);
+      max-height:390px;
+      object-fit:contain;
+      object-position:center bottom;
+      filter:
+        drop-shadow(0 20px 35px rgba(0,0,0,.35))
+        drop-shadow(0 0 22px rgba(123,92,255,.16));
+      position:relative;
+      z-index:2;
+    }
+
+    .offers{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:20px;
+      padding:0 58px 54px;
+    }
+
+    .offer{
+      position:relative;
+      border-radius:24px;
+      padding:28px;
+      background:
+        linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012)),
+        rgba(13,18,42,.72);
+      border:1px solid rgba(167,139,250,.19);
+      box-shadow:
+        0 18px 46px rgba(0,0,0,.22),
+        inset 0 1px 0 rgba(255,255,255,.05);
+      overflow:hidden;
+    }
+
+    .offer:before{
+      content:"";
+      position:absolute;
+      inset:auto 8% -24px;
+      height:55px;
+      background:radial-gradient(ellipse,rgba(123,92,255,.34),rgba(167,139,250,.14) 42%,transparent 74%);
+      filter:blur(16px);
+      pointer-events:none;
+    }
+
+    .offer.featured{
+      border-color:rgba(244,200,106,.38);
+      box-shadow:
+        0 20px 52px rgba(0,0,0,.25),
+        0 0 30px rgba(244,200,106,.06),
+        0 0 48px rgba(123,92,255,.10),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .offer-label{
+      font-size:12px;
+      color:var(--nyx-lavender);
+      font-weight:700;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+
+    .price{
+      display:flex;
+      align-items:flex-end;
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .price strong{
+      font-family:'Cormorant Garamond',serif;
+      font-size:52px;
+      line-height:1;
+      color:#fff;
+      font-weight:700;
+    }
+
+    .price span{
+      color:var(--nyx-muted);
+      font-size:14px;
+      margin-bottom:7px;
+    }
+
+    .offer p{
+      color:#BDB9D0;
+      font-size:14px;
+      line-height:1.55;
+      min-height:44px;
+      margin-bottom:20px;
+    }
+
+    .cta{
+      position:relative;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      min-height:54px;
+      width:100%;
+      border-radius:16px;
+      border:1px solid rgba(244,200,106,.68);
+      color:#fff;
+      text-decoration:none;
+      font-weight:700;
+      font-size:15px;
+      background:
+        linear-gradient(135deg,rgba(6,10,24,.98),rgba(20,18,54,.95) 54%,rgba(33,24,75,.94));
+      box-shadow:
+        0 11px 28px rgba(0,0,0,.30),
+        0 0 20px rgba(123,92,255,.25),
+        inset 0 1px 0 rgba(255,255,255,.10);
+      overflow:hidden;
+      transition:transform .26s ease,box-shadow .26s ease,border-color .26s ease,filter .26s ease;
+    }
+
+    .cta:before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:-42%;
+      width:34%;
+      height:100%;
+      background:linear-gradient(110deg,transparent,rgba(255,255,255,.05),rgba(255,255,255,.20),rgba(255,255,255,.05),transparent);
+      transform:skewX(-20deg);
+      transition:left .55s ease;
+    }
+
+    .cta:hover{
+      transform:translateY(-4px);
+      border-color:rgba(244,200,106,1);
+      box-shadow:
+        0 18px 38px rgba(0,0,0,.34),
+        0 0 26px rgba(123,92,255,.42),
+        0 0 44px rgba(167,139,250,.22),
+        0 0 16px rgba(244,200,106,.13);
+      filter:brightness(1.06);
+    }
+
+    .cta:hover:before{left:118%}
+    .cta:active{transform:translateY(-1px)}
+
+    .foot{
+      text-align:center;
+      padding:0 24px 30px;
+      color:#85819A;
+      font-size:12px;
+    }
+
+    .foot strong{color:#BEB9D6;font-weight:600}
+
+    @media(max-width:800px){
+      .page{width:min(100% - 20px,700px);padding:18px 0}
+      .shell{border-radius:24px}
+      .hero{
+        grid-template-columns:1fr;
+        padding:34px 24px 22px;
+        gap:16px;
+        text-align:center;
+      }
+      .lead{font-size:15px;margin-inline:auto}
+      .visual{min-height:245px}
+      .nyxia{max-height:270px;width:min(76vw,290px)}
+      .offers{grid-template-columns:1fr;padding:0 20px 32px}
+      .offer{padding:22px}
+      .price strong{font-size:46px}
+      .eyebrow{margin-inline:auto}
+    }
+
+    @media(max-width:430px){
+      h1{font-size:42px}
+      .hero{padding-inline:18px}
+      .offers{padding-inline:14px}
+      .offer{border-radius:20px}
+      .cta{min-height:52px;font-size:14px}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="starry-canvas"></canvas>
+  <div class="ambient"></div>
+
+  <main class="page">
+    <section class="shell" aria-labelledby="continuation-title">
+      <div class="topline"></div>
+
+      <div class="hero">
+        <div>
+          <div class="eyebrow">VIP NyXia — Immersion Privée</div>
+
+          <h1 id="continuation-title">
+            Ton immersion se termine ici.
+            <span class="accent">La suite t’appartient.</span>
+          </h1>
+
+          <p class="lead">
+            Tu as découvert <strong>Studio Prompt de l’intérieur</strong>.
+            Si tu veux garder ton élan et continuer à construire, créer et développer ton activité avec
+            <strong>les 7 personnages + 6 modèles IA</strong>, choisis simplement l’accès qui te convient.
+          </p>
+        </div>
+
+        <div class="visual" aria-hidden="true">
+          <img class="nyxia" src="/NyXia.png" alt="">
+        </div>
+      </div>
+
+      <div class="offers">
+        <article class="offer featured">
+          <div class="offer-label">Accès Studio Prompt</div>
+          <div class="price">
+            <strong>497 $</strong>
+            <span>CAD</span>
+          </div>
+          <p>Choisis l’option à 497 $ directement sur la prochaine page.</p>
+          <a class="cta"
+             href="https://www.universnyxia.top/abonnement/immersionstudioprompts">
+            Continuer avec Studio Prompt
+            <span aria-hidden="true">✦</span>
+          </a>
+        </article>
+
+        <article class="offer">
+          <div class="offer-label">Option mensuelle</div>
+          <div class="price">
+            <strong>69 $</strong>
+            <span>CAD / mois</span>
+          </div>
+          <p>Préfère avancer mois par mois? L’option mensuelle est aussi disponible.</p>
+          <a class="cta"
+             href="https://www.universnyxia.top/abonnement/immersionstudioprompts">
+            Choisir 69 $ / mois
+            <span aria-hidden="true">✦</span>
+          </a>
+        </article>
+      </div>
+
+      <div class="foot">
+        <strong>Aucun rendez-vous nécessaire.</strong> Tu choisis ton option directement sur la page suivante.
+      </div>
+    </section>
+  </main>
+
+  <script src="/starry-bg.js" defer></script>
+</body>
+</html>
