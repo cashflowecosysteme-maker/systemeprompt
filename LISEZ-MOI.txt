@@ -1,0 +1,32 @@
+STUDIO PROMPT IMAGE — SYSTEME.IO v7
+===================================
+
+Cette version reprend la v6 et ajoute la correction demandée pour la page de paiement Systeme.io.
+
+FICHIERS
+- _worker.js : Worker Studio Prompt Image / crédits / webhook Systeme.io (inchangé par rapport à v6)
+- dashbord.html : dashboard avec Studio Prompt Image (inchangé par rapport à v6)
+- studio-image-client.html : outil client (inchangé par rapport à v6)
+- systemeio-imagescredits.html : bloc complet à coller dans un élément Code HTML de la page Systeme.io
+
+PAGE DE PAIEMENT
+https://www.universnyxia.top/vip/imagescredits
+
+Le fichier systemeio-imagescredits.html commence bien par <style>.
+Il affiche 3 cartes avec 3 vrais boutons :
+- Acheter 100 crédits — 39 $ CAD
+- Acheter 500 crédits — 169 $ CAD
+- Acheter 1 000 crédits — 299 $ CAD
+
+Pour que la sélection automatique soit la plus fiable possible, nommer les trois plans Systeme.io avec ces libellés visibles :
+- 100 crédits
+- 500 crédits
+- 1 000 crédits
+
+Le script cherche aussi les montants 39 $, 169 $ et 299 $ comme secours.
+
+WEBHOOK v6 CONSERVÉ
+https://systemeprompt.nyxia.top/api/studio-image/credits/webhook?key=yKypkWEAA94oN3mU7DqjNZiSFY2XbytfdNtwJNYD99o
+
+IMPORTANT
+Aucun autre comportement du Worker Studio Prompt n'a été retiré ou simplifié pour cette correction.

@@ -1,0 +1,329 @@
+<style>
+/* ===== NYXIA · CRÉDITS STUDIO PROMPT IMAGE ===== */
+.nyxia-credit-wrap{
+  --night:#060A18;
+  --night2:#0F1733;
+  --violet:#7B5CFF;
+  --lav:#A78BFA;
+  --gold:#F4C86A;
+  --text:#F8F6FF;
+  --muted:#B7B2CE;
+  max-width:1100px;
+  margin:32px auto;
+  padding:28px 20px;
+  font-family:Inter,Arial,Helvetica,sans-serif;
+  color:var(--text);
+}
+.nyxia-credit-title{
+  text-align:center;
+  margin:0 0 10px;
+  font-size:clamp(28px,4vw,42px);
+  line-height:1.08;
+  font-weight:900;
+  background:linear-gradient(90deg,#fff,var(--lav),var(--gold));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.nyxia-credit-subtitle{
+  max-width:700px;
+  margin:0 auto 30px;
+  text-align:center;
+  color:var(--muted);
+  font-size:15px;
+  line-height:1.6;
+}
+.nyxia-credit-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:18px;
+}
+.nyxia-credit-card{
+  position:relative;
+  overflow:hidden;
+  min-height:360px;
+  padding:28px 18px 24px;
+  text-align:center;
+  border-radius:22px;
+  border:1px solid rgba(167,139,250,.30);
+  background:linear-gradient(160deg,rgba(123,92,255,.15),rgba(15,23,51,.97) 46%,rgba(6,10,24,.99));
+  box-shadow:0 18px 50px rgba(0,0,0,.28),0 0 28px rgba(123,92,255,.08);
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.nyxia-credit-card:hover{
+  transform:translateY(-4px);
+  border-color:rgba(167,139,250,.62);
+  box-shadow:0 22px 58px rgba(0,0,0,.34),0 0 34px rgba(123,92,255,.18);
+}
+.nyxia-credit-card.featured{
+  border-color:rgba(244,200,106,.52);
+  background:linear-gradient(160deg,rgba(244,200,106,.09),rgba(123,92,255,.18) 35%,rgba(15,23,51,.98) 70%,rgba(6,10,24,.99));
+}
+.nyxia-credit-icon{
+  width:56px;
+  height:56px;
+  margin:0 auto 16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  font-size:25px;
+  border:1px solid rgba(167,139,250,.28);
+  background:rgba(123,92,255,.12);
+  box-shadow:0 0 26px rgba(123,92,255,.15);
+}
+.nyxia-credit-card.featured .nyxia-credit-icon{
+  border-color:rgba(244,200,106,.4);
+  background:rgba(244,200,106,.08);
+}
+.nyxia-credit-amount{
+  color:#fff;
+  font-size:30px;
+  font-weight:900;
+  line-height:1.05;
+}
+.nyxia-credit-amount span{
+  display:block;
+  margin-top:6px;
+  color:var(--lav);
+  font-size:12px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.10em;
+}
+.nyxia-credit-line{
+  width:44px;
+  height:2px;
+  margin:18px auto;
+  border-radius:10px;
+  background:linear-gradient(90deg,var(--violet),var(--gold));
+}
+.nyxia-credit-price{
+  margin:5px 0 5px;
+  color:#fff;
+  font-size:42px;
+  line-height:1;
+  font-weight:900;
+}
+.nyxia-credit-currency{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.06em;
+}
+.nyxia-credit-desc{
+  min-height:58px;
+  margin:16px 0 18px;
+  color:var(--muted);
+  font-size:12.5px;
+  line-height:1.55;
+}
+.nyxia-credit-btn{
+  width:100%;
+  min-height:50px;
+  padding:12px 15px;
+  border:0;
+  border-radius:14px;
+  cursor:pointer;
+  color:#fff;
+  background:linear-gradient(135deg,var(--violet),#5E74FF);
+  box-shadow:0 10px 26px rgba(123,92,255,.24);
+  font-size:14px;
+  font-weight:900;
+  transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease;
+}
+.nyxia-credit-btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 14px 30px rgba(123,92,255,.34);
+}
+.nyxia-credit-card.featured .nyxia-credit-btn{
+  color:#171109;
+  background:linear-gradient(135deg,#F7DEA0,var(--gold));
+  box-shadow:0 10px 26px rgba(244,200,106,.20);
+}
+.nyxia-credit-note{
+  margin-top:24px;
+  text-align:center;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.6;
+}
+.nyxia-credit-note strong{color:var(--lav)}
+.nyxia-plan-selected{
+  outline:2px solid rgba(244,200,106,.85)!important;
+  outline-offset:3px!important;
+  box-shadow:0 0 0 4px rgba(244,200,106,.12)!important;
+}
+@media(max-width:760px){
+  .nyxia-credit-wrap{padding:20px 10px}
+  .nyxia-credit-grid{grid-template-columns:1fr;max-width:430px;margin:0 auto}
+  .nyxia-credit-card{min-height:0}
+  .nyxia-credit-price{font-size:38px}
+}
+</style>
+
+<div class="nyxia-credit-wrap" id="nyxia-credit-packs">
+  <h2 class="nyxia-credit-title">✨ Choisis tes crédits</h2>
+  <p class="nyxia-credit-subtitle">Ajoute des crédits à ton espace <strong>Studio Prompt Image</strong> et continue de créer à ton rythme.</p>
+
+  <div class="nyxia-credit-grid">
+    <article class="nyxia-credit-card">
+      <div class="nyxia-credit-icon">💎</div>
+      <div class="nyxia-credit-amount">100<span>crédits</span></div>
+      <div class="nyxia-credit-line"></div>
+      <div class="nyxia-credit-price">39 $</div>
+      <div class="nyxia-credit-currency">CAD</div>
+      <p class="nyxia-credit-desc">Un petit bloc pratique pour poursuivre tes créations sans prendre un gros forfait.</p>
+      <button class="nyxia-credit-btn" type="button" data-nyxia-plan="100" data-nyxia-price="39">Acheter 100 crédits</button>
+    </article>
+
+    <article class="nyxia-credit-card featured">
+      <div class="nyxia-credit-icon">✦</div>
+      <div class="nyxia-credit-amount">500<span>crédits</span></div>
+      <div class="nyxia-credit-line"></div>
+      <div class="nyxia-credit-price">169 $</div>
+      <div class="nyxia-credit-currency">CAD</div>
+      <p class="nyxia-credit-desc">Pour créer régulièrement avec un meilleur prix par crédit.</p>
+      <button class="nyxia-credit-btn" type="button" data-nyxia-plan="500" data-nyxia-price="169">Acheter 500 crédits</button>
+    </article>
+
+    <article class="nyxia-credit-card">
+      <div class="nyxia-credit-icon">💜</div>
+      <div class="nyxia-credit-amount">1 000<span>crédits</span></div>
+      <div class="nyxia-credit-line"></div>
+      <div class="nyxia-credit-price">299 $</div>
+      <div class="nyxia-credit-currency">CAD</div>
+      <p class="nyxia-credit-desc">Pour les utilisations intensives et les gros volumes de création.</p>
+      <button class="nyxia-credit-btn" type="button" data-nyxia-plan="1000" data-nyxia-price="299">Acheter 1 000 crédits</button>
+    </article>
+  </div>
+
+  <div class="nyxia-credit-note">Le paiement est effectué sur cette page sécurisée. Tes crédits sont ensuite ajoutés à ton compte <strong>Studio Prompt Image</strong>.</div>
+</div>
+
+<script>
+(function(){
+  function normalizeText(v){
+    return String(v||'')
+      .toLowerCase()
+      .replace(/\u00a0/g,' ')
+      .replace(/[’']/g,'')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function planNeedles(plan, price){
+    var spaced = plan === '1000' ? '1 000' : plan;
+    return [
+      plan + ' crédits',
+      plan + ' credits',
+      spaced + ' crédits',
+      spaced + ' credits',
+      price + ' $',
+      price + '$'
+    ].map(normalizeText);
+  }
+
+  function textMatches(el, needles){
+    if(!el) return false;
+    var t = normalizeText(el.innerText || el.textContent || '');
+    if(!t) return false;
+    for(var i=0;i<needles.length;i++){
+      if(t.indexOf(needles[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function findPlanContainer(plan, price){
+    var needles = planNeedles(plan, price);
+    var selectors = [
+      'label',
+      '[class*="price-plan"]',
+      '[class*="price_plan"]',
+      '[class*="pricing"]',
+      '[class*="plan"]',
+      '[class*="offer"]',
+      '[class*="checkout"]',
+      '[class*="order"]',
+      '[data-testid]'
+    ];
+    var nodes = document.querySelectorAll(selectors.join(','));
+    var best = null;
+    var bestLen = Infinity;
+    for(var i=0;i<nodes.length;i++){
+      var el = nodes[i];
+      if(el.closest && el.closest('#nyxia-credit-packs')) continue;
+      if(textMatches(el, needles)){
+        var len = normalizeText(el.innerText || el.textContent || '').length;
+        if(len < bestLen){ best = el; bestLen = len; }
+      }
+    }
+    return best;
+  }
+
+  function activatePlan(container){
+    if(!container) return false;
+    var input = null;
+    if(container.matches && container.matches('input[type="radio"],input[type="checkbox"]')) input = container;
+    if(!input && container.querySelector) input = container.querySelector('input[type="radio"],input[type="checkbox"]');
+    if(!input && container.closest){
+      var label = container.closest('label');
+      if(label) input = label.querySelector('input[type="radio"],input[type="checkbox"]');
+    }
+
+    if(input){
+      try{ input.click(); }catch(e){
+        input.checked = true;
+        try{ input.dispatchEvent(new Event('input',{bubbles:true})); }catch(_e){}
+        try{ input.dispatchEvent(new Event('change',{bubbles:true})); }catch(_e){}
+      }
+    }else{
+      try{ container.click(); }catch(e){}
+    }
+
+    try{ container.classList.add('nyxia-plan-selected'); }catch(e){}
+    return true;
+  }
+
+  function findCheckoutTarget(){
+    return document.querySelector(
+      'form, [class*="checkout"], [id*="checkout"], [class*="order-form"], [id*="order-form"], [class*="order"]'
+    );
+  }
+
+  function selectPlan(plan, price){
+    var chosen = findPlanContainer(plan, price);
+    activatePlan(chosen);
+
+    var target = chosen || findCheckoutTarget();
+    if(target){
+      try{ target.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
+    }else{
+      window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+    }
+
+    try{
+      var u = new URL(window.location.href);
+      u.searchParams.set('credits', plan);
+      history.replaceState({},'',u.toString());
+    }catch(e){}
+  }
+
+  document.addEventListener('click',function(e){
+    var btn = e.target.closest && e.target.closest('[data-nyxia-plan]');
+    if(!btn) return;
+    e.preventDefault();
+    selectPlan(btn.getAttribute('data-nyxia-plan'), btn.getAttribute('data-nyxia-price'));
+  });
+
+  document.addEventListener('DOMContentLoaded',function(){
+    try{
+      var q = new URLSearchParams(location.search);
+      var p = q.get('credits');
+      if(p === '100') selectPlan('100','39');
+      if(p === '500') selectPlan('500','169');
+      if(p === '1000') selectPlan('1000','299');
+    }catch(e){}
+  });
+})();
+</script>
