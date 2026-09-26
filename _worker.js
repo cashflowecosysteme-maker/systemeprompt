@@ -2748,6 +2748,7 @@ async function handleJournal(request, env) {
 // Le client voit uniquement son solde de crédits; le coût API en dollars reste interne.
 const STUDIO_IMAGE_CREDIT_VALUE_USD = 0.10;
 const STUDIO_IMAGE_PACKS = Object.freeze({ '100': 100, '500': 500, '1000': 1000 });
+const SYSTEME_IO_IMAGE_WEBHOOK_URL_KEY = 'yKypkWEAA94oN3mU7DqjNZiSFY2XbytfdNtwJNYD99o';
 
 function studioImageCreditKey(email) {
   return `studio_image_credits:${String(email || '').toLowerCase().trim()}`;
@@ -3028,27 +3029,26 @@ function studioImageSystemePackFromPlan(plan, env) {
 async function handleStudioImageCreditWebhook(request, env) {
   if (!env.CASHFLOW_KV) return json({ error: 'CASHFLOW_KV non configuré.' }, 500);
 
-  // Webhook natif Systeme.io : signature HMAC-SHA256 du corps brut.
-  // Utilise la même clé secrète dans Systeme.io et dans le secret Worker SYSTEME_IO_WEBHOOK_SECRET.
+  // Systeme.io peut être configuré avec une simple URL de webhook.
+  // Cette route accepte donc une clé privée directement dans l'URL (?key=...).
+  // Si un webhook natif Systeme.io avec signature HMAC est utilisé plus tard,
+  // cette vérification reste également supportée en option.
   const rawBody = await request.text();
-  const secret = String(env.SYSTEME_IO_WEBHOOK_SECRET || env.STUDIO_IMAGE_CREDIT_WEBHOOK_SECRET || '').trim();
+  const webhookUrl = new URL(request.url);
+  const urlKey = String(webhookUrl.searchParams.get('key') || '').trim();
   const signature = String(request.headers.get('X-Webhook-Signature') || '').trim();
-  if (!secret) return json({ error: 'Secret Systeme.io absent du Worker : SYSTEME_IO_WEBHOOK_SECRET.' }, 500);
+  const hmacSecret = String(env.SYSTEME_IO_WEBHOOK_SECRET || env.STUDIO_IMAGE_CREDIT_WEBHOOK_SECRET || '').trim();
 
   let body = {};
   try { body = rawBody ? JSON.parse(rawBody) : {}; } catch (_) { return json({ error: 'Requête JSON invalide.' }, 400); }
 
-  let verified = false;
-  if (signature) {
+  let verified = urlKey === SYSTEME_IO_IMAGE_WEBHOOK_URL_KEY;
+  if (!verified && signature && hmacSecret) {
     const normalizedPayload = studioImageNormalizeSystemePayload(body);
-    const expected = await studioImageHmacSha256Hex(secret, normalizedPayload);
+    const expected = await studioImageHmacSha256Hex(hmacSecret, normalizedPayload);
     verified = studioImageSafeEqualHex(signature, expected);
-  } else {
-    // Compatibilité avec l'ancien webhook manuel v4, uniquement si le même secret est envoyé explicitement.
-    const legacy = String(request.headers.get('X-Credit-Webhook-Secret') || '').trim();
-    verified = !!legacy && legacy === secret;
   }
-  if (!verified) return json({ error: 'Signature webhook Systeme.io invalide.' }, 401);
+  if (!verified) return json({ error: 'Clé webhook Systeme.io invalide.' }, 401);
 
   const headerEvent = String(request.headers.get('X-Webhook-Event') || '').toUpperCase().trim();
   const legacyType = String(body.type || '').toLowerCase().trim();
