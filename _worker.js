@@ -2724,60 +2724,64 @@ async function handleJournal(request, env) {
 }
 
 // ============================================================
-// 🎨 STUDIO PROMPT IMAGE — ajout isolé, sans modifier les chats
+// 🎨 STUDIO PROMPT IMAGE — OpenRouter · GPT Image 2.5 Sunburst
 // ============================================================
+// IMPORTANT : ce module utilise la MÊME clé OpenRouter que Studio Prompt.
+// Aucun appel direct à l'API Images d'OpenAI n'est effectué ici.
+//
 // Secrets/bindings utilisés :
-// - OpenAI_KEY / OpenAi_KEY / OPENAI_API_KEY (déjà supportés par le Worker TTS)
-// - OPENAI_IMAGE_MODEL (optionnel; défaut : gpt-image-2.5-sunburst)
-// - STUDIO_IMAGE_QUALITY (optionnel; défaut : medium)
-// - STUDIO_IMAGE_DAILY_LIMIT (optionnel; défaut : 10 images / compte / jour)
-// - MEDIA_BUCKET (R2 optionnel; si absent, l'image est renvoyée en data URL et
-//   l'historique reste celui de la session navigateur)
+// - OPENROUTER_API_KEY (ou AI_API_KEY, déjà supporté par Studio Prompt)
+// - STUDIO_IMAGE_MODEL (optionnel; défaut validé : openai/gpt-image-2.5-sunburst)
+// - STUDIO_IMAGE_QUALITY (optionnel; si absent, AUCUNE qualité n'est imposée)
+// - STUDIO_IMAGE_DAILY_LIMIT (optionnel; si absent, AUCUNE limite quotidienne n'est imposée)
+// - MEDIA_BUCKET (R2 optionnel; si absent, l'image est renvoyée en data URL)
+//
+// OpenRouter Image API : POST https://openrouter.ai/api/v1/images
+// Les références image utilisent input_references. Le coût réel peut être retourné
+// par OpenRouter dans usage.cost; il n'est jamais affiché au client par cette interface.
 
-function studioImageOpenAIKey(env) {
-  return env.OpenAI_KEY || env.OpenAi_KEY || env.OPENAI_API_KEY || '';
+function studioImageOpenRouterKey(env) {
+  return env.OPENROUTER_API_KEY || env.AI_API_KEY || '';
 }
 
 function studioImageModel(env) {
-  return String(env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-sunburst').trim();
+  return String(env.STUDIO_IMAGE_MODEL || 'openai/gpt-image-2.5-sunburst').trim();
 }
 
 function studioImageQuality(env) {
-  const q = String(env.STUDIO_IMAGE_QUALITY || 'medium').toLowerCase().trim();
-  return ['low','medium','high','xhigh','max'].includes(q) ? q : 'medium';
+  const raw = String(env.STUDIO_IMAGE_QUALITY || '').toLowerCase().trim();
+  if (!raw) return '';
+  return ['auto','low','medium','high','xhigh','max'].includes(raw) ? raw : '';
 }
 
 function studioImageDailyLimit(env) {
-  const n = Number(env.STUDIO_IMAGE_DAILY_LIMIT || 10);
-  if (!Number.isFinite(n) || n < 1) return 10;
-  return Math.max(1, Math.min(200, Math.floor(n)));
+  const raw = String(env.STUDIO_IMAGE_DAILY_LIMIT || '').trim();
+  if (!raw) return null; // aucune limite choisie = aucune limite imposée
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.max(1, Math.min(100000, Math.floor(n)));
 }
 
-function studioImageSize(format) {
-  // GPT Image 2/2.5 accepte les dimensions personnalisées multiples de 16.
+function studioImageAspectRatio(format) {
+  // Valeurs réellement supportées par l'endpoint OpenRouter de Sunburst.
+  // Compatibilité ascendante : un ancien client qui envoie 4:5 est ramené à 3:4,
+  // car Sunburst/OpenRouter ne publie pas 4:5 dans ses paramètres supportés.
   const map = {
-    '1:1': '1024x1024',
-    '4:5': '1024x1280',
-    '9:16': '1008x1792',
-    '16:9': '1792x1008'
+    '1:1': '1:1',
+    '3:4': '3:4',
+    '4:5': '3:4',
+    '9:16': '9:16',
+    '16:9': '16:9',
+    '3:2': '3:2',
+    '2:3': '2:3',
+    '4:3': '4:3'
   };
-  return map[String(format || '')] || '1024x1024';
+  return map[String(format || '')] || '1:1';
 }
 
 function studioImageMimeFromDataUrl(dataUrl) {
   const m = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,/i);
   return m ? m[1].toLowerCase() : '';
-}
-
-function studioImageBytesFromDataUrl(dataUrl) {
-  const raw = String(dataUrl || '');
-  const comma = raw.indexOf(',');
-  if (comma < 0) throw new Error('Image de référence invalide.');
-  const b64 = raw.slice(comma + 1);
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
 }
 
 function studioImageBytesFromBase64(b64) {
@@ -2787,14 +2791,11 @@ function studioImageBytesFromBase64(b64) {
   return bytes;
 }
 
-function studioImageBase64FromBytes(bytes) {
-  // Découpe pour éviter de dépasser la pile sur les grosses images.
-  let binary = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)));
-  }
-  return btoa(binary);
+function studioImageExtension(mediaType) {
+  const t = String(mediaType || '').toLowerCase();
+  if (t.includes('jpeg') || t.includes('jpg')) return 'jpg';
+  if (t.includes('webp')) return 'webp';
+  return 'png';
 }
 
 function studioImageSafeText(value, max = 4000) {
@@ -2835,19 +2836,20 @@ function studioImageDayKey() {
 
 async function studioImageQuotaStatus(env, email) {
   const limit = studioImageDailyLimit(env);
+  if (!limit) return { enabled: false, key: '', limit: null, used: 0, remaining: null };
   const key = `studio_image_quota:${String(email || '').toLowerCase()}:${studioImageDayKey()}`;
   let used = 0;
   try {
     const raw = await env.CASHFLOW_KV.get(key);
     used = Math.max(0, Number(raw || 0) || 0);
   } catch (_) {}
-  return { key, limit, used, remaining: Math.max(0, limit - used) };
+  return { enabled: true, key, limit, used, remaining: Math.max(0, limit - used) };
 }
 
 async function studioImageIncrementQuota(env, quota) {
+  if (!quota || !quota.enabled || !quota.key) return;
   const used = quota.used + 1;
   await env.CASHFLOW_KV.put(quota.key, String(used), { expirationTtl: 60 * 60 * 48 });
-  return { limit: quota.limit, used, remaining: Math.max(0, quota.limit - used) };
 }
 
 function studioImageHistoryKey(email) {
@@ -2896,7 +2898,6 @@ async function handleStudioImageGenerate(request, env) {
   if (referenceImage) {
     const mime = studioImageMimeFromDataUrl(referenceImage);
     if (!mime) return json({ error: 'Format de référence accepté : PNG, JPEG ou WEBP.' }, 400);
-    // Approximation base64 : 4 caractères ~= 3 octets.
     const comma = referenceImage.indexOf(',');
     const b64len = comma >= 0 ? referenceImage.length - comma - 1 : 0;
     if ((b64len * 3 / 4) > 12 * 1024 * 1024) {
@@ -2905,61 +2906,47 @@ async function handleStudioImageGenerate(request, env) {
   }
 
   const quota = await studioImageQuotaStatus(env, session.email);
-  if (quota.remaining <= 0) {
-    return json({
-      error: `Quota quotidien atteint (${quota.limit} images). Il se réinitialise automatiquement demain.`,
-      quota: { limit: quota.limit, used: quota.used, remaining: 0 }
-    }, 429);
+  if (quota.enabled && quota.remaining <= 0) {
+    return json({ error: 'La limite quotidienne configurée pour ce compte a été atteinte.' }, 429);
   }
 
-  const apiKey = studioImageOpenAIKey(env);
-  if (!apiKey) return json({ error: 'Clé OpenAI absente du Worker.' }, 500);
+  const apiKey = studioImageOpenRouterKey(env);
+  if (!apiKey) return json({ error: 'Clé OpenRouter absente du Worker.' }, 500);
 
   const model = studioImageModel(env);
   const quality = studioImageQuality(env);
-  const size = studioImageSize(body.format);
+  const aspectRatio = studioImageAspectRatio(body.format);
   const finalPrompt = studioImagePrompt({ ...body, mode });
-  const transparent = !!body.transparent;
+
+  const payload = {
+    model,
+    prompt: finalPrompt,
+    n: 1,
+    aspect_ratio: aspectRatio
+  };
+  if (quality) payload.quality = quality;
+  if (body.transparent) payload.background = 'transparent';
+  if (referenceImage) {
+    payload.input_references = [{
+      type: 'image_url',
+      image_url: { url: referenceImage }
+    }];
+  }
 
   let resp;
   try {
-    if (mode === 'create' && !referenceImage) {
-      const payload = {
-        model,
-        prompt: finalPrompt,
-        size,
-        quality,
-        output_format: 'png'
-      };
-      if (transparent) payload.background = 'transparent';
-      resp = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-    } else {
-      const mime = studioImageMimeFromDataUrl(referenceImage);
-      const bytes = studioImageBytesFromDataUrl(referenceImage);
-      const ext = mime === 'image/jpeg' ? 'jpg' : (mime === 'image/webp' ? 'webp' : 'png');
-      const form = new FormData();
-      form.append('model', model);
-      form.append('prompt', finalPrompt);
-      form.append('size', size);
-      form.append('quality', quality);
-      form.append('output_format', 'png');
-      if (transparent) form.append('background', 'transparent');
-      form.append('image', new Blob([bytes], { type: mime }), 'reference.' + ext);
-      resp = await fetch('https://api.openai.com/v1/images/edits', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + apiKey },
-        body: form
-      });
-    }
+    resp = await fetch('https://openrouter.ai/api/v1/images', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://systemeprompt.nyxia.top',
+        'X-Title': 'NyXia — Studio Prompt Image'
+      },
+      body: JSON.stringify(payload)
+    });
   } catch (e) {
-    return json({ error: 'Connexion GPT Image impossible : ' + (e.message || String(e)) }, 502);
+    return json({ error: 'Connexion OpenRouter Image impossible : ' + (e.message || String(e)) }, 502);
   }
 
   const raw = await resp.text();
@@ -2967,41 +2954,39 @@ async function handleStudioImageGenerate(request, env) {
   try { data = raw ? JSON.parse(raw) : {}; } catch (_) {}
   if (!resp.ok) {
     const detail = data?.error?.message || data?.error || raw || ('HTTP ' + resp.status);
-    return json({ error: 'GPT Image : ' + String(detail).slice(0, 500) }, 502);
+    return json({ error: 'OpenRouter Image : ' + String(detail).slice(0, 700) }, resp.status === 401 ? 502 : resp.status);
   }
 
   const first = data && Array.isArray(data.data) ? data.data[0] : null;
   const b64 = first && first.b64_json ? first.b64_json : '';
-  const remoteUrl = first && first.url ? first.url : '';
-  if (!b64 && !remoteUrl) return json({ error: 'GPT Image n’a retourné aucune image exploitable.' }, 502);
+  const mediaType = (first && first.media_type) || 'image/png';
+  if (!b64) return json({ error: 'OpenRouter n’a retourné aucune image exploitable.' }, 502);
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  let imageUrl = remoteUrl;
+  const bytes = studioImageBytesFromBase64(b64);
+  const ext = studioImageExtension(mediaType);
+  let imageUrl = `data:${mediaType};base64,${b64}`;
   let persisted = false;
   let objectKey = '';
 
-  if (b64) {
-    const bytes = studioImageBytesFromBase64(b64);
-    if (env.MEDIA_BUCKET) {
-      objectKey = `studio-image/${String(session.email).toLowerCase().replace(/[^a-z0-9._-]/g,'_')}/${studioImageDayKey()}/${id}.png`;
-      try {
-        await env.MEDIA_BUCKET.put(objectKey, bytes, {
-          httpMetadata: { contentType: 'image/png' },
-          customMetadata: {
-            owner: String(session.email).slice(0, 120),
-            mode,
-            format: String(body.format || '1:1').slice(0, 20),
-            createdAt
-          }
-        });
-        persisted = true;
-        imageUrl = studioImagePublicUrl(id, token);
-      } catch (_) {
-        imageUrl = 'data:image/png;base64,' + b64;
-      }
-    } else {
-      imageUrl = 'data:image/png;base64,' + b64;
+  if (env.MEDIA_BUCKET) {
+    objectKey = `studio-image/${String(session.email).toLowerCase().replace(/[^a-z0-9._-]/g,'_')}/${studioImageDayKey()}/${id}.${ext}`;
+    try {
+      await env.MEDIA_BUCKET.put(objectKey, bytes, {
+        httpMetadata: { contentType: mediaType },
+        customMetadata: {
+          owner: String(session.email).slice(0, 120),
+          mode,
+          format: String(body.format || '1:1').slice(0, 20),
+          createdAt,
+          model: model.slice(0, 120)
+        }
+      });
+      persisted = true;
+      imageUrl = studioImagePublicUrl(id, token);
+    } catch (_) {
+      // Si R2 est indisponible, l'utilisateur reçoit quand même son image.
     }
   }
 
@@ -3010,24 +2995,30 @@ async function handleStudioImageGenerate(request, env) {
     history.unshift({
       id,
       objectKey,
+      mediaType,
+      extension: ext,
       prompt: prompt.slice(0, 1200),
       mode,
       format: String(body.format || '1:1'),
+      aspectRatio,
       visualStyle: String(body.visualStyle || ''),
-      transparent,
+      transparent: !!body.transparent,
+      model,
+      costUsd: Number.isFinite(Number(data?.usage?.cost)) ? Number(data.usage.cost) : null,
       createdAt
     });
     await studioImageWriteHistory(env, session.email, history);
   }
 
-  const q = await studioImageIncrementQuota(env, quota);
+  await studioImageIncrementQuota(env, quota);
+
+  // Le coût réel et les quotas internes ne sont volontairement PAS renvoyés au client.
   return json({
     success: true,
     image: imageUrl,
     id,
     persisted,
-    model,
-    quota: q
+    mediaType
   });
 }
 
@@ -3039,7 +3030,6 @@ async function handleStudioImageHistory(request, env) {
   const session = await getSessionOrNull(token, env);
   if (!session || !session.email) return json({ error: 'Session expirée.' }, 401);
 
-  const q = await studioImageQuotaStatus(env, session.email);
   const rows = await studioImageReadHistory(env, session.email);
   const items = rows.filter(r => r && r.id && r.objectKey).slice(0, 30).map(r => ({
     id: r.id,
@@ -3051,12 +3041,7 @@ async function handleStudioImageHistory(request, env) {
     createdAt: r.createdAt || '',
     url: studioImagePublicUrl(r.id, token)
   }));
-  return json({
-    success: true,
-    items,
-    persistent: !!env.MEDIA_BUCKET,
-    quota: { limit: q.limit, used: q.used, remaining: q.remaining }
-  });
+  return json({ success: true, items, persistent: !!env.MEDIA_BUCKET });
 }
 
 async function handleStudioImageFile(request, env, url) {
@@ -3075,11 +3060,12 @@ async function handleStudioImageFile(request, env, url) {
   const object = await env.MEDIA_BUCKET.get(item.objectKey);
   if (!object) return new Response('Image introuvable.', { status: 404 });
 
+  const mediaType = item.mediaType || 'image/png';
+  const ext = item.extension || studioImageExtension(mediaType);
   const headers = new Headers();
   object.writeHttpMetadata(headers);
-  headers.set('Content-Type', headers.get('Content-Type') || 'image/png');
+  headers.set('Content-Type', headers.get('Content-Type') || mediaType);
   headers.set('Cache-Control', 'private, max-age=3600');
-  headers.set('Content-Disposition', 'inline; filename="studio-prompt-image-' + id + '.png"');
+  headers.set('Content-Disposition', 'inline; filename="studio-prompt-image-' + id + '.' + ext + '"');
   return new Response(object.body, { headers });
 }
-

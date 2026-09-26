@@ -76,8 +76,6 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
 .toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
 .status{font-size:12px;color:var(--muted);margin-top:8px;min-height:20px}
 .status.ok{color:#a7f7d4}.status.err{color:#ffb0ba}
-.quota{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:11px;border-radius:12px;background:rgba(79,227,164,.07);border:1px solid rgba(79,227,164,.22);font-size:12px}
-.quota strong{color:#a7f7d4}
 .tip{padding:11px;border-radius:12px;background:rgba(123,92,255,.07);border:1px solid rgba(123,92,255,.18);font-size:12px;color:#dcd6fa;line-height:1.55}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
 .thumb{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#030610}
@@ -138,7 +136,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
             <label class="f" for="format">Format</label>
             <select class="f" id="format">
               <option value="1:1">Carré · 1:1</option>
-              <option value="4:5">Publication · 4:5</option>
+              <option value="3:4">Publication verticale · 3:4</option>
               <option value="9:16">Story / Reel · 9:16</option>
               <option value="16:9">Bannière · 16:9</option>
             </select>
@@ -158,7 +156,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
         </div>
 
         <div class="actions" style="margin-top:14px">
-          <button class="btn gold" id="generateBtn" type="button" onclick="generateImage()">✨ Générer avec GPT Image</button>
+          <button class="btn gold" id="generateBtn" type="button" onclick="generateImage()">✨ Générer l’image</button>
           <button class="btn ghost" type="button" onclick="copyPrompt()">📋 Copier mon prompt</button>
         </div>
         <div class="status" id="status"></div>
@@ -175,13 +173,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
         </section>
 
         <section class="card" style="margin-top:16px">
-          
-      <div class="quota">
-        <div><strong>Vous avez</strong><br><span id="quotaText">Le quota réel sera imposé par le Worker, jamais par le navigateur.</span></div>
-        <div>🔒</div>
-      </div>
-    
-          <div class="tip" style="margin-top:10px">
+          <div class="tip">
             <strong>Astuce de prompt</strong><br>
             Décris : <em>sujet + action + cadrage + lumière + ambiance + détails importants + format</em>. Tu n’as pas besoin d’écrire un roman : précise surtout ce qui ne doit pas changer.
           </div>
@@ -333,10 +325,6 @@ async function loadServerHistory(){
     var res=await fetch(HISTORY_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({token:token}),credentials:'include'})
     var data=await res.json().catch(function(){return {}})
     if(!res.ok) return
-    if(data.quota){
-      var qt=document.getElementById('quotaText')
-      if(qt) qt.textContent=data.quota.remaining+' génération'+(data.quota.remaining!==1?'s':'')+' restante'+(data.quota.remaining!==1?'s':'')+' aujourd’hui sur '+data.quota.limit+'.'
-    }
     if(Array.isArray(data.items) && data.items.length){
       var key='nyxia_studio_image_history_'+MODE
       var arr=data.items.map(function(it){return {url:it.url,prompt:it.prompt||'',at:Date.parse(it.createdAt)||Date.now()}}).filter(function(it){return !!it.url})
@@ -424,7 +412,7 @@ async function generateImage(){
     try{data=text?JSON.parse(text):{}}catch(e){data={error:text||('HTTP '+res.status)}}
     if(!res.ok || data.error){
       if(res.status===404){
-        throw new Error('La page est installée, mais la route serveur GPT Image n’est pas encore branchée.')
+        throw new Error('La page est installée, mais la route serveur de génération d’image n’est pas encore branchée.')
       }
       throw new Error(data.error||data.detail||('Erreur '+res.status))
     }
@@ -432,16 +420,12 @@ async function generateImage(){
     if(!url) throw new Error('La génération a répondu, mais aucune image exploitable n’a été retournée.')
     showResult(url)
     addHistory(url,prompt)
-    if(data.quota){
-      var qt=document.getElementById('quotaText')
-      if(qt) qt.textContent=data.quota.remaining+' génération'+(data.quota.remaining!==1?'s':'')+' restante'+(data.quota.remaining!==1?'s':'')+' aujourd’hui sur '+data.quota.limit+'.'
-    }
     setStatus('Image prête. 💜','ok')
   }catch(e){
     setStatus(e.message||String(e),'err')
   }finally{
     btn.disabled=false
-    btn.textContent='✨ Générer avec GPT Image'
+    btn.textContent='✨ Générer l’image'
   }
 }
 document.addEventListener('DOMContentLoaded',async function(){
