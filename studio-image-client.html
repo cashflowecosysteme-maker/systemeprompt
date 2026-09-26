@@ -42,6 +42,10 @@ button{cursor:pointer}
 .brand img{width:38px;height:38px;border-radius:50%;object-fit:cover;box-shadow:0 0 28px rgba(123,92,255,.55)}
 .brand strong{display:block;font-size:14px}.brand span{display:block;color:var(--muted);font-size:11px}
 .mode{border:1px solid rgba(244,200,106,.36);color:#f8df9e;background:rgba(244,200,106,.07);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800}
+.credit-area{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.credit-badge{border:1px solid rgba(167,139,250,.28);background:rgba(123,92,255,.09);color:#eeeaff;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.credit-link{display:none;border:1px solid rgba(244,200,106,.32);background:rgba(244,200,106,.08);color:#f8df9e;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;text-decoration:none;white-space:nowrap}
+.credit-link:hover{background:rgba(244,200,106,.13)}
 .wrap{width:min(1180px,100%);margin:0 auto}
 .hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
 .hero h1{font-size:clamp(24px,4vw,38px);margin:0 0 7px;background:linear-gradient(90deg,#fff,var(--lav),var(--gold));-webkit-background-clip:text;color:transparent}
@@ -93,7 +97,11 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
       <img src="/NyXia.png" alt="NyXia" onerror="this.style.display='none'">
       <div><strong>Studio Prompt Image</strong><span>Créer · modifier · décliner</span></div>
     </div>
-    <div class="mode">Studio Prompt</div>
+    <div class="credit-area">
+      <div class="credit-badge" id="creditBadge">🎁 Images incluses : … · 💎 Crédits : …</div>
+      <a class="credit-link" id="creditBuyLink" href="#" target="_blank" rel="noopener">Acheter des crédits</a>
+      <div class="mode">Studio Prompt</div>
+    </div>
   </header>
 
   <main class="wrap">
@@ -192,6 +200,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
 const MODE="client";
 const API_ENDPOINT="/api/studio-image/generate";
 const HISTORY_ENDPOINT="/api/studio-image/history";
+const CREDITS_ENDPOINT="/api/studio-image/credits";
 
 function redirectToLogin(){
   try{
@@ -318,6 +327,29 @@ function renderHistory(){
   }).join('')
   window._imgHistory=arr
 }
+function updateCreditBadge(value,included){
+  var el=document.getElementById('creditBadge')
+  if(!el)return
+  var credits=(value===null || value===undefined || isNaN(Number(value)))?null:Math.max(0,Math.floor(Number(value)))
+  var inc=(included===null || included===undefined || isNaN(Number(included)))?null:Math.max(0,Math.floor(Number(included)))
+  if(credits===null && inc===null){ el.textContent='🎁 Images incluses : … · 💎 Crédits : …'; return }
+  if(inc!==null && inc>0){ el.textContent='🎁 Images incluses : '+inc+' · 💎 Crédits : '+(credits===null?'…':credits); return }
+  el.textContent='💎 Crédits : '+(credits===null?'…':credits)
+}
+async function loadCredits(){
+  var token=pickSessionToken(true)
+  if(!token)return null
+  try{
+    var res=await fetch(CREDITS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({token:token}),credentials:'include'})
+    var data=await res.json().catch(function(){return {}})
+    if(!res.ok)return null
+    updateCreditBadge(data.credits,data.includedImagesRemaining)
+    var link=document.getElementById('creditBuyLink')
+    if(link && data.purchaseUrl){ link.href=data.purchaseUrl; link.style.display='inline-flex' }
+    return Number(data.credits)
+  }catch(e){return null}
+}
+
 async function loadServerHistory(){
   var token=pickSessionToken(true)
   if(!token) return
@@ -414,12 +446,17 @@ async function generateImage(){
       if(res.status===404){
         throw new Error('La page est installée, mais la route serveur de génération d’image n’est pas encore branchée.')
       }
+      if(res.status===402 || data.code==='NO_IMAGE_CREDITS'){
+        updateCreditBadge(0)
+        throw new Error('Tu n’as plus de crédits Studio Prompt Image.')
+      }
       throw new Error(data.error||data.detail||('Erreur '+res.status))
     }
     var url=normalizeResponse(data)
     if(!url) throw new Error('La génération a répondu, mais aucune image exploitable n’a été retournée.')
     showResult(url)
     addHistory(url,prompt)
+    if(data.creditsRemaining!==undefined || data.includedImagesRemaining!==undefined) updateCreditBadge(data.creditsRemaining,data.includedImagesRemaining)
     setStatus('Image prête. 💜','ok')
   }catch(e){
     setStatus(e.message||String(e),'err')
@@ -435,6 +472,7 @@ document.addEventListener('DOMContentLoaded',async function(){
   var ref=document.getElementById('referenceFile')
   ref.addEventListener('change',function(){window._referenceDataUrl='';showReference(ref.files[0]||null)})
   renderHistory()
+  await loadCredits()
   await loadServerHistory()
   document.body.classList.remove('auth-loading')
 })

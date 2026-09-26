@@ -518,6 +518,9 @@ export default {
       if (path === '/api/studio-image/generate' && request.method === 'POST') return await handleStudioImageGenerate(request, env);
       if (path === '/api/studio-image/history' && request.method === 'POST') return await handleStudioImageHistory(request, env);
       if (path === '/api/studio-image/file' && request.method === 'GET') return await handleStudioImageFile(request, env, url);
+      if (path === '/api/studio-image/credits' && request.method === 'POST') return await handleStudioImageCredits(request, env);
+      if (path === '/api/studio-image/credits/webhook' && request.method === 'POST') return await handleStudioImageCreditWebhook(request, env);
+      if (path === '/api/admin/studio-image/credits' && request.method === 'POST') return await handleAdminStudioImageCredits(request, env);
       if (path === '/api/journal' && request.method === 'POST') return await handleJournal(request, env);
       if (path === '/api/contenus' && request.method === 'POST') return await handleReadyContents(request, env);
       if (path === '/api/admin/contenus' && request.method === 'POST') return await handleAdminReadyContents(request, env);
@@ -2740,6 +2743,359 @@ async function handleJournal(request, env) {
 // Les références image utilisent input_references. Le coût réel peut être retourné
 // par OpenRouter dans usage.cost; il n'est jamais affiché au client par cette interface.
 
+// ───────────── CRÉDITS STUDIO IMAGE ─────────────
+// Règle validée par Diane : 1 crédit = 0,10 $ US de coût technique OpenRouter.
+// Le client voit uniquement son solde de crédits; le coût API en dollars reste interne.
+const STUDIO_IMAGE_CREDIT_VALUE_USD = 0.10;
+const STUDIO_IMAGE_PACKS = Object.freeze({ '100': 100, '500': 500, '1000': 1000 });
+
+function studioImageCreditKey(email) {
+  return `studio_image_credits:${String(email || '').toLowerCase().trim()}`;
+}
+
+function studioImageCreditEventKey(eventId) {
+  return `studio_image_credit_event:${String(eventId || '').trim()}`;
+}
+
+function studioImagePurchaseUrl(env) {
+  const u = String(env.STUDIO_IMAGE_CREDITS_URL || 'https://www.universnyxia.top/vip/imagescredits').trim();
+  return /^https:\/\//i.test(u) ? u : 'https://www.universnyxia.top/vip/imagescredits';
+}
+
+const STUDIO_IMAGE_INCLUDED_BASE_IMAGES = 50;
+const STUDIO_IMAGE_STARTER_GRANT_VERSION = 'base50-v1';
+
+async function studioImageReadWallet(env, email) {
+  const key = studioImageCreditKey(email);
+  let w = null;
+  try {
+    const raw = await env.CASHFLOW_KV.get(key);
+    if (raw) w = JSON.parse(raw);
+  } catch (_) {}
+
+  if (!w || typeof w !== 'object') {
+    w = {
+      balance: 0,
+      includedImagesRemaining: STUDIO_IMAGE_INCLUDED_BASE_IMAGES,
+      starterGrantVersion: STUDIO_IMAGE_STARTER_GRANT_VERSION,
+      lifetimeAdded: 0,
+      lifetimeSpent: 0,
+      lifetimeIncludedImagesUsed: 0,
+      lifetimeCostUsd: 0,
+      updatedAt: null,
+      ledger: [{
+        type: 'base_membership',
+        images: STUDIO_IMAGE_INCLUDED_BASE_IMAGES,
+        note: 'Images incluses avec l’adhésion de base Studio Prompt',
+        at: new Date().toISOString()
+      }]
+    };
+    return await studioImageWriteWallet(env, email, w);
+  }
+
+  // Migration unique : les membres déjà présents avant cette version reçoivent eux aussi
+  // les 50 créations incluses avec leur adhésion de base.
+  if (w.starterGrantVersion !== STUDIO_IMAGE_STARTER_GRANT_VERSION) {
+    w.includedImagesRemaining = Math.max(0, Math.floor(Number(w.includedImagesRemaining) || 0)) + STUDIO_IMAGE_INCLUDED_BASE_IMAGES;
+    w.starterGrantVersion = STUDIO_IMAGE_STARTER_GRANT_VERSION;
+    w.ledger = Array.isArray(w.ledger) ? w.ledger : [];
+    w.ledger.unshift({
+      type: 'base_membership',
+      images: STUDIO_IMAGE_INCLUDED_BASE_IMAGES,
+      note: 'Images incluses avec l’adhésion de base Studio Prompt',
+      at: new Date().toISOString()
+    });
+    return await studioImageWriteWallet(env, email, w);
+  }
+
+  return {
+    balance: Number.isFinite(Number(w.balance)) ? Number(w.balance) : 0,
+    includedImagesRemaining: Math.max(0, Math.floor(Number(w.includedImagesRemaining) || 0)),
+    starterGrantVersion: w.starterGrantVersion || STUDIO_IMAGE_STARTER_GRANT_VERSION,
+    lifetimeAdded: Number.isFinite(Number(w.lifetimeAdded)) ? Number(w.lifetimeAdded) : 0,
+    lifetimeSpent: Number.isFinite(Number(w.lifetimeSpent)) ? Number(w.lifetimeSpent) : 0,
+    lifetimeIncludedImagesUsed: Number.isFinite(Number(w.lifetimeIncludedImagesUsed)) ? Number(w.lifetimeIncludedImagesUsed) : 0,
+    lifetimeCostUsd: Number.isFinite(Number(w.lifetimeCostUsd)) ? Number(w.lifetimeCostUsd) : 0,
+    updatedAt: w.updatedAt || null,
+    ledger: Array.isArray(w.ledger) ? w.ledger.slice(0, 100) : []
+  };
+}
+
+async function studioImageWriteWallet(env, email, wallet) {
+  wallet.updatedAt = new Date().toISOString();
+  wallet.ledger = Array.isArray(wallet.ledger) ? wallet.ledger.slice(0, 100) : [];
+  await env.CASHFLOW_KV.put(studioImageCreditKey(email), JSON.stringify(wallet));
+  return wallet;
+}
+
+function studioImageCreditsForCost(costUsd) {
+  const c = Number(costUsd);
+  if (!Number.isFinite(c) || c <= 0) return 1;
+  return Math.max(1, Math.ceil((c - 1e-9) / STUDIO_IMAGE_CREDIT_VALUE_USD));
+}
+
+async function studioImageAddCredits(env, email, credits, meta = {}) {
+  const qty = Math.max(0, Math.floor(Number(credits) || 0));
+  if (!qty) throw new Error('Nombre de crédits invalide.');
+  const w = await studioImageReadWallet(env, email);
+  w.balance += qty;
+  w.lifetimeAdded += qty;
+  w.ledger.unshift({
+    type: meta.type || 'credit',
+    credits: qty,
+    balanceAfter: w.balance,
+    note: String(meta.note || '').slice(0, 300),
+    pack: meta.pack || null,
+    eventId: meta.eventId || null,
+    at: new Date().toISOString()
+  });
+  return await studioImageWriteWallet(env, email, w);
+}
+
+async function studioImageReserveUsage(env, email) {
+  const w = await studioImageReadWallet(env, email);
+  if (w.includedImagesRemaining > 0) {
+    w.includedImagesRemaining -= 1;
+    await studioImageWriteWallet(env, email, w);
+    return { ok: true, source: 'included', wallet: w };
+  }
+  if (w.balance < 1) return { ok: false, source: null, wallet: w };
+  w.balance -= 1;
+  w.lifetimeSpent += 1;
+  await studioImageWriteWallet(env, email, w);
+  return { ok: true, source: 'credits', wallet: w };
+}
+
+async function studioImageRefundReservedUsage(env, email, source, note) {
+  const w = await studioImageReadWallet(env, email);
+  if (source === 'included') {
+    w.includedImagesRemaining += 1;
+  } else {
+    w.balance += 1;
+    w.lifetimeSpent = Math.max(0, w.lifetimeSpent - 1);
+  }
+  w.ledger.unshift({ type: 'usage_refund', source: source || 'credits', note: String(note || '').slice(0, 300), at: new Date().toISOString() });
+  return await studioImageWriteWallet(env, email, w);
+}
+
+async function studioImageFinalizeIncludedImage(env, email, costUsd, meta = {}) {
+  const w = await studioImageReadWallet(env, email);
+  w.lifetimeIncludedImagesUsed = Math.max(0, Math.floor(Number(w.lifetimeIncludedImagesUsed) || 0)) + 1;
+  const c = Number(costUsd);
+  if (Number.isFinite(c) && c > 0) w.lifetimeCostUsd += c;
+  w.ledger.unshift({
+    type: 'included_usage',
+    images: -1,
+    costUsd: Number.isFinite(c) ? c : null,
+    model: meta.model || null,
+    imageId: meta.imageId || null,
+    mode: meta.mode || null,
+    includedImagesRemaining: w.includedImagesRemaining,
+    at: new Date().toISOString()
+  });
+  return await studioImageWriteWallet(env, email, w);
+}
+
+async function studioImageFinalizeCreditCharge(env, email, totalCredits, costUsd, meta = {}) {
+  const charge = Math.max(1, Math.floor(Number(totalCredits) || 1));
+  const extra = Math.max(0, charge - 1); // 1 crédit a déjà été réservé avant l'appel API
+  const w = await studioImageReadWallet(env, email);
+  if (extra) {
+    w.balance -= extra;
+    w.lifetimeSpent += extra;
+  }
+  const c = Number(costUsd);
+  if (Number.isFinite(c) && c > 0) w.lifetimeCostUsd += c;
+  w.ledger.unshift({
+    type: 'usage',
+    credits: -charge,
+    costUsd: Number.isFinite(c) ? c : null,
+    model: meta.model || null,
+    imageId: meta.imageId || null,
+    mode: meta.mode || null,
+    balanceAfter: w.balance,
+    at: new Date().toISOString()
+  });
+  return await studioImageWriteWallet(env, email, w);
+}
+
+async function handleStudioImageCredits(request, env) {
+  if (!env.CASHFLOW_KV) return json({ error: 'CASHFLOW_KV non configuré.' }, 500);
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const token = studioImageExtractToken(request, body);
+  const session = await getSessionOrNull(token, env);
+  if (!session || !session.email) return json({ error: 'Session expirée.' }, 401);
+  const w = await studioImageReadWallet(env, session.email);
+  return json({
+    success: true,
+    credits: Math.max(0, Math.floor(w.balance)),
+    includedImagesRemaining: Math.max(0, Math.floor(w.includedImagesRemaining || 0)),
+    purchaseUrl: studioImagePurchaseUrl(env) || null
+  });
+}
+
+async function handleAdminStudioImageCredits(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: 'Non autorisé.' }, 401);
+  let body = {};
+  try { body = await request.json(); } catch (_) { return json({ error: 'Requête invalide.' }, 400); }
+  const email = String(body.email || '').toLowerCase().trim();
+  if (!email || !email.includes('@')) return json({ error: 'Courriel requis.' }, 400);
+  const action = String(body.action || 'get').toLowerCase();
+  let w = await studioImageReadWallet(env, email);
+  if (action === 'add') {
+    w = await studioImageAddCredits(env, email, body.credits, { type: 'admin_add', note: body.note || '' });
+  } else if (action === 'set') {
+    const qty = Math.max(0, Math.floor(Number(body.credits) || 0));
+    const delta = qty - w.balance;
+    w.balance = qty;
+    if (delta > 0) w.lifetimeAdded += delta;
+    w.ledger.unshift({ type: 'admin_set', credits: delta, balanceAfter: w.balance, note: String(body.note || '').slice(0, 300), at: new Date().toISOString() });
+    w = await studioImageWriteWallet(env, email, w);
+  } else if (action === 'subtract') {
+    const qty = Math.max(0, Math.floor(Number(body.credits) || 0));
+    w.balance -= qty;
+    w.lifetimeSpent += qty;
+    w.ledger.unshift({ type: 'admin_subtract', credits: -qty, balanceAfter: w.balance, note: String(body.note || '').slice(0, 300), at: new Date().toISOString() });
+    w = await studioImageWriteWallet(env, email, w);
+  } else if (action !== 'get') {
+    return json({ error: 'Action invalide : get, add, set ou subtract.' }, 400);
+  }
+  return json({
+    success: true,
+    email,
+    credits: w.balance,
+    includedImagesRemaining: Math.max(0, Math.floor(w.includedImagesRemaining || 0)),
+    lifetimeIncludedImagesUsed: Math.max(0, Math.floor(w.lifetimeIncludedImagesUsed || 0)),
+    lifetimeAdded: w.lifetimeAdded,
+    lifetimeSpent: w.lifetimeSpent,
+    lifetimeCostUsd: Number(w.lifetimeCostUsd.toFixed(6)),
+    updatedAt: w.updatedAt,
+    ledger: w.ledger
+  });
+}
+
+function studioImageNormalizeSystemePayload(body) {
+  // Systeme.io signe une représentation JSON normalisée : sans espaces,
+  // slashs échappés et caractères Unicode sous forme \uXXXX.
+  const compact = JSON.stringify(body);
+  let out = '';
+  for (let i = 0; i < compact.length; i++) {
+    const code = compact.charCodeAt(i);
+    const ch = compact[i];
+    if (ch === '/') { out += '\\/'; continue; }
+    if (code > 0x7f) { out += '\\u' + code.toString(16).padStart(4, '0'); continue; }
+    out += ch;
+  }
+  return out;
+}
+
+async function studioImageHmacSha256Hex(secret, normalizedPayload) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(normalizedPayload));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function studioImageSafeEqualHex(a, b) {
+  const x = String(a || '').toLowerCase().trim();
+  const y = String(b || '').toLowerCase().trim();
+  if (!x || x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  return diff === 0;
+}
+
+function studioImageSystemePackFromPlan(plan, env) {
+  const id = String(plan?.id ?? '').trim();
+  const configured = [
+    ['100', String(env.SYSTEME_IO_IMAGE_PLAN_100_ID || '').trim()],
+    ['500', String(env.SYSTEME_IO_IMAGE_PLAN_500_ID || '').trim()],
+    ['1000', String(env.SYSTEME_IO_IMAGE_PLAN_1000_ID || '').trim()]
+  ];
+  for (const [pack, configuredId] of configured) {
+    if (configuredId && id && configuredId === id) return pack;
+  }
+
+  const label = `${plan?.name || ''} ${plan?.innerName || ''} ${plan?.inner_name || ''}`
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/\b1000\b/.test(label) && /credit/.test(label)) return '1000';
+  if (/\b500\b/.test(label) && /credit/.test(label)) return '500';
+  if (/\b100\b/.test(label) && /credit/.test(label)) return '100';
+  return '';
+}
+
+async function handleStudioImageCreditWebhook(request, env) {
+  if (!env.CASHFLOW_KV) return json({ error: 'CASHFLOW_KV non configuré.' }, 500);
+
+  // Webhook natif Systeme.io : signature HMAC-SHA256 du corps brut.
+  // Utilise la même clé secrète dans Systeme.io et dans le secret Worker SYSTEME_IO_WEBHOOK_SECRET.
+  const rawBody = await request.text();
+  const secret = String(env.SYSTEME_IO_WEBHOOK_SECRET || env.STUDIO_IMAGE_CREDIT_WEBHOOK_SECRET || '').trim();
+  const signature = String(request.headers.get('X-Webhook-Signature') || '').trim();
+  if (!secret) return json({ error: 'Secret Systeme.io absent du Worker : SYSTEME_IO_WEBHOOK_SECRET.' }, 500);
+
+  let body = {};
+  try { body = rawBody ? JSON.parse(rawBody) : {}; } catch (_) { return json({ error: 'Requête JSON invalide.' }, 400); }
+
+  let verified = false;
+  if (signature) {
+    const normalizedPayload = studioImageNormalizeSystemePayload(body);
+    const expected = await studioImageHmacSha256Hex(secret, normalizedPayload);
+    verified = studioImageSafeEqualHex(signature, expected);
+  } else {
+    // Compatibilité avec l'ancien webhook manuel v4, uniquement si le même secret est envoyé explicitement.
+    const legacy = String(request.headers.get('X-Credit-Webhook-Secret') || '').trim();
+    verified = !!legacy && legacy === secret;
+  }
+  if (!verified) return json({ error: 'Signature webhook Systeme.io invalide.' }, 401);
+
+  const headerEvent = String(request.headers.get('X-Webhook-Event') || '').toUpperCase().trim();
+  const legacyType = String(body.type || '').toLowerCase().trim();
+  const isNewSale = ['SALE_NEW','NEW_SALE'].includes(headerEvent) || legacyType === 'customer.sale.completed';
+  if (!isNewSale) return json({ success: true, ignored: true, reason: 'Événement non lié à une nouvelle vente.' });
+
+  // Compatible avec le webhook natif récent et l'ancien format d'automatisation Systeme.io.
+  const data = body && body.data && typeof body.data === 'object' ? body.data : body;
+  const customer = data.customer || body.customer || {};
+  const plan = data.pricePlan || data.offer_price_plan || data.offerPricePlan || body.pricePlan || {};
+  const order = data.order || body.order || {};
+  const email = String(customer.email || '').toLowerCase().trim();
+  const pack = studioImageSystemePackFromPlan(plan, env);
+
+  // Le webhook peut recevoir toutes les ventes du compte : on ignore proprement celles qui ne sont pas des packs Image.
+  if (!pack) return json({ success: true, ignored: true, reason: 'Plan de prix non reconnu comme pack Studio Prompt Image.' });
+  if (!email || !email.includes('@')) return json({ error: 'Courriel client absent de la vente Systeme.io.' }, 400);
+
+  const messageId = String(request.headers.get('X-Webhook-Message-Id') || '').trim();
+  const orderId = String(order.id || '').trim();
+  const eventId = messageId || (orderId ? `systeme-order:${orderId}` : '');
+  if (!eventId) return json({ error: 'Identifiant de vente Systeme.io absent; impossible de protéger contre un double crédit.' }, 400);
+
+  const eventKey = studioImageCreditEventKey(eventId);
+  const already = await env.CASHFLOW_KV.get(eventKey);
+  if (already) return json({ success: true, duplicate: true });
+
+  const qty = STUDIO_IMAGE_PACKS[pack];
+  const w = await studioImageAddCredits(env, email, qty, {
+    type: 'purchase',
+    note: 'Achat Systeme.io · Studio Prompt Image',
+    pack,
+    eventId
+  });
+  await env.CASHFLOW_KV.put(eventKey, JSON.stringify({
+    provider: 'systeme.io',
+    email,
+    pack,
+    pricePlanId: plan?.id ?? null,
+    orderId: order.id ?? null,
+    credits: qty,
+    at: new Date().toISOString()
+  }));
+
+  return json({ success: true, creditsAdded: qty, balance: w.balance });
+}
+
 function studioImageOpenRouterKey(env) {
   return env.OPENROUTER_API_KEY || env.AI_API_KEY || '';
 }
@@ -2910,8 +3266,18 @@ async function handleStudioImageGenerate(request, env) {
     return json({ error: 'La limite quotidienne configurée pour ce compte a été atteinte.' }, 429);
   }
 
+  // Les 50 créations incluses avec l’adhésion de base sont utilisées en premier.
+  // Une fois épuisées, on réserve 1 crédit acheté avant l'appel OpenRouter.
+  const usageReservation = await studioImageReserveUsage(env, session.email);
+  if (!usageReservation.ok) {
+    return json({ error: 'Tu n’as plus d’images incluses ni de crédits Studio Prompt Image.', code: 'NO_IMAGE_CREDITS' }, 402);
+  }
+
   const apiKey = studioImageOpenRouterKey(env);
-  if (!apiKey) return json({ error: 'Clé OpenRouter absente du Worker.' }, 500);
+  if (!apiKey) {
+    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Clé OpenRouter absente');
+    return json({ error: 'Clé OpenRouter absente du Worker.' }, 500);
+  }
 
   const model = studioImageModel(env);
   const quality = studioImageQuality(env);
@@ -2946,6 +3312,7 @@ async function handleStudioImageGenerate(request, env) {
       body: JSON.stringify(payload)
     });
   } catch (e) {
+    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Connexion OpenRouter impossible');
     return json({ error: 'Connexion OpenRouter Image impossible : ' + (e.message || String(e)) }, 502);
   }
 
@@ -2953,6 +3320,7 @@ async function handleStudioImageGenerate(request, env) {
   let data = {};
   try { data = raw ? JSON.parse(raw) : {}; } catch (_) {}
   if (!resp.ok) {
+    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Échec OpenRouter ' + resp.status);
     const detail = data?.error?.message || data?.error || raw || ('HTTP ' + resp.status);
     return json({ error: 'OpenRouter Image : ' + String(detail).slice(0, 700) }, resp.status === 401 ? 502 : resp.status);
   }
@@ -2960,7 +3328,10 @@ async function handleStudioImageGenerate(request, env) {
   const first = data && Array.isArray(data.data) ? data.data[0] : null;
   const b64 = first && first.b64_json ? first.b64_json : '';
   const mediaType = (first && first.media_type) || 'image/png';
-  if (!b64) return json({ error: 'OpenRouter n’a retourné aucune image exploitable.' }, 502);
+  if (!b64) {
+    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Aucune image retournée');
+    return json({ error: 'OpenRouter n’a retourné aucune image exploitable.' }, 502);
+  }
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
@@ -3012,13 +3383,27 @@ async function handleStudioImageGenerate(request, env) {
 
   await studioImageIncrementQuota(env, quota);
 
-  // Le coût réel et les quotas internes ne sont volontairement PAS renvoyés au client.
+  const actualCostUsd = Number.isFinite(Number(data?.usage?.cost)) ? Number(data.usage.cost) : null;
+  let creditWallet;
+  let creditsUsed = 0;
+  if (usageReservation.source === 'included') {
+    creditWallet = await studioImageFinalizeIncludedImage(env, session.email, actualCostUsd, { model, imageId: id, mode });
+  } else {
+    creditsUsed = studioImageCreditsForCost(actualCostUsd);
+    creditWallet = await studioImageFinalizeCreditCharge(env, session.email, creditsUsed, actualCostUsd, { model, imageId: id, mode });
+  }
+
+  // Le coût OpenRouter en dollars reste privé. Le client ne reçoit que ses compteurs d'usage.
   return json({
     success: true,
     image: imageUrl,
     id,
     persisted,
-    mediaType
+    mediaType,
+    creditsUsed,
+    includedImageUsed: usageReservation.source === 'included',
+    includedImagesRemaining: Math.max(0, Math.floor(creditWallet.includedImagesRemaining || 0)),
+    creditsRemaining: Math.max(0, Math.floor(creditWallet.balance))
   });
 }
 
