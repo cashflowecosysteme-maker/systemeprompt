@@ -98,7 +98,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
       <div><strong>Studio Prompt Image</strong><span>Créer · modifier · décliner</span></div>
     </div>
     <div class="credit-area">
-      <div class="credit-badge" id="creditBadge">🎁 Images incluses : … · 💎 Crédits : …</div>
+      <div class="credit-badge" id="creditBadge">💎 Crédits : …</div>
       <a class="credit-link" id="creditBuyLink" href="#" target="_blank" rel="noopener">Acheter des crédits</a>
       <div class="mode">Studio Prompt</div>
     </div>
@@ -327,13 +327,10 @@ function renderHistory(){
   }).join('')
   window._imgHistory=arr
 }
-function updateCreditBadge(value,included){
+function updateCreditBadge(value){
   var el=document.getElementById('creditBadge')
   if(!el)return
   var credits=(value===null || value===undefined || isNaN(Number(value)))?null:Math.max(0,Math.floor(Number(value)))
-  var inc=(included===null || included===undefined || isNaN(Number(included)))?null:Math.max(0,Math.floor(Number(included)))
-  if(credits===null && inc===null){ el.textContent='🎁 Images incluses : … · 💎 Crédits : …'; return }
-  if(inc!==null && inc>0){ el.textContent='🎁 Images incluses : '+inc+' · 💎 Crédits : '+(credits===null?'…':credits); return }
   el.textContent='💎 Crédits : '+(credits===null?'…':credits)
 }
 async function loadCredits(){
@@ -343,7 +340,7 @@ async function loadCredits(){
     var res=await fetch(CREDITS_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({token:token}),credentials:'include'})
     var data=await res.json().catch(function(){return {}})
     if(!res.ok)return null
-    updateCreditBadge(data.credits,data.includedImagesRemaining)
+    updateCreditBadge(data.credits)
     var link=document.getElementById('creditBuyLink')
     if(link && data.purchaseUrl){ link.href=data.purchaseUrl; link.style.display='inline-flex' }
     return Number(data.credits)
@@ -456,7 +453,7 @@ async function generateImage(){
     if(!url) throw new Error('La génération a répondu, mais aucune image exploitable n’a été retournée.')
     showResult(url)
     addHistory(url,prompt)
-    if(data.creditsRemaining!==undefined || data.includedImagesRemaining!==undefined) updateCreditBadge(data.creditsRemaining,data.includedImagesRemaining)
+    if(data.creditsRemaining!==undefined) updateCreditBadge(data.creditsRemaining)
     setStatus('Image prête. 💜','ok')
   }catch(e){
     setStatus(e.message||String(e),'err')

@@ -2744,10 +2744,17 @@ async function handleJournal(request, env) {
 // par OpenRouter dans usage.cost; il n'est jamais affiché au client par cette interface.
 
 // ───────────── CRÉDITS STUDIO IMAGE ─────────────
-// Règle validée par Diane : 1 crédit = 0,10 $ US de coût technique OpenRouter.
-// Le client voit uniquement son solde de crédits; le coût API en dollars reste interne.
+// V9 — Règles validées :
+// - 1 crédit = 0,10 $ US de coût technique OpenRouter.
+// - Abonnement mensuel 69 $ CAD : +50 crédits après CHAQUE paiement réussi.
+// - Abonnement annuel 497 $ CAD : 600 crédits/an, versés 50 par mois pendant 12 mois.
+// - Packs supplémentaires : 100 / 500 / 1000 crédits.
+// - Les crédits non utilisés restent dans le portefeuille et s'additionnent.
 const STUDIO_IMAGE_CREDIT_VALUE_USD = 0.10;
 const STUDIO_IMAGE_PACKS = Object.freeze({ '100': 100, '500': 500, '1000': 1000 });
+const STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH = 50;
+const STUDIO_IMAGE_ANNUAL_GRANT_MONTHS = 12;
+const STUDIO_IMAGE_WALLET_VERSION = 'studio-image-credits-v9';
 const SYSTEME_IO_IMAGE_WEBHOOK_URL_KEY = 'yKypkWEAA94oN3mU7DqjNZiSFY2XbytfdNtwJNYD99o';
 
 function studioImageCreditKey(email) {
@@ -2763,67 +2770,134 @@ function studioImagePurchaseUrl(env) {
   return /^https:\/\//i.test(u) ? u : 'https://www.universnyxia.top/vip/imagescredits';
 }
 
-const STUDIO_IMAGE_INCLUDED_BASE_IMAGES = 50;
-const STUDIO_IMAGE_STARTER_GRANT_VERSION = 'base50-v1';
+function studioImageEmptyMembership() {
+  return {
+    plan: null,
+    active: false,
+    startedAt: null,
+    lastPaymentAt: null,
+    lastPaymentEventId: null,
+    annualMonthsGranted: 0,
+    annualMonthsTotal: 0,
+    nextGrantAt: null,
+    annualEndsAt: null,
+    canceledAt: null
+  };
+}
+
+function studioImageAddMonthsISO(iso, months) {
+  const src = new Date(iso);
+  if (!Number.isFinite(src.getTime())) return null;
+  const y = src.getUTCFullYear();
+  const m = src.getUTCMonth();
+  const d = src.getUTCDate();
+  const hh = src.getUTCHours(), mm = src.getUTCMinutes(), ss = src.getUTCSeconds(), ms = src.getUTCMilliseconds();
+  const first = new Date(Date.UTC(y, m + Number(months || 0), 1, hh, mm, ss, ms));
+  const lastDay = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d, lastDay));
+  return first.toISOString();
+}
+
+function studioImageNormalizeWallet(rawWallet) {
+  const w = rawWallet && typeof rawWallet === 'object' ? rawWallet : {};
+  w.balance = Number.isFinite(Number(w.balance)) ? Number(w.balance) : 0;
+  w.lifetimeAdded = Number.isFinite(Number(w.lifetimeAdded)) ? Number(w.lifetimeAdded) : 0;
+  w.lifetimeSpent = Number.isFinite(Number(w.lifetimeSpent)) ? Number(w.lifetimeSpent) : 0;
+  w.lifetimeCostUsd = Number.isFinite(Number(w.lifetimeCostUsd)) ? Number(w.lifetimeCostUsd) : 0;
+  w.updatedAt = w.updatedAt || null;
+  w.ledger = Array.isArray(w.ledger) ? w.ledger.slice(0, 100) : [];
+  w.membership = w.membership && typeof w.membership === 'object' ? { ...studioImageEmptyMembership(), ...w.membership } : studioImageEmptyMembership();
+  return w;
+}
+
+function studioImageApplyV9Migration(w) {
+  let changed = false;
+
+  // V8 utilisait un compteur séparé « images incluses ». En V9, tout est en CRÉDITS.
+  // On préserve ce qui restait déjà sur un compte en le convertissant 1 pour 1.
+  const legacyIncluded = Math.max(0, Math.floor(Number(w.includedImagesRemaining) || 0));
+  if (legacyIncluded > 0) {
+    w.balance += legacyIncluded;
+    w.lifetimeAdded += legacyIncluded;
+    w.ledger.unshift({
+      type: 'v9_migration',
+      credits: legacyIncluded,
+      balanceAfter: w.balance,
+      note: 'Conversion du solde inclus V8 vers le portefeuille de crédits V9',
+      at: new Date().toISOString()
+    });
+    changed = true;
+  }
+  if ('includedImagesRemaining' in w) { delete w.includedImagesRemaining; changed = true; }
+  if ('starterGrantVersion' in w) { delete w.starterGrantVersion; changed = true; }
+  if ('lifetimeIncludedImagesUsed' in w) { delete w.lifetimeIncludedImagesUsed; changed = true; }
+  if (w.walletVersion !== STUDIO_IMAGE_WALLET_VERSION) {
+    w.walletVersion = STUDIO_IMAGE_WALLET_VERSION;
+    changed = true;
+  }
+  return changed;
+}
+
+function studioImageApplyAnnualCreditsDue(w, now = new Date()) {
+  const m = w.membership || studioImageEmptyMembership();
+  if (m.plan !== 'annual' || !m.active || !m.startedAt) return false;
+
+  const nowMs = now.getTime();
+  let granted = Math.max(0, Math.floor(Number(m.annualMonthsGranted) || 0));
+  const total = STUDIO_IMAGE_ANNUAL_GRANT_MONTHS;
+  let changed = false;
+
+  // Le premier bloc de 50 est donné au paiement. Les suivants sont dus
+  // aux anniversaires mensuels 1 à 11, soit 12 versements = 600 crédits/an.
+  while (granted < total) {
+    const dueIso = studioImageAddMonthsISO(m.startedAt, granted);
+    if (!dueIso) break;
+    const dueMs = new Date(dueIso).getTime();
+    if (!Number.isFinite(dueMs) || nowMs < dueMs) break;
+
+    w.balance += STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+    w.lifetimeAdded += STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+    granted += 1;
+    w.ledger.unshift({
+      type: 'membership_annual_monthly_grant',
+      plan: 'annual',
+      credits: STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH,
+      monthNumber: granted,
+      balanceAfter: w.balance,
+      dueAt: dueIso,
+      note: `Abonnement annuel Studio Prompt · mois ${granted}/12`,
+      at: new Date().toISOString()
+    });
+    changed = true;
+  }
+
+  m.annualMonthsGranted = granted;
+  m.annualMonthsTotal = total;
+  m.nextGrantAt = granted < total ? studioImageAddMonthsISO(m.startedAt, granted) : null;
+  m.annualEndsAt = m.annualEndsAt || studioImageAddMonthsISO(m.startedAt, 12);
+  w.membership = m;
+  return changed;
+}
 
 async function studioImageReadWallet(env, email) {
   const key = studioImageCreditKey(email);
-  let w = null;
+  let rawWallet = null;
   try {
     const raw = await env.CASHFLOW_KV.get(key);
-    if (raw) w = JSON.parse(raw);
+    if (raw) rawWallet = JSON.parse(raw);
   } catch (_) {}
 
-  if (!w || typeof w !== 'object') {
-    w = {
-      balance: 0,
-      includedImagesRemaining: STUDIO_IMAGE_INCLUDED_BASE_IMAGES,
-      starterGrantVersion: STUDIO_IMAGE_STARTER_GRANT_VERSION,
-      lifetimeAdded: 0,
-      lifetimeSpent: 0,
-      lifetimeIncludedImagesUsed: 0,
-      lifetimeCostUsd: 0,
-      updatedAt: null,
-      ledger: [{
-        type: 'base_membership',
-        images: STUDIO_IMAGE_INCLUDED_BASE_IMAGES,
-        note: 'Images incluses avec l’adhésion de base Studio Prompt',
-        at: new Date().toISOString()
-      }]
-    };
-    return await studioImageWriteWallet(env, email, w);
-  }
+  let w = studioImageNormalizeWallet(rawWallet);
+  let changed = studioImageApplyV9Migration(w);
+  if (studioImageApplyAnnualCreditsDue(w)) changed = true;
 
-  // Migration unique : les membres déjà présents avant cette version reçoivent eux aussi
-  // les 50 créations incluses avec leur adhésion de base.
-  if (w.starterGrantVersion !== STUDIO_IMAGE_STARTER_GRANT_VERSION) {
-    w.includedImagesRemaining = Math.max(0, Math.floor(Number(w.includedImagesRemaining) || 0)) + STUDIO_IMAGE_INCLUDED_BASE_IMAGES;
-    w.starterGrantVersion = STUDIO_IMAGE_STARTER_GRANT_VERSION;
-    w.ledger = Array.isArray(w.ledger) ? w.ledger : [];
-    w.ledger.unshift({
-      type: 'base_membership',
-      images: STUDIO_IMAGE_INCLUDED_BASE_IMAGES,
-      note: 'Images incluses avec l’adhésion de base Studio Prompt',
-      at: new Date().toISOString()
-    });
-    return await studioImageWriteWallet(env, email, w);
-  }
-
-  return {
-    balance: Number.isFinite(Number(w.balance)) ? Number(w.balance) : 0,
-    includedImagesRemaining: Math.max(0, Math.floor(Number(w.includedImagesRemaining) || 0)),
-    starterGrantVersion: w.starterGrantVersion || STUDIO_IMAGE_STARTER_GRANT_VERSION,
-    lifetimeAdded: Number.isFinite(Number(w.lifetimeAdded)) ? Number(w.lifetimeAdded) : 0,
-    lifetimeSpent: Number.isFinite(Number(w.lifetimeSpent)) ? Number(w.lifetimeSpent) : 0,
-    lifetimeIncludedImagesUsed: Number.isFinite(Number(w.lifetimeIncludedImagesUsed)) ? Number(w.lifetimeIncludedImagesUsed) : 0,
-    lifetimeCostUsd: Number.isFinite(Number(w.lifetimeCostUsd)) ? Number(w.lifetimeCostUsd) : 0,
-    updatedAt: w.updatedAt || null,
-    ledger: Array.isArray(w.ledger) ? w.ledger.slice(0, 100) : []
-  };
+  if (changed) return await studioImageWriteWallet(env, email, w);
+  return w;
 }
 
 async function studioImageWriteWallet(env, email, wallet) {
   wallet.updatedAt = new Date().toISOString();
+  wallet.walletVersion = STUDIO_IMAGE_WALLET_VERSION;
   wallet.ledger = Array.isArray(wallet.ledger) ? wallet.ledger.slice(0, 100) : [];
   await env.CASHFLOW_KV.put(studioImageCreditKey(email), JSON.stringify(wallet));
   return wallet;
@@ -2853,55 +2927,111 @@ async function studioImageAddCredits(env, email, credits, meta = {}) {
   return await studioImageWriteWallet(env, email, w);
 }
 
-async function studioImageReserveUsage(env, email) {
+async function studioImageGrantMonthlyMembershipPayment(env, email, paymentAt, eventId, meta = {}) {
   const w = await studioImageReadWallet(env, email);
-  if (w.includedImagesRemaining > 0) {
-    w.includedImagesRemaining -= 1;
-    await studioImageWriteWallet(env, email, w);
-    return { ok: true, source: 'included', wallet: w };
-  }
-  if (w.balance < 1) return { ok: false, source: null, wallet: w };
-  w.balance -= 1;
-  w.lifetimeSpent += 1;
-  await studioImageWriteWallet(env, email, w);
-  return { ok: true, source: 'credits', wallet: w };
-}
-
-async function studioImageRefundReservedUsage(env, email, source, note) {
-  const w = await studioImageReadWallet(env, email);
-  if (source === 'included') {
-    w.includedImagesRemaining += 1;
-  } else {
-    w.balance += 1;
-    w.lifetimeSpent = Math.max(0, w.lifetimeSpent - 1);
-  }
-  w.ledger.unshift({ type: 'usage_refund', source: source || 'credits', note: String(note || '').slice(0, 300), at: new Date().toISOString() });
-  return await studioImageWriteWallet(env, email, w);
-}
-
-async function studioImageFinalizeIncludedImage(env, email, costUsd, meta = {}) {
-  const w = await studioImageReadWallet(env, email);
-  w.lifetimeIncludedImagesUsed = Math.max(0, Math.floor(Number(w.lifetimeIncludedImagesUsed) || 0)) + 1;
-  const c = Number(costUsd);
-  if (Number.isFinite(c) && c > 0) w.lifetimeCostUsd += c;
+  const when = paymentAt || new Date().toISOString();
+  w.balance += STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+  w.lifetimeAdded += STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+  w.membership = {
+    ...studioImageEmptyMembership(),
+    ...w.membership,
+    plan: 'monthly',
+    active: true,
+    startedAt: (w.membership && w.membership.plan === 'monthly' && w.membership.startedAt) ? w.membership.startedAt : when,
+    lastPaymentAt: when,
+    lastPaymentEventId: eventId || null,
+    annualMonthsGranted: 0,
+    annualMonthsTotal: 0,
+    nextGrantAt: null,
+    annualEndsAt: null,
+    canceledAt: null
+  };
   w.ledger.unshift({
-    type: 'included_usage',
-    images: -1,
-    costUsd: Number.isFinite(c) ? c : null,
-    model: meta.model || null,
-    imageId: meta.imageId || null,
-    mode: meta.mode || null,
-    includedImagesRemaining: w.includedImagesRemaining,
+    type: 'membership_monthly_payment_grant',
+    plan: 'monthly',
+    credits: STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH,
+    balanceAfter: w.balance,
+    eventId: eventId || null,
+    note: 'Paiement mensuel Studio Prompt · 50 crédits',
     at: new Date().toISOString()
   });
   return await studioImageWriteWallet(env, email, w);
 }
 
+async function studioImageStartAnnualMembership(env, email, paymentAt, eventId) {
+  const w = await studioImageReadWallet(env, email);
+  const startAt = paymentAt || new Date().toISOString();
+
+  // 1er versement sur 12 immédiatement après le paiement annuel.
+  w.balance += STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+  w.lifetimeAdded += STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+  w.membership = {
+    ...studioImageEmptyMembership(),
+    plan: 'annual',
+    active: true,
+    startedAt: startAt,
+    lastPaymentAt: startAt,
+    lastPaymentEventId: eventId || null,
+    annualMonthsGranted: 1,
+    annualMonthsTotal: STUDIO_IMAGE_ANNUAL_GRANT_MONTHS,
+    nextGrantAt: studioImageAddMonthsISO(startAt, 1),
+    annualEndsAt: studioImageAddMonthsISO(startAt, 12),
+    canceledAt: null
+  };
+  w.ledger.unshift({
+    type: 'membership_annual_monthly_grant',
+    plan: 'annual',
+    credits: STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH,
+    monthNumber: 1,
+    balanceAfter: w.balance,
+    eventId: eventId || null,
+    note: 'Abonnement annuel Studio Prompt · mois 1/12',
+    at: new Date().toISOString()
+  });
+  return await studioImageWriteWallet(env, email, w);
+}
+
+async function studioImageCancelMembership(env, email, expectedPlan, eventId) {
+  const w = await studioImageReadWallet(env, email);
+  if (!w.membership || !w.membership.plan) return w;
+  if (expectedPlan && w.membership.plan !== expectedPlan) return w;
+  w.membership.active = false;
+  w.membership.canceledAt = new Date().toISOString();
+  w.membership.nextGrantAt = null;
+  w.ledger.unshift({
+    type: 'membership_canceled',
+    plan: w.membership.plan,
+    eventId: eventId || null,
+    note: 'Annulation/remboursement reçu de Systeme.io : futurs crédits d’adhésion arrêtés.',
+    at: new Date().toISOString()
+  });
+  return await studioImageWriteWallet(env, email, w);
+}
+
+async function studioImageReserveUsage(env, email) {
+  const w = await studioImageReadWallet(env, email);
+  if (w.balance < 1) return { ok: false, wallet: w };
+  w.balance -= 1;
+  w.lifetimeSpent += 1;
+  await studioImageWriteWallet(env, email, w);
+  return { ok: true, wallet: w };
+}
+
+async function studioImageRefundReservedUsage(env, email, note) {
+  const w = await studioImageReadWallet(env, email);
+  w.balance += 1;
+  w.lifetimeSpent = Math.max(0, w.lifetimeSpent - 1);
+  w.ledger.unshift({ type: 'usage_refund', credits: 1, note: String(note || '').slice(0, 300), at: new Date().toISOString() });
+  return await studioImageWriteWallet(env, email, w);
+}
+
 async function studioImageFinalizeCreditCharge(env, email, totalCredits, costUsd, meta = {}) {
   const charge = Math.max(1, Math.floor(Number(totalCredits) || 1));
-  const extra = Math.max(0, charge - 1); // 1 crédit a déjà été réservé avant l'appel API
+  const extra = Math.max(0, charge - 1); // 1 crédit a déjà été réservé avant l'appel API.
   const w = await studioImageReadWallet(env, email);
   if (extra) {
+    // Un coût réel n'est connu qu'après génération. Le solde interne peut donc
+    // devenir légèrement négatif; les futurs crédits remettent d'abord ce solde à niveau.
     w.balance -= extra;
     w.lifetimeSpent += extra;
   }
@@ -2931,7 +3061,6 @@ async function handleStudioImageCredits(request, env) {
   return json({
     success: true,
     credits: Math.max(0, Math.floor(w.balance)),
-    includedImagesRemaining: Math.max(0, Math.floor(w.includedImagesRemaining || 0)),
     purchaseUrl: studioImagePurchaseUrl(env) || null
   });
 }
@@ -2966,8 +3095,7 @@ async function handleAdminStudioImageCredits(request, env) {
     success: true,
     email,
     credits: w.balance,
-    includedImagesRemaining: Math.max(0, Math.floor(w.includedImagesRemaining || 0)),
-    lifetimeIncludedImagesUsed: Math.max(0, Math.floor(w.lifetimeIncludedImagesUsed || 0)),
+    membership: w.membership || studioImageEmptyMembership(),
     lifetimeAdded: w.lifetimeAdded,
     lifetimeSpent: w.lifetimeSpent,
     lifetimeCostUsd: Number(w.lifetimeCostUsd.toFixed(6)),
@@ -2977,8 +3105,6 @@ async function handleAdminStudioImageCredits(request, env) {
 }
 
 function studioImageNormalizeSystemePayload(body) {
-  // Systeme.io signe une représentation JSON normalisée : sans espaces,
-  // slashs échappés et caractères Unicode sous forme \uXXXX.
   const compact = JSON.stringify(body);
   let out = '';
   for (let i = 0; i < compact.length; i++) {
@@ -3020,19 +3146,46 @@ function studioImageSystemePackFromPlan(plan, env) {
 
   const label = `${plan?.name || ''} ${plan?.innerName || ''} ${plan?.inner_name || ''}`
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  if (/\b1000\b/.test(label) && /credit/.test(label)) return '1000';
-  if (/\b500\b/.test(label) && /credit/.test(label)) return '500';
-  if (/\b100\b/.test(label) && /credit/.test(label)) return '100';
+  const compactLabel = label.replace(/[\s\u00a0.,']/g, '');
+  if (/1000/.test(compactLabel) && /credit/.test(label)) return '1000';
+  if (/500/.test(compactLabel) && /credit/.test(label)) return '500';
+  if (/100/.test(compactLabel) && /credit/.test(label)) return '100';
   return '';
+}
+
+function studioImageSystemeMembershipFromPlan(plan, env) {
+  const id = String(plan?.id ?? '').trim();
+  const monthlyId = String(env.SYSTEME_IO_STUDIO_MONTHLY_PLAN_ID || '').trim();
+  const annualId = String(env.SYSTEME_IO_STUDIO_ANNUAL_PLAN_ID || '').trim();
+  if (monthlyId && id && monthlyId === id) return 'monthly';
+  if (annualId && id && annualId === id) return 'annual';
+
+  const label = `${plan?.name || ''} ${plan?.innerName || ''} ${plan?.inner_name || ''}`
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/(annuel|annual|12\s*mois)/i.test(label)) return 'annual';
+  if (/(mensuel|monthly|par\s*mois)/i.test(label)) return 'monthly';
+
+  // Secours pour les deux tarifs Studio Prompt validés : 69 $ mensuel / 497 $ annuel.
+  const rawAmount = Number(plan?.direct_charge_amount ?? plan?.amount ?? plan?.price ?? NaN);
+  if (Number.isFinite(rawAmount)) {
+    if (rawAmount === 69 || rawAmount === 6900) return 'monthly';
+    if (rawAmount === 497 || rawAmount === 49700) return 'annual';
+  }
+  return '';
+}
+
+function studioImageSystemePaymentAt(body, data, order) {
+  const candidates = [order?.created_at, data?.created_at, body?.created_at];
+  for (const value of candidates) {
+    const d = new Date(value || '');
+    if (Number.isFinite(d.getTime())) return d.toISOString();
+  }
+  return new Date().toISOString();
 }
 
 async function handleStudioImageCreditWebhook(request, env) {
   if (!env.CASHFLOW_KV) return json({ error: 'CASHFLOW_KV non configuré.' }, 500);
 
-  // Systeme.io peut être configuré avec une simple URL de webhook.
-  // Cette route accepte donc une clé privée directement dans l'URL (?key=...).
-  // Si un webhook natif Systeme.io avec signature HMAC est utilisé plus tard,
-  // cette vérification reste également supportée en option.
   const rawBody = await request.text();
   const webhookUrl = new URL(request.url);
   const urlKey = String(webhookUrl.searchParams.get('key') || '').trim();
@@ -3053,47 +3206,82 @@ async function handleStudioImageCreditWebhook(request, env) {
   const headerEvent = String(request.headers.get('X-Webhook-Event') || '').toUpperCase().trim();
   const legacyType = String(body.type || '').toLowerCase().trim();
   const isNewSale = ['SALE_NEW','NEW_SALE'].includes(headerEvent) || legacyType === 'customer.sale.completed';
-  if (!isNewSale) return json({ success: true, ignored: true, reason: 'Événement non lié à une nouvelle vente.' });
+  const isCanceled = ['SALE_CANCEL','SALE_CANCELED','SALE_CANCELLED','SALE_REFUNDED'].includes(headerEvent)
+    || ['customer.sale.canceled','customer.sale.cancelled','customer.sale.refunded'].includes(legacyType);
+  if (!isNewSale && !isCanceled) return json({ success: true, ignored: true, reason: 'Événement Systeme.io non utilisé par Studio Prompt Image.' });
 
-  // Compatible avec le webhook natif récent et l'ancien format d'automatisation Systeme.io.
   const data = body && body.data && typeof body.data === 'object' ? body.data : body;
   const customer = data.customer || body.customer || {};
   const plan = data.pricePlan || data.offer_price_plan || data.offerPricePlan || body.pricePlan || {};
   const order = data.order || body.order || {};
   const email = String(customer.email || '').toLowerCase().trim();
   const pack = studioImageSystemePackFromPlan(plan, env);
+  const membershipPlan = studioImageSystemeMembershipFromPlan(plan, env);
 
-  // Le webhook peut recevoir toutes les ventes du compte : on ignore proprement celles qui ne sont pas des packs Image.
-  if (!pack) return json({ success: true, ignored: true, reason: 'Plan de prix non reconnu comme pack Studio Prompt Image.' });
+  // Le webhook peut recevoir d'autres ventes Systeme.io : elles sont ignorées.
+  if (!pack && !membershipPlan) return json({ success: true, ignored: true, reason: 'Plan non reconnu pour Studio Prompt Image.' });
   if (!email || !email.includes('@')) return json({ error: 'Courriel client absent de la vente Systeme.io.' }, 400);
 
   const messageId = String(request.headers.get('X-Webhook-Message-Id') || '').trim();
   const orderId = String(order.id || '').trim();
-  const eventId = messageId || (orderId ? `systeme-order:${orderId}` : '');
+  const suffix = isCanceled ? ':cancel' : ':sale';
+  const eventId = messageId || (orderId ? `systeme-order:${orderId}${suffix}` : '');
   if (!eventId) return json({ error: 'Identifiant de vente Systeme.io absent; impossible de protéger contre un double crédit.' }, 400);
 
   const eventKey = studioImageCreditEventKey(eventId);
   const already = await env.CASHFLOW_KV.get(eventKey);
   if (already) return json({ success: true, duplicate: true });
 
-  const qty = STUDIO_IMAGE_PACKS[pack];
-  const w = await studioImageAddCredits(env, email, qty, {
-    type: 'purchase',
-    note: 'Achat Systeme.io · Studio Prompt Image',
-    pack,
-    eventId
-  });
+  if (isCanceled) {
+    if (membershipPlan) {
+      const w = await studioImageCancelMembership(env, email, membershipPlan, eventId);
+      await env.CASHFLOW_KV.put(eventKey, JSON.stringify({ provider: 'systeme.io', event: 'canceled', email, membershipPlan, orderId: order.id ?? null, at: new Date().toISOString() }));
+      return json({ success: true, membershipCanceled: membershipPlan, credits: Math.max(0, Math.floor(w.balance)) });
+    }
+    // Les remboursements de packs ne retirent pas automatiquement des crédits déjà consommés.
+    // Ils restent visibles à l'admin pour traitement manuel, sans créer de solde incohérent.
+    await env.CASHFLOW_KV.put(eventKey, JSON.stringify({ provider: 'systeme.io', event: 'pack_refund_seen', email, pack, orderId: order.id ?? null, at: new Date().toISOString() }));
+    return json({ success: true, refundRecorded: true, pack });
+  }
+
+  const paymentAt = studioImageSystemePaymentAt(body, data, order);
+  let w;
+  let creditsAdded = 0;
+  let eventType = '';
+
+  if (pack) {
+    creditsAdded = STUDIO_IMAGE_PACKS[pack];
+    w = await studioImageAddCredits(env, email, creditsAdded, {
+      type: 'purchase',
+      note: 'Achat Systeme.io · Studio Prompt Image',
+      pack,
+      eventId
+    });
+    eventType = 'credit_pack';
+  } else if (membershipPlan === 'monthly') {
+    creditsAdded = STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+    w = await studioImageGrantMonthlyMembershipPayment(env, email, paymentAt, eventId);
+    eventType = 'membership_monthly_payment';
+  } else if (membershipPlan === 'annual') {
+    creditsAdded = STUDIO_IMAGE_MEMBERSHIP_CREDITS_PER_MONTH;
+    w = await studioImageStartAnnualMembership(env, email, paymentAt, eventId);
+    eventType = 'membership_annual_start';
+  }
+
   await env.CASHFLOW_KV.put(eventKey, JSON.stringify({
     provider: 'systeme.io',
+    event: eventType,
     email,
-    pack,
+    pack: pack || null,
+    membershipPlan: membershipPlan || null,
     pricePlanId: plan?.id ?? null,
     orderId: order.id ?? null,
-    credits: qty,
+    creditsAdded,
+    paymentAt,
     at: new Date().toISOString()
   }));
 
-  return json({ success: true, creditsAdded: qty, balance: w.balance });
+  return json({ success: true, event: eventType, creditsAdded, balance: Math.max(0, Math.floor(w.balance)) });
 }
 
 function studioImageOpenRouterKey(env) {
@@ -3266,16 +3454,16 @@ async function handleStudioImageGenerate(request, env) {
     return json({ error: 'La limite quotidienne configurée pour ce compte a été atteinte.' }, 429);
   }
 
-  // Les 50 créations incluses avec l’adhésion de base sont utilisées en premier.
-  // Une fois épuisées, on réserve 1 crédit acheté avant l'appel OpenRouter.
+  // V9 : tous les droits d'usage sont des crédits dans un seul portefeuille.
+  // Les 50 crédits mensuels/annuels et les packs achetés s'additionnent.
   const usageReservation = await studioImageReserveUsage(env, session.email);
   if (!usageReservation.ok) {
-    return json({ error: 'Tu n’as plus d’images incluses ni de crédits Studio Prompt Image.', code: 'NO_IMAGE_CREDITS' }, 402);
+    return json({ error: 'Tu n’as plus de crédits Studio Prompt Image.', code: 'NO_IMAGE_CREDITS' }, 402);
   }
 
   const apiKey = studioImageOpenRouterKey(env);
   if (!apiKey) {
-    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Clé OpenRouter absente');
+    await studioImageRefundReservedUsage(env, session.email, 'Clé OpenRouter absente');
     return json({ error: 'Clé OpenRouter absente du Worker.' }, 500);
   }
 
@@ -3312,7 +3500,7 @@ async function handleStudioImageGenerate(request, env) {
       body: JSON.stringify(payload)
     });
   } catch (e) {
-    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Connexion OpenRouter impossible');
+    await studioImageRefundReservedUsage(env, session.email, 'Connexion OpenRouter impossible');
     return json({ error: 'Connexion OpenRouter Image impossible : ' + (e.message || String(e)) }, 502);
   }
 
@@ -3320,7 +3508,7 @@ async function handleStudioImageGenerate(request, env) {
   let data = {};
   try { data = raw ? JSON.parse(raw) : {}; } catch (_) {}
   if (!resp.ok) {
-    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Échec OpenRouter ' + resp.status);
+    await studioImageRefundReservedUsage(env, session.email, 'Échec OpenRouter ' + resp.status);
     const detail = data?.error?.message || data?.error || raw || ('HTTP ' + resp.status);
     return json({ error: 'OpenRouter Image : ' + String(detail).slice(0, 700) }, resp.status === 401 ? 502 : resp.status);
   }
@@ -3329,7 +3517,7 @@ async function handleStudioImageGenerate(request, env) {
   const b64 = first && first.b64_json ? first.b64_json : '';
   const mediaType = (first && first.media_type) || 'image/png';
   if (!b64) {
-    await studioImageRefundReservedUsage(env, session.email, usageReservation.source, 'Aucune image retournée');
+    await studioImageRefundReservedUsage(env, session.email, 'Aucune image retournée');
     return json({ error: 'OpenRouter n’a retourné aucune image exploitable.' }, 502);
   }
 
@@ -3384,16 +3572,10 @@ async function handleStudioImageGenerate(request, env) {
   await studioImageIncrementQuota(env, quota);
 
   const actualCostUsd = Number.isFinite(Number(data?.usage?.cost)) ? Number(data.usage.cost) : null;
-  let creditWallet;
-  let creditsUsed = 0;
-  if (usageReservation.source === 'included') {
-    creditWallet = await studioImageFinalizeIncludedImage(env, session.email, actualCostUsd, { model, imageId: id, mode });
-  } else {
-    creditsUsed = studioImageCreditsForCost(actualCostUsd);
-    creditWallet = await studioImageFinalizeCreditCharge(env, session.email, creditsUsed, actualCostUsd, { model, imageId: id, mode });
-  }
+  const creditsUsed = studioImageCreditsForCost(actualCostUsd);
+  const creditWallet = await studioImageFinalizeCreditCharge(env, session.email, creditsUsed, actualCostUsd, { model, imageId: id, mode });
 
-  // Le coût OpenRouter en dollars reste privé. Le client ne reçoit que ses compteurs d'usage.
+  // Le coût OpenRouter en dollars reste privé. Le client ne reçoit que son usage en crédits.
   return json({
     success: true,
     image: imageUrl,
@@ -3401,8 +3583,6 @@ async function handleStudioImageGenerate(request, env) {
     persisted,
     mediaType,
     creditsUsed,
-    includedImageUsed: usageReservation.source === 'included',
-    includedImagesRemaining: Math.max(0, Math.floor(creditWallet.includedImagesRemaining || 0)),
     creditsRemaining: Math.max(0, Math.floor(creditWallet.balance))
   });
 }
