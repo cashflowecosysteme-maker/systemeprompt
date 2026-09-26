@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NyXia · Studio Image GPT</title>
+<link rel="icon" href="/FavIcon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#060A18;
+  --night2:#0F1733;
+  --violet:#7B5CFF;
+  --lav:#A78BFA;
+  --gold:#F4C86A;
+  --text:#F7F4FF;
+  --muted:#AAA6C7;
+  --line:rgba(167,139,250,.22);
+  --glass:rgba(15,23,51,.72);
+  --green:#4FE3A4;
+  --red:#FF7A8A;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Inter,Outfit,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--night);color:var(--text)}
+body.auth-loading .shell{visibility:hidden}
+body{background-image:
+  radial-gradient(circle at 15% 5%,rgba(123,92,255,.17),transparent 31%),
+  radial-gradient(circle at 85% 20%,rgba(167,139,250,.11),transparent 28%),
+  radial-gradient(circle at 50% 90%,rgba(244,200,106,.06),transparent 32%),
+  linear-gradient(180deg,#060A18,#0A1025 60%,#060A18);
+  padding:0;
+}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+.shell{min-height:100vh;padding:18px}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:12px 14px;margin:-18px -18px 18px;background:rgba(6,10,24,.9);border-bottom:1px solid var(--line);backdrop-filter:blur(16px)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:38px;height:38px;border-radius:50%;object-fit:cover;box-shadow:0 0 28px rgba(123,92,255,.55)}
+.brand strong{display:block;font-size:14px}.brand span{display:block;color:var(--muted);font-size:11px}
+.mode{border:1px solid rgba(244,200,106,.36);color:#f8df9e;background:rgba(244,200,106,.07);border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800}
+.wrap{width:min(1180px,100%);margin:0 auto}
+.hero{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
+.hero h1{font-size:clamp(24px,4vw,38px);margin:0 0 7px;background:linear-gradient(90deg,#fff,var(--lav),var(--gold));-webkit-background-clip:text;color:transparent}
+.hero p{margin:0;color:var(--muted);max-width:760px;line-height:1.55}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(290px,.85fr);gap:16px;align-items:start}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:20px;padding:17px;box-shadow:0 18px 70px rgba(0,0,0,.18);backdrop-filter:blur(12px)}
+.card h2{font-size:16px;margin:0 0 12px}.card h3{font-size:13px;margin:0 0 9px}
+.subtle{color:var(--muted);font-size:12px;line-height:1.55}
+.field{margin-bottom:12px}
+label.f{display:block;color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px}
+textarea.f,input.f,select.f{width:100%;border:1px solid rgba(167,139,250,.25);border-radius:12px;background:rgba(5,9,24,.78);color:#fff;padding:11px 12px;outline:none}
+textarea.f{min-height:148px;resize:vertical;line-height:1.45}
+textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);box-shadow:0 0 0 3px rgba(123,92,255,.08)}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.btn{border:0;border-radius:12px;padding:11px 14px;color:#fff;font-weight:850;background:linear-gradient(135deg,var(--violet),#5e74ff);box-shadow:0 8px 22px rgba(123,92,255,.19)}
+.btn:hover{transform:translateY(-1px)}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.ghost{background:rgba(123,92,255,.08);border:1px solid var(--line);box-shadow:none;color:#ddd7ff}
+.btn.gold{background:linear-gradient(135deg,#cfa548,var(--gold));color:#171109}
+.btn.red{background:rgba(255,122,138,.1);border:1px solid rgba(255,122,138,.28);box-shadow:none;color:#ffb0ba}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+.chip{border:1px solid var(--line);background:rgba(123,92,255,.07);color:#ddd7ff;border-radius:999px;padding:7px 9px;font-size:11px}
+.chip.active{border-color:rgba(244,200,106,.5);color:#f8df9e;background:rgba(244,200,106,.08)}
+.locked{display:flex;align-items:flex-start;gap:8px;padding:10px 11px;border-left:3px solid var(--gold);background:rgba(244,200,106,.06);border-radius:10px;color:#f2e4bc;font-size:12px;line-height:1.5}
+.preview-box{border:1px dashed rgba(167,139,250,.3);border-radius:15px;min-height:150px;background:rgba(3,6,16,.55);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.preview-box img{max-width:100%;max-height:340px;display:block}
+.drop-hint{padding:22px;text-align:center;color:var(--muted);font-size:12px}
+.result{min-height:320px;border:1px solid var(--line);border-radius:18px;background:rgba(3,6,16,.6);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.result img{width:100%;height:auto;display:block}
+.result-empty{text-align:center;color:var(--muted);padding:30px;font-size:13px}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.status{font-size:12px;color:var(--muted);margin-top:8px;min-height:20px}
+.status.ok{color:#a7f7d4}.status.err{color:#ffb0ba}
+.quota{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:11px;border-radius:12px;background:rgba(79,227,164,.07);border:1px solid rgba(79,227,164,.22);font-size:12px}
+.quota strong{color:#a7f7d4}
+.tip{padding:11px;border-radius:12px;background:rgba(123,92,255,.07);border:1px solid rgba(123,92,255,.18);font-size:12px;color:#dcd6fa;line-height:1.55}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.thumb{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#030610}
+.thumb img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+.thumb .p{padding:8px;font-size:10px;color:var(--muted)}
+.footer-note{font-size:10px;color:#7f7a9b;text-align:center;padding:18px 4px 8px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.result{min-height:260px}}
+@media(max-width:620px){.shell{padding:11px}.topbar{margin:-11px -11px 14px}.row,.row3{grid-template-columns:1fr}.hero{display:block}.mode{margin-top:8px;display:inline-flex}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <img src="/NyXia.png" alt="NyXia" onerror="this.style.display='none'">
+      <div><strong>NyXia · Studio Image GPT</strong><span>Créer · modifier · décliner</span></div>
+    </div>
+    <div class="mode">Studio Prompt</div>
+  </header>
+
+  <main class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Transforme une idée en image.</h1>
+        <p>Décris simplement ce que tu veux. Tu peux partir de zéro, joindre une image à modifier ou demander une variation.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>🎨 Création</h2>
+
+        <div class="field">
+          <label class="f" for="actionMode">Ce que tu veux faire</label>
+          <select class="f" id="actionMode">
+            <option value="create">Créer une nouvelle image</option>
+            <option value="edit">Modifier une image existante</option>
+            <option value="variation">Créer une variation</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="f" for="prompt">Ta demande</label>
+          <textarea class="f" id="prompt" placeholder="Exemple : une femme entrepreneure devant un miroir lumineux, ambiance cinématique élégante, cadrage vertical, profondeur de champ douce…"></textarea>
+          <div class="chips">
+            <button type="button" class="chip active" onclick="setStyle('photorealiste',this)">Photo réaliste</button>
+            <button type="button" class="chip" onclick="setStyle('cinematique',this)">Cinématique</button>
+            <button type="button" class="chip" onclick="setStyle('editorial',this)">Éditorial</button>
+            <button type="button" class="chip" onclick="setStyle('illustration',this)">Illustration</button>
+            <button type="button" class="chip" onclick="setStyle('produit',this)">Produit</button>
+            <button type="button" class="chip" onclick="setStyle('3d',this)">3D</button>
+          </div>
+          <input type="hidden" id="visualStyle" value="photorealiste">
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label class="f" for="format">Format</label>
+            <select class="f" id="format">
+              <option value="1:1">Carré · 1:1</option>
+              <option value="4:5">Publication · 4:5</option>
+              <option value="9:16">Story / Reel · 9:16</option>
+              <option value="16:9">Bannière · 16:9</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="f">Fond</label>
+            <label style="display:flex;align-items:center;gap:8px;min-height:43px;padding:10px 11px;border:1px solid rgba(167,139,250,.25);border-radius:12px;background:rgba(5,9,24,.78);font-size:12px;color:#ddd7ff">
+              <input type="checkbox" id="transparent"> PNG transparent si compatible
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="f" for="referenceFile">Image de référence · optionnelle</label>
+          <input class="f" type="file" id="referenceFile" accept="image/png,image/jpeg,image/webp">
+          <div id="referencePreview" class="preview-box" style="margin-top:8px"><div class="drop-hint">Ajoute une image uniquement si tu veux modifier une image existante ou préserver une référence visuelle.</div></div>
+        </div>
+
+        <div class="actions" style="margin-top:14px">
+          <button class="btn gold" id="generateBtn" type="button" onclick="generateImage()">✨ Générer avec GPT Image</button>
+          <button class="btn ghost" type="button" onclick="copyPrompt()">📋 Copier mon prompt</button>
+        </div>
+        <div class="status" id="status"></div>
+      </section>
+
+      <aside>
+        <section class="card">
+          <h2>🖼️ Résultat</h2>
+          <div class="result" id="result"><div class="result-empty">Ton image apparaîtra ici.<br><br>Tu peux ensuite la télécharger ou la réutiliser comme référence.</div></div>
+          <div class="toolbar hidden" id="resultTools">
+            <button class="btn ghost" type="button" onclick="downloadResult()">⬇ Télécharger</button>
+            <button class="btn ghost" type="button" onclick="document.getElementById('referenceFile').click()">↺ Utiliser comme point de départ</button>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top:16px">
+          
+      <div class="quota">
+        <div><strong>Budget protégé</strong><br><span id="quotaText">Le quota réel sera imposé par le Worker, jamais par le navigateur.</span></div>
+        <div>🔒</div>
+      </div>
+    
+          <div class="tip" style="margin-top:10px">
+            <strong>Astuce de prompt</strong><br>
+            Décris : <em>sujet + action + cadrage + lumière + ambiance + détails importants + format</em>. Tu n’as pas besoin d’écrire un roman : précise surtout ce qui ne doit pas changer.
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <section class="card" style="margin-top:16px">
+      <h2>🕘 Créations de cette session</h2>
+      <div class="gallery" id="gallery"></div>
+    </section>
+
+  </main>
+</div>
+<script>
+const MODE="client";
+const API_ENDPOINT="/api/studio-image/generate";
+
+function redirectToLogin(){
+  try{
+    if(window.top && window.top!==window){ window.top.location.href='/login.html'; return; }
+  }catch(e){}
+  location.href='/login.html';
+}
+async function ensureStudioPromptAuth(){
+  var token=pickSessionToken(true)
+  if(!token){ redirectToLogin(); return false }
+  try{
+    var res=await fetch('/api/check-auth',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:token}),
+      credentials:'include'
+    })
+    var data={}
+    try{ data=await res.json() }catch(e){ data={} }
+    if(!res.ok || !data.valid){ redirectToLogin(); return false }
+    return true
+  }catch(e){
+    redirectToLogin();
+    return false
+  }
+}
+
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function pickSessionToken(clientMode){
+  var keys = clientMode ? ['nyxia_token'] : ['nyxia_super2_token','nyxia_univers_token','nyxia_token']
+  for(var i=0;i<keys.length;i++){
+    try{
+      var v=sessionStorage.getItem(keys[i])||localStorage.getItem(keys[i])||''
+      if(v) return v
+    }catch(e){}
+  }
+  try{
+    var q=new URLSearchParams(location.search)
+    if(q.get('t')) return q.get('t')
+  }catch(e){}
+  try{
+    if(parent && parent!==window){
+      for(var j=0;j<keys.length;j++){
+        var p=parent.sessionStorage.getItem(keys[j])||parent.localStorage.getItem(keys[j])||''
+        if(p) return p
+      }
+    }
+  }catch(e){}
+  return ''
+}
+function readFileAsDataURL(file){
+  return new Promise(function(resolve,reject){
+    var r=new FileReader()
+    r.onload=function(){resolve(r.result)}
+    r.onerror=reject
+    r.readAsDataURL(file)
+  })
+}
+function setStatus(msg,kind){
+  var el=document.getElementById('status')
+  el.textContent=msg||''
+  el.className='status'+(kind?' '+kind:'')
+}
+function setStyle(name,btn){
+  document.getElementById('visualStyle').value=name
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'),function(c){c.classList.remove('active')})
+  if(btn) btn.classList.add('active')
+}
+function showReference(file){
+  var box=document.getElementById('referencePreview')
+  if(!file){box.innerHTML='<div class="drop-hint">Ajoute une image uniquement si tu veux modifier une image existante ou préserver une référence visuelle.</div>';return}
+  var url=URL.createObjectURL(file)
+  box.innerHTML='<img src="'+url+'" alt="Référence">'
+}
+function normalizeResponse(data){
+  if(!data) return null
+  if(data.image){
+    if(typeof data.image==='string') return data.image
+    return data.image.url||data.image.dataUrl||data.image.data_url||''
+  }
+  if(Array.isArray(data.images)&&data.images.length){
+    var x=data.images[0]
+    return typeof x==='string'?x:(x.url||x.dataUrl||x.data_url||'')
+  }
+  if(data.url) return data.url
+  if(data.dataUrl) return data.dataUrl
+  if(data.data && Array.isArray(data.data) && data.data[0]){
+    return data.data[0].url || (data.data[0].b64_json ? 'data:image/png;base64,'+data.data[0].b64_json : '')
+  }
+  return null
+}
+function addHistory(url,prompt){
+  if(!url)return
+  var key='nyxia_studio_image_history_'+MODE
+  var arr=[]
+  try{arr=JSON.parse(sessionStorage.getItem(key)||'[]')||[]}catch(e){}
+  arr.unshift({url:url,prompt:prompt||'',at:Date.now()})
+  arr=arr.slice(0,12)
+  try{sessionStorage.setItem(key,JSON.stringify(arr))}catch(e){}
+  renderHistory()
+}
+function renderHistory(){
+  var key='nyxia_studio_image_history_'+MODE, arr=[]
+  try{arr=JSON.parse(sessionStorage.getItem(key)||'[]')||[]}catch(e){}
+  var el=document.getElementById('gallery')
+  if(!arr.length){el.innerHTML='<div class="subtle">Aucune création dans cette session.</div>';return}
+  el.innerHTML=arr.map(function(it,i){
+    return '<div class="thumb"><button type="button" onclick="reuseHistory('+i+')" style="all:unset;cursor:pointer;display:block;width:100%"><img src="'+esc(it.url)+'" alt="Création"><div class="p">'+esc((it.prompt||'').slice(0,70))+'</div></button></div>'
+  }).join('')
+  window._imgHistory=arr
+}
+function reuseHistory(i){
+  var arr=window._imgHistory||[]
+  var it=arr[i]; if(!it)return
+  showResult(it.url)
+  document.getElementById('prompt').value=it.prompt||''
+}
+function showResult(url){
+  var el=document.getElementById('result')
+  el.innerHTML='<img id="generatedImage" src="'+esc(url)+'" alt="Image générée">'
+  document.getElementById('resultTools').classList.remove('hidden')
+  window._lastImageUrl=url
+}
+function downloadResult(){
+  var url=window._lastImageUrl
+  if(!url)return
+  var a=document.createElement('a')
+  a.href=url;a.download='nyxia-image-'+Date.now()+'.png';a.target='_blank';a.rel='noopener'
+  document.body.appendChild(a);a.click();a.remove()
+}
+async function copyPrompt(){
+  var p=document.getElementById('prompt').value
+  await navigator.clipboard.writeText(p)
+  setStatus('Prompt copié.', 'ok')
+}
+async function buildPayload(){
+  var ref=document.getElementById('referenceFile').files[0]
+  var payload={
+    mode:document.getElementById('actionMode').value,
+    prompt:document.getElementById('prompt').value.trim(),
+    format:document.getElementById('format').value,
+    visualStyle:document.getElementById('visualStyle').value,
+    transparent:document.getElementById('transparent').checked,
+  }
+  if(ref) payload.referenceImage=await readFileAsDataURL(ref)
+  return payload
+}
+async function generateImage(){
+  var btn=document.getElementById('generateBtn')
+  var prompt=document.getElementById('prompt').value.trim()
+  if(!prompt){setStatus('Écris d’abord ce que tu veux créer.', 'err');return}
+  btn.disabled=true
+  btn.textContent='✨ Création en cours…'
+  setStatus('Préparation de la demande…')
+  try{
+    var payload=await buildPayload()
+    var token=pickSessionToken(MODE==='client')
+    if(token) payload.token=token
+    var headers={'Content-Type':'application/json'}
+    if(token){
+      if(MODE==='client') headers['Authorization']='Bearer '+token
+      else headers['X-Univers-Token']=token
+    }
+    var res=await fetch(API_ENDPOINT,{method:'POST',headers:headers,body:JSON.stringify(payload),credentials:'include'})
+    var text=await res.text()
+    var data={}
+    try{data=text?JSON.parse(text):{}}catch(e){data={error:text||('HTTP '+res.status)}}
+    if(!res.ok || data.error){
+      if(res.status===404){
+        throw new Error('La page est installée, mais la route serveur GPT Image n’est pas encore branchée.')
+      }
+      throw new Error(data.error||data.detail||('Erreur '+res.status))
+    }
+    var url=normalizeResponse(data)
+    if(!url) throw new Error('La génération a répondu, mais aucune image exploitable n’a été retournée.')
+    showResult(url)
+    addHistory(url,prompt)
+    setStatus('Image prête. 💜','ok')
+  }catch(e){
+    setStatus(e.message||String(e),'err')
+  }finally{
+    btn.disabled=false
+    btn.textContent='✨ Générer avec GPT Image'
+  }
+}
+document.addEventListener('DOMContentLoaded',async function(){
+  document.body.classList.add('auth-loading')
+  var ok = await ensureStudioPromptAuth()
+  if(!ok) return
+  var ref=document.getElementById('referenceFile')
+  ref.addEventListener('change',function(){showReference(ref.files[0]||null)})
+  renderHistory()
+  document.body.classList.remove('auth-loading')
+})
+
+</script>
+</body>
+</html>
