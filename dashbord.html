@@ -253,9 +253,8 @@
       <button class="btn-header btn-logout" onclick="logout()">Déconnexion</button>
     </div>
   </header>
-  <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
-
   <div class="app-body">
+    <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
     <aside>
       <!-- SECTION : MON ESPACE — Diane (formatrice) en premier -->
       <div class="sidebar-section">
@@ -302,9 +301,15 @@
       <!-- SECTION : MON PARCOURS -->
       <div class="sidebar-section">
         <div class="sidebar-label">Mon Parcours</div>
-        <a class="nav-item" id="nav-miroir" href="https://www.lemiroirnyxia.com/fr/login" target="_blank" rel="noopener">
-          <span class="nav-icon">🪞</span> Mon Espace <span class="nav-arrow">↗</span>
-        </a>
+        <div class="nav-item" id="nav-ecosysteme" onclick="showPanel('ecosysteme')">
+          <span class="nav-icon">🌌</span> Mon Univers NyXia <span class="nav-arrow">›</span>
+        </div>
+        <div class="nav-item" id="nav-formations" onclick="showPanel('formations')">
+          <span class="nav-icon">🎓</span> Mes Formations Vivantes <span class="nav-arrow">›</span>
+        </div>
+        <div class="nav-item" id="nav-contenus" onclick="showPanel('contenus')">
+          <span class="nav-icon">📣</span> Mes contenus prêts à publier <span class="nav-arrow">›</span>
+        </div>
         <a class="nav-item" id="nav-groupe" href="https://www.facebook.com/groups/nyxiastudioprompts" target="_blank" rel="noopener">
           <span class="nav-icon">👥</span> Accès au groupe <span class="nav-arrow">↗</span>
         </a>
@@ -320,6 +325,9 @@
         <div class="sidebar-label">Outils</div>
         <div class="nav-item" id="nav-studio" onclick="showPanel('studio')">
           <span class="nav-icon">⚡</span> Studio Prompt <span class="nav-arrow">›</span>
+        </div>
+        <div class="nav-item" id="nav-studio-image" onclick="showPanel('studio-image')">
+          <span class="nav-icon">🎨</span> Studio Prompt Image <span class="nav-arrow">›</span>
         </div>
         <div class="nav-item" id="nav-journal" onclick="showPanel('journal')">
           <span class="nav-icon">📓</span> Mon Journal <span class="nav-arrow">›</span>
@@ -351,6 +359,34 @@
         <div style="font-size:40px">🪞</div>
         <div style="color:var(--t2);font-size:16px">Mon Espace s'ouvre dans un nouvel onglet.</div>
         <a href="https://www.lemiroirnyxia.com/fr/login" target="_blank" rel="noopener" style="padding:10px 22px;border-radius:50px;background:linear-gradient(135deg,#7B5CFF,#5A6CFF);color:#fff;text-decoration:none;font-weight:600;font-size:13px">Ouvrir Mon Espace ↗</a>
+      </div>
+
+      <!-- Panel Mon Écosystème -->
+      <div class="panel" id="panel-ecosysteme" style="flex-direction:column">
+        <div style="flex:1;overflow:hidden;position:relative">
+          <iframe id="ecosysteme-iframe" src="/univers-nyxia.html" style="width:100%;height:100%;border:none;display:block" title="Mon Univers NyXia"></iframe>
+        </div>
+      </div>
+
+      <!-- Panel Mes Formations Vivantes -->
+      <div class="panel" id="panel-formations" style="flex-direction:column">
+        <div style="flex:1;overflow:hidden;position:relative">
+          <iframe id="formations-iframe" src="/formations-vivantes.html" style="width:100%;height:100%;border:none;display:block" title="Mes Formations Vivantes"></iframe>
+        </div>
+      </div>
+
+      <!-- Panel Mes contenus prêts à publier -->
+      <div class="panel" id="panel-contenus" style="flex-direction:column">
+        <div style="flex:1;overflow:hidden;position:relative">
+          <iframe id="contenus-iframe" src="/contenus-prets.html" style="width:100%;height:100%;border:none;display:block" title="Mes contenus prêts à publier"></iframe>
+        </div>
+      </div>
+
+      <!-- Panel Studio Prompt Image -->
+      <div class="panel" id="panel-studio-image" style="flex-direction:column">
+        <div style="flex:1;overflow:hidden;position:relative">
+          <iframe id="studio-image-iframe" src="/studio-image-client.html" style="width:100%;height:100%;border:none;display:block" title="Studio Prompt Image"></iframe>
+        </div>
       </div>
 
       <!-- Panel Journal Studio Prompt -->
@@ -704,6 +740,18 @@
     }
     function showPanel(name) {
       if (name === 'studio') { try { refreshStudioFrame() } catch (e) {} }
+      if (name === 'formations') {
+        try {
+          var ff = document.getElementById('formations-iframe')
+          if (ff && ff.contentWindow) ff.contentWindow.postMessage({ type: 'nyxia_formations_refresh' }, window.location.origin)
+        } catch (e) {}
+      }
+      if (name === 'contenus') {
+        try {
+          var cf = document.getElementById('contenus-iframe')
+          if (cf && cf.contentWindow) cf.contentWindow.postMessage({ type: 'nyxia_contenus_refresh' }, window.location.origin)
+        } catch (e) {}
+      }
 
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
@@ -911,6 +959,51 @@
       lena:   '/chat-lena.html',
       selena: '/chat-selena.html',
       alex:   '/chat-alex.html'
+    }
+
+    function openFormationFromCard(agent, formationId, title, mode) {
+      agent = String(agent || '').toLowerCase()
+      if (!AGENT_PAGES[agent]) return
+      var iframe = document.getElementById('agent-iframe')
+      if (!iframe) return
+      var payload = { type: 'nyxia_formation_open', agent: agent, formationId: String(formationId || ''), title: String(title || ''), mode: String(mode || 'start') }
+      var current = iframe.getAttribute('data-agent') || ''
+      if (current !== agent) {
+        iframe.addEventListener('load', function onFormationFrameLoad() {
+          try { iframe.contentWindow.postMessage(payload, window.location.origin) } catch (e) {}
+        }, { once: true })
+        openAgentTab(agent)
+      } else {
+        openAgentTab(agent)
+        setTimeout(function() { try { iframe.contentWindow.postMessage(payload, window.location.origin) } catch (e) {} }, 80)
+      }
+    }
+
+    function openAgentWithPrefill(key, text) {
+      key = String(key || '').toLowerCase()
+      if (!AGENT_PAGES[key]) return
+      var iframe = document.getElementById('agent-iframe')
+      if (!iframe) return
+      var payload = { type: 'nyxia_prefill', text: String(text || '') }
+      var current = iframe.getAttribute('data-agent') || ''
+      if (current !== key) {
+        iframe.addEventListener('load', function onPrefillFrameLoad() {
+          try { iframe.contentWindow.postMessage(payload, window.location.origin) } catch (e) {}
+        }, { once: true })
+        openAgentTab(key)
+      } else {
+        openAgentTab(key)
+        setTimeout(function(){ try { iframe.contentWindow.postMessage(payload, window.location.origin) } catch(e){} }, 80)
+      }
+    }
+
+    function openNyxiaBridge(target) {
+      var tok = sessionToken || sessionStorage.getItem('nyxia_token') || ''
+      if (!tok) { alert('Ta session NyXia est expirée. Reconnecte-toi.'); return }
+      var base = target === 'promoteurs'
+        ? 'https://promoteurs.nyxia.top/studio-bridge.html#t='
+        : 'https://repertoire.nyxia.top/studio-bridge.html#t='
+      window.open(base + encodeURIComponent(tok), '_blank', 'noopener')
     }
 
     function openAgentTab(key) {

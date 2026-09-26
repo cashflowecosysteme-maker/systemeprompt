@@ -515,6 +515,9 @@ export default {
       if (path === '/api/logout' && request.method === 'POST') return await handleLogout(request, env);
       if (path === '/api/chat' && request.method === 'POST') return await handleChat(request, env);
       if (path === '/api/studio-chat' && request.method === 'POST') return await handleStudioChat(request, env);
+      if (path === '/api/studio-image/generate' && request.method === 'POST') return await handleStudioImageGenerate(request, env);
+      if (path === '/api/studio-image/history' && request.method === 'POST') return await handleStudioImageHistory(request, env);
+      if (path === '/api/studio-image/file' && request.method === 'GET') return await handleStudioImageFile(request, env, url);
       if (path === '/api/journal' && request.method === 'POST') return await handleJournal(request, env);
       if (path === '/api/contenus' && request.method === 'POST') return await handleReadyContents(request, env);
       if (path === '/api/admin/contenus' && request.method === 'POST') return await handleAdminReadyContents(request, env);
@@ -2718,5 +2721,365 @@ async function handleJournal(request, env) {
   }
 
   return json({ error: 'Action Journal inconnue.' }, 400);
+}
+
+// ============================================================
+// 🎨 STUDIO PROMPT IMAGE — ajout isolé, sans modifier les chats
+// ============================================================
+// Secrets/bindings utilisés :
+// - OpenAI_KEY / OpenAi_KEY / OPENAI_API_KEY (déjà supportés par le Worker TTS)
+// - OPENAI_IMAGE_MODEL (optionnel; défaut : gpt-image-2.5-sunburst)
+// - STUDIO_IMAGE_QUALITY (optionnel; défaut : medium)
+// - STUDIO_IMAGE_DAILY_LIMIT (optionnel; défaut : 10 images / compte / jour)
+// - MEDIA_BUCKET (R2 optionnel; si absent, l'image est renvoyée en data URL et
+//   l'historique reste celui de la session navigateur)
+
+function studioImageOpenAIKey(env) {
+  return env.OpenAI_KEY || env.OpenAi_KEY || env.OPENAI_API_KEY || '';
+}
+
+function studioImageModel(env) {
+  return String(env.OPENAI_IMAGE_MODEL || 'gpt-image-2.5-sunburst').trim();
+}
+
+function studioImageQuality(env) {
+  const q = String(env.STUDIO_IMAGE_QUALITY || 'medium').toLowerCase().trim();
+  return ['low','medium','high','xhigh','max'].includes(q) ? q : 'medium';
+}
+
+function studioImageDailyLimit(env) {
+  const n = Number(env.STUDIO_IMAGE_DAILY_LIMIT || 10);
+  if (!Number.isFinite(n) || n < 1) return 10;
+  return Math.max(1, Math.min(200, Math.floor(n)));
+}
+
+function studioImageSize(format) {
+  // GPT Image 2/2.5 accepte les dimensions personnalisées multiples de 16.
+  const map = {
+    '1:1': '1024x1024',
+    '4:5': '1024x1280',
+    '9:16': '1008x1792',
+    '16:9': '1792x1008'
+  };
+  return map[String(format || '')] || '1024x1024';
+}
+
+function studioImageMimeFromDataUrl(dataUrl) {
+  const m = String(dataUrl || '').match(/^data:(image\/(?:png|jpeg|webp));base64,/i);
+  return m ? m[1].toLowerCase() : '';
+}
+
+function studioImageBytesFromDataUrl(dataUrl) {
+  const raw = String(dataUrl || '');
+  const comma = raw.indexOf(',');
+  if (comma < 0) throw new Error('Image de référence invalide.');
+  const b64 = raw.slice(comma + 1);
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function studioImageBytesFromBase64(b64) {
+  const binary = atob(String(b64 || ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function studioImageBase64FromBytes(bytes) {
+  // Découpe pour éviter de dépasser la pile sur les grosses images.
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+  }
+  return btoa(binary);
+}
+
+function studioImageSafeText(value, max = 4000) {
+  return String(value == null ? '' : value).replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, max);
+}
+
+function studioImagePrompt(body) {
+  const prompt = studioImageSafeText(body.prompt, 5000);
+  const style = studioImageSafeText(body.visualStyle, 80);
+  const mode = studioImageSafeText(body.mode, 30);
+  const format = studioImageSafeText(body.format, 20);
+  const extra = [];
+  if (style) extra.push('Style visuel demandé : ' + style + '.');
+  if (format) extra.push('Composition prévue pour un format ' + format + '.');
+  if (mode === 'variation') {
+    extra.push('Crée une variation fidèle de l’image de référence : conserve les éléments identitaires et structurants importants, tout en produisant une nouvelle version cohérente avec la demande.');
+  } else if (mode === 'edit') {
+    extra.push('Modifie l’image de référence selon la demande en préservant ce qui n’est pas explicitement demandé de changer.');
+  }
+  if (body.transparent) extra.push('Le fond doit être réellement transparent lorsque la composition le permet.');
+  return [prompt, ...extra].filter(Boolean).join('\n\n');
+}
+
+function studioImageExtractToken(request, body, url) {
+  const auth = request.headers.get('Authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (m && m[1]) return m[1].trim();
+  const univers = request.headers.get('X-Univers-Token');
+  if (univers) return univers.trim();
+  if (body && body.token) return String(body.token).trim();
+  if (url && url.searchParams.get('token')) return String(url.searchParams.get('token')).trim();
+  return '';
+}
+
+function studioImageDayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function studioImageQuotaStatus(env, email) {
+  const limit = studioImageDailyLimit(env);
+  const key = `studio_image_quota:${String(email || '').toLowerCase()}:${studioImageDayKey()}`;
+  let used = 0;
+  try {
+    const raw = await env.CASHFLOW_KV.get(key);
+    used = Math.max(0, Number(raw || 0) || 0);
+  } catch (_) {}
+  return { key, limit, used, remaining: Math.max(0, limit - used) };
+}
+
+async function studioImageIncrementQuota(env, quota) {
+  const used = quota.used + 1;
+  await env.CASHFLOW_KV.put(quota.key, String(used), { expirationTtl: 60 * 60 * 48 });
+  return { limit: quota.limit, used, remaining: Math.max(0, quota.limit - used) };
+}
+
+function studioImageHistoryKey(email) {
+  return `studio_image_history:${String(email || '').toLowerCase().trim()}`;
+}
+
+async function studioImageReadHistory(env, email) {
+  try {
+    const raw = await env.CASHFLOW_KV.get(studioImageHistoryKey(email));
+    if (!raw) return [];
+    const rows = JSON.parse(raw);
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) { return []; }
+}
+
+async function studioImageWriteHistory(env, email, rows) {
+  try {
+    await env.CASHFLOW_KV.put(studioImageHistoryKey(email), JSON.stringify((rows || []).slice(0, 30)));
+  } catch (_) {}
+}
+
+function studioImagePublicUrl(id, token) {
+  return '/api/studio-image/file?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token);
+}
+
+async function handleStudioImageGenerate(request, env) {
+  if (!env.CASHFLOW_KV) return json({ error: 'CASHFLOW_KV non configuré.' }, 500);
+
+  let body = {};
+  try { body = await request.json(); }
+  catch (_) { return json({ error: 'Requête image invalide.' }, 400); }
+
+  const token = studioImageExtractToken(request, body);
+  const session = await getSessionOrNull(token, env);
+  if (!session || !session.email) return json({ error: 'Session expirée.' }, 401);
+
+  const prompt = studioImageSafeText(body.prompt, 5000);
+  if (!prompt) return json({ error: 'Décris d’abord l’image à créer.' }, 400);
+
+  const mode = ['create','edit','variation'].includes(String(body.mode)) ? String(body.mode) : 'create';
+  const referenceImage = String(body.referenceImage || '');
+  if ((mode === 'edit' || mode === 'variation') && !referenceImage) {
+    return json({ error: 'Ajoute une image de référence pour modifier ou créer une variation.' }, 400);
+  }
+
+  if (referenceImage) {
+    const mime = studioImageMimeFromDataUrl(referenceImage);
+    if (!mime) return json({ error: 'Format de référence accepté : PNG, JPEG ou WEBP.' }, 400);
+    // Approximation base64 : 4 caractères ~= 3 octets.
+    const comma = referenceImage.indexOf(',');
+    const b64len = comma >= 0 ? referenceImage.length - comma - 1 : 0;
+    if ((b64len * 3 / 4) > 12 * 1024 * 1024) {
+      return json({ error: 'Image de référence trop lourde : maximum 12 Mo.' }, 413);
+    }
+  }
+
+  const quota = await studioImageQuotaStatus(env, session.email);
+  if (quota.remaining <= 0) {
+    return json({
+      error: `Quota quotidien atteint (${quota.limit} images). Il se réinitialise automatiquement demain.`,
+      quota: { limit: quota.limit, used: quota.used, remaining: 0 }
+    }, 429);
+  }
+
+  const apiKey = studioImageOpenAIKey(env);
+  if (!apiKey) return json({ error: 'Clé OpenAI absente du Worker.' }, 500);
+
+  const model = studioImageModel(env);
+  const quality = studioImageQuality(env);
+  const size = studioImageSize(body.format);
+  const finalPrompt = studioImagePrompt({ ...body, mode });
+  const transparent = !!body.transparent;
+
+  let resp;
+  try {
+    if (mode === 'create' && !referenceImage) {
+      const payload = {
+        model,
+        prompt: finalPrompt,
+        size,
+        quality,
+        output_format: 'png'
+      };
+      if (transparent) payload.background = 'transparent';
+      resp = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      const mime = studioImageMimeFromDataUrl(referenceImage);
+      const bytes = studioImageBytesFromDataUrl(referenceImage);
+      const ext = mime === 'image/jpeg' ? 'jpg' : (mime === 'image/webp' ? 'webp' : 'png');
+      const form = new FormData();
+      form.append('model', model);
+      form.append('prompt', finalPrompt);
+      form.append('size', size);
+      form.append('quality', quality);
+      form.append('output_format', 'png');
+      if (transparent) form.append('background', 'transparent');
+      form.append('image', new Blob([bytes], { type: mime }), 'reference.' + ext);
+      resp = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + apiKey },
+        body: form
+      });
+    }
+  } catch (e) {
+    return json({ error: 'Connexion GPT Image impossible : ' + (e.message || String(e)) }, 502);
+  }
+
+  const raw = await resp.text();
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch (_) {}
+  if (!resp.ok) {
+    const detail = data?.error?.message || data?.error || raw || ('HTTP ' + resp.status);
+    return json({ error: 'GPT Image : ' + String(detail).slice(0, 500) }, 502);
+  }
+
+  const first = data && Array.isArray(data.data) ? data.data[0] : null;
+  const b64 = first && first.b64_json ? first.b64_json : '';
+  const remoteUrl = first && first.url ? first.url : '';
+  if (!b64 && !remoteUrl) return json({ error: 'GPT Image n’a retourné aucune image exploitable.' }, 502);
+
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+  let imageUrl = remoteUrl;
+  let persisted = false;
+  let objectKey = '';
+
+  if (b64) {
+    const bytes = studioImageBytesFromBase64(b64);
+    if (env.MEDIA_BUCKET) {
+      objectKey = `studio-image/${String(session.email).toLowerCase().replace(/[^a-z0-9._-]/g,'_')}/${studioImageDayKey()}/${id}.png`;
+      try {
+        await env.MEDIA_BUCKET.put(objectKey, bytes, {
+          httpMetadata: { contentType: 'image/png' },
+          customMetadata: {
+            owner: String(session.email).slice(0, 120),
+            mode,
+            format: String(body.format || '1:1').slice(0, 20),
+            createdAt
+          }
+        });
+        persisted = true;
+        imageUrl = studioImagePublicUrl(id, token);
+      } catch (_) {
+        imageUrl = 'data:image/png;base64,' + b64;
+      }
+    } else {
+      imageUrl = 'data:image/png;base64,' + b64;
+    }
+  }
+
+  if (persisted) {
+    const history = await studioImageReadHistory(env, session.email);
+    history.unshift({
+      id,
+      objectKey,
+      prompt: prompt.slice(0, 1200),
+      mode,
+      format: String(body.format || '1:1'),
+      visualStyle: String(body.visualStyle || ''),
+      transparent,
+      createdAt
+    });
+    await studioImageWriteHistory(env, session.email, history);
+  }
+
+  const q = await studioImageIncrementQuota(env, quota);
+  return json({
+    success: true,
+    image: imageUrl,
+    id,
+    persisted,
+    model,
+    quota: q
+  });
+}
+
+async function handleStudioImageHistory(request, env) {
+  if (!env.CASHFLOW_KV) return json({ error: 'CASHFLOW_KV non configuré.' }, 500);
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const token = studioImageExtractToken(request, body);
+  const session = await getSessionOrNull(token, env);
+  if (!session || !session.email) return json({ error: 'Session expirée.' }, 401);
+
+  const q = await studioImageQuotaStatus(env, session.email);
+  const rows = await studioImageReadHistory(env, session.email);
+  const items = rows.filter(r => r && r.id && r.objectKey).slice(0, 30).map(r => ({
+    id: r.id,
+    prompt: r.prompt || '',
+    mode: r.mode || 'create',
+    format: r.format || '1:1',
+    visualStyle: r.visualStyle || '',
+    transparent: !!r.transparent,
+    createdAt: r.createdAt || '',
+    url: studioImagePublicUrl(r.id, token)
+  }));
+  return json({
+    success: true,
+    items,
+    persistent: !!env.MEDIA_BUCKET,
+    quota: { limit: q.limit, used: q.used, remaining: q.remaining }
+  });
+}
+
+async function handleStudioImageFile(request, env, url) {
+  if (!env.CASHFLOW_KV || !env.MEDIA_BUCKET) return new Response('Stockage image non configuré.', { status: 404 });
+  const token = studioImageExtractToken(request, null, url);
+  const session = await getSessionOrNull(token, env);
+  if (!session || !session.email) return new Response('Non autorisé', { status: 401 });
+
+  const id = String(url.searchParams.get('id') || '').trim();
+  if (!id) return new Response('Image manquante.', { status: 400 });
+
+  const history = await studioImageReadHistory(env, session.email);
+  const item = history.find(r => r && r.id === id && r.objectKey);
+  if (!item) return new Response('Image introuvable.', { status: 404 });
+
+  const object = await env.MEDIA_BUCKET.get(item.objectKey);
+  if (!object) return new Response('Image introuvable.', { status: 404 });
+
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set('Content-Type', headers.get('Content-Type') || 'image/png');
+  headers.set('Cache-Control', 'private, max-age=3600');
+  headers.set('Content-Disposition', 'inline; filename="studio-prompt-image-' + id + '.png"');
+  return new Response(object.body, { headers });
 }
 

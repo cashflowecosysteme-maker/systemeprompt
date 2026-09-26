@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>NyXia · Studio Image GPT</title>
+<title>Studio Prompt Image · NyXia</title>
 <link rel="icon" href="/FavIcon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,7 +93,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
   <header class="topbar">
     <div class="brand">
       <img src="/NyXia.png" alt="NyXia" onerror="this.style.display='none'">
-      <div><strong>NyXia · Studio Image GPT</strong><span>Créer · modifier · décliner</span></div>
+      <div><strong>Studio Prompt Image</strong><span>Créer · modifier · décliner</span></div>
     </div>
     <div class="mode">Studio Prompt</div>
   </header>
@@ -170,7 +170,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
           <div class="result" id="result"><div class="result-empty">Ton image apparaîtra ici.<br><br>Tu peux ensuite la télécharger ou la réutiliser comme référence.</div></div>
           <div class="toolbar hidden" id="resultTools">
             <button class="btn ghost" type="button" onclick="downloadResult()">⬇ Télécharger</button>
-            <button class="btn ghost" type="button" onclick="document.getElementById('referenceFile').click()">↺ Utiliser comme point de départ</button>
+            <button class="btn ghost" type="button" onclick="useResultAsReference()">↺ Utiliser comme point de départ</button>
           </div>
         </section>
 
@@ -199,6 +199,7 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
 <script>
 const MODE="client";
 const API_ENDPOINT="/api/studio-image/generate";
+const HISTORY_ENDPOINT="/api/studio-image/history";
 
 function redirectToLogin(){
   try{
@@ -258,6 +259,14 @@ function readFileAsDataURL(file){
     r.readAsDataURL(file)
   })
 }
+function blobAsDataURL(blob){
+  return new Promise(function(resolve,reject){
+    var r=new FileReader()
+    r.onload=function(){resolve(r.result)}
+    r.onerror=reject
+    r.readAsDataURL(blob)
+  })
+}
 function setStatus(msg,kind){
   var el=document.getElementById('status')
   el.textContent=msg||''
@@ -271,6 +280,12 @@ function setStyle(name,btn){
 function showReference(file){
   var box=document.getElementById('referencePreview')
   if(!file){box.innerHTML='<div class="drop-hint">Ajoute une image uniquement si tu veux modifier une image existante ou préserver une référence visuelle.</div>';return}
+  if(file.size > 12*1024*1024){
+    document.getElementById('referenceFile').value=''
+    setStatus('Image de référence trop lourde : maximum 12 Mo.', 'err')
+    box.innerHTML='<div class="drop-hint">Ajoute une image de 12 Mo maximum.</div>'
+    return
+  }
   var url=URL.createObjectURL(file)
   box.innerHTML='<img src="'+url+'" alt="Référence">'
 }
@@ -311,6 +326,26 @@ function renderHistory(){
   }).join('')
   window._imgHistory=arr
 }
+async function loadServerHistory(){
+  var token=pickSessionToken(true)
+  if(!token) return
+  try{
+    var res=await fetch(HISTORY_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({token:token}),credentials:'include'})
+    var data=await res.json().catch(function(){return {}})
+    if(!res.ok) return
+    if(data.quota){
+      var qt=document.getElementById('quotaText')
+      if(qt) qt.textContent=data.quota.remaining+' génération'+(data.quota.remaining!==1?'s':'')+' restante'+(data.quota.remaining!==1?'s':'')+' aujourd’hui sur '+data.quota.limit+'.'
+    }
+    if(Array.isArray(data.items) && data.items.length){
+      var key='nyxia_studio_image_history_'+MODE
+      var arr=data.items.map(function(it){return {url:it.url,prompt:it.prompt||'',at:Date.parse(it.createdAt)||Date.now()}}).filter(function(it){return !!it.url})
+      try{sessionStorage.setItem(key,JSON.stringify(arr.slice(0,12)))}catch(e){}
+      renderHistory()
+    }
+  }catch(e){}
+}
+
 function reuseHistory(i){
   var arr=window._imgHistory||[]
   var it=arr[i]; if(!it)return
@@ -322,6 +357,25 @@ function showResult(url){
   el.innerHTML='<img id="generatedImage" src="'+esc(url)+'" alt="Image générée">'
   document.getElementById('resultTools').classList.remove('hidden')
   window._lastImageUrl=url
+}
+async function useResultAsReference(){
+  var url=window._lastImageUrl
+  if(!url)return
+  try{
+    var dataUrl=url
+    if(String(url).indexOf('data:image/')!==0){
+      var res=await fetch(url,{credentials:'include'})
+      if(!res.ok) throw new Error('Impossible de relire cette image.')
+      dataUrl=await blobAsDataURL(await res.blob())
+    }
+    window._referenceDataUrl=dataUrl
+    var box=document.getElementById('referencePreview')
+    box.innerHTML='<img src="'+esc(dataUrl)+'" alt="Référence">'
+    document.getElementById('actionMode').value='variation'
+    setStatus('Image utilisée comme nouvelle référence. Tu peux maintenant demander une variation ou une modification.','ok')
+  }catch(e){
+    setStatus(e.message||String(e),'err')
+  }
 }
 function downloadResult(){
   var url=window._lastImageUrl
@@ -345,6 +399,7 @@ async function buildPayload(){
     transparent:document.getElementById('transparent').checked,
   }
   if(ref) payload.referenceImage=await readFileAsDataURL(ref)
+  else if(window._referenceDataUrl) payload.referenceImage=window._referenceDataUrl
   return payload
 }
 async function generateImage(){
@@ -377,6 +432,10 @@ async function generateImage(){
     if(!url) throw new Error('La génération a répondu, mais aucune image exploitable n’a été retournée.')
     showResult(url)
     addHistory(url,prompt)
+    if(data.quota){
+      var qt=document.getElementById('quotaText')
+      if(qt) qt.textContent=data.quota.remaining+' génération'+(data.quota.remaining!==1?'s':'')+' restante'+(data.quota.remaining!==1?'s':'')+' aujourd’hui sur '+data.quota.limit+'.'
+    }
     setStatus('Image prête. 💜','ok')
   }catch(e){
     setStatus(e.message||String(e),'err')
@@ -390,8 +449,9 @@ document.addEventListener('DOMContentLoaded',async function(){
   var ok = await ensureStudioPromptAuth()
   if(!ok) return
   var ref=document.getElementById('referenceFile')
-  ref.addEventListener('change',function(){showReference(ref.files[0]||null)})
+  ref.addEventListener('change',function(){window._referenceDataUrl='';showReference(ref.files[0]||null)})
   renderHistory()
+  await loadServerHistory()
   document.body.classList.remove('auth-loading')
 })
 
