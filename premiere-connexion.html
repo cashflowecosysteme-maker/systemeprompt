@@ -23,16 +23,45 @@
   <canvas id="starry-canvas"></canvas>
   <div class="wrap"><div class="card">
     <img class="avatar" src="/NyXia.png" alt="NyXia">
-    <h1>Première connexion</h1>
-    <div class="sub">Après ton inscription à la dégustation, indique le même courriel pour recevoir ton lien personnel de création du mot de passe.</div>
-    <form id="first-access-form"><div class="field"><label for="first-access-email">Adresse email</label><input id="first-access-email" type="email" autocomplete="email" placeholder="ton@email.com" required></div>
-<button id="first-access-btn" type="submit">Recevoir mon lien</button>
-<div id="first-access-msg" class="pw-msg"></div></form>
+    <h1>Accès au Portail</h1>
+    <div class="sub">Bienvenue dans l’Univers NyXia ! Crée ton mot de passe personnel pour accéder à ton portail.</div>
+    <form id="first-setup-form">
+      <div class="field"><label for="setup-password">Mot de passe</label><input id="setup-password" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="note">8 caractères minimum.</div>
+      <div class="field"><label for="setup-confirm">Confirme ton mot de passe</label><input id="setup-confirm" type="password" autocomplete="new-password" minlength="8" required></div>
+      <button id="setup-btn" type="submit">Créer mon mot de passe</button>
+      <div id="setup-msg" class="pw-msg" role="status" aria-live="polite"></div>
+    </form>
     <div class="back"><a href="/login.html">← Retour à la connexion</a></div>
   </div></div>
   <script src="/js/starry-bg.js" defer></script>
   <script>
-(function(){var f=document.getElementById('first-access-form');f.addEventListener('submit',async function(e){e.preventDefault();var btn=document.getElementById('first-access-btn'),msg=document.getElementById('first-access-msg');btn.disabled=true;try{var r=await fetch('/api/degustation/premier-acces',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('first-access-email').value.trim()})});var x=await r.json();if(!r.ok)throw Error(x.error||'Envoi impossible.');msg.textContent=x.message;msg.className='pw-msg ok'}catch(err){msg.textContent=err.message;msg.className='pw-msg err'}finally{btn.disabled=false}})})();
-</script>
+  (function(){
+    var params=new URLSearchParams(location.search);
+    var token=params.get('token')||'';
+    var form=document.getElementById('first-setup-form');
+    var button=document.getElementById('setup-btn');
+    var msg=document.getElementById('setup-msg');
+    function show(text,ok){msg.textContent=text;msg.className='pw-msg '+(ok?'ok':'err');}
+    if(!token){button.disabled=true;show('Ce lien personnel est absent ou invalide. Utilise le lien reçu dans ton courriel NyXia.',false);}
+    form.addEventListener('submit',async function(event){
+      event.preventDefault();
+      if(!token)return;
+      var password=document.getElementById('setup-password').value;
+      var confirm=document.getElementById('setup-confirm').value;
+      if(password!==confirm){show('Les mots de passe ne correspondent pas.',false);return;}
+      button.disabled=true;
+      try{
+        var response=await fetch('/api/password/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,password:password,confirm:confirm})});
+        var data=await response.json();
+        if(!response.ok)throw Error(data.error||'Création impossible.');
+        show('Ton mot de passe est créé ! Tu peux maintenant te connecter.',true);
+        form.reset();
+        token='';
+        setTimeout(function(){location.href='/login.html';},1500);
+      }catch(e){show(e.message||'Création impossible.',false);button.disabled=false;}
+    });
+  })();
+  </script>
 </body>
 </html>
