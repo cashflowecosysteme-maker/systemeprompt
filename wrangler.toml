@@ -16,3 +16,6 @@ binding = "AI"
 [[vectorize]]
 binding = "VECTORIZE_INDEX"
 index_name = "univers-livres"
+
+[vars]
+SYSTEME_ACTIVATION_TAG_ID = "2221814"
