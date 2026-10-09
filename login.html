@@ -241,6 +241,9 @@
       text-decoration: none;
     }
     .login-footer a:hover { text-decoration: underline; }
+    .forgot-password { text-align:right; margin-top:-7px; margin-bottom:18px; font-size:12px; }
+    .forgot-password a { color:var(--p3); text-decoration:none; }
+    .forgot-password a:hover { text-decoration:underline; }
   </style>
 </head>
 <body>
@@ -277,6 +280,8 @@
             <button type="button" class="toggle-pw" id="toggle-pw" onclick="togglePw()" title="Afficher/masquer">👁</button>
           </div>
         </div>
+
+        <div class="forgot-password"><a href="/mot-de-passe-oublie.html">Mot de passe oublié ?</a></div>
 
         <button class="btn-login" id="btn-login" onclick="doLogin()">
           <div class="spinner" id="spinner"></div>

@@ -513,6 +513,9 @@ export default {
       if (path === '/api/check-auth' && request.method === 'POST') return await handleCheckAuth(request, env);
       if (path === '/api/univers/access' && request.method === 'POST') return await handleUniversAccess(request, env);
       if (path === '/api/logout' && request.method === 'POST') return await handleLogout(request, env);
+      if (path === '/api/password/forgot' && request.method === 'POST') return await handleStudioPasswordForgot(request, env);
+      if (path === '/api/password/reset' && request.method === 'POST') return await handleStudioPasswordReset(request, env);
+      if (path === '/api/password/change' && request.method === 'POST') return await handleStudioPasswordChange(request, env);
       if (path === '/api/chat' && request.method === 'POST') return await handleChat(request, env);
       if (path === '/api/studio-chat' && request.method === 'POST') return await handleStudioChat(request, env);
       if (path === '/api/studio-image/generate' && request.method === 'POST') return await handleStudioImageGenerate(request, env);
@@ -692,6 +695,189 @@ async function handleLogout(request, env) {
   const { token } = await request.json();
   if (token) await env.CASHFLOW_KV.delete(`session:${token}`);
   return json({ success: true });
+}
+
+
+// ───────────── MOT DE PASSE CLIENT — STUDIO PROMPT ─────────────
+// Couche additive : utilise le système client CASHFLOW_KV déjà en place dans Studio Prompt.
+async function studioPasswordTokenHash(value) {
+  const data = new TextEncoder().encode(String(value || ''));
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function studioPasswordSecureToken() {
+  const a = new Uint8Array(32);
+  crypto.getRandomValues(a);
+  return [...a].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function studioPasswordOk(value) {
+  return typeof value === 'string' && value.length >= 8;
+}
+
+async function studioPasswordRevokeSessionsForEmail(env, email) {
+  const wanted = String(email || '').toLowerCase().trim();
+  if (!wanted) return;
+  let cursor;
+  do {
+    const page = await env.CASHFLOW_KV.list({ prefix: 'session:', cursor });
+    for (const key of page.keys || []) {
+      try {
+        const raw = await env.CASHFLOW_KV.get(key.name);
+        const session = JSON.parse(raw || '{}');
+        if (String(session.email || '').toLowerCase().trim() === wanted) {
+          await env.CASHFLOW_KV.delete(key.name);
+        }
+      } catch (_) {}
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+}
+
+async function studioPasswordFindAccount(env, email) {
+  const normalized = String(email || '').toLowerCase().trim();
+  if (!normalized) return null;
+  const raw = await env.CASHFLOW_KV.get(`client:${normalized}`);
+  if (!raw) return null;
+  try {
+    const client = JSON.parse(raw);
+    return { email: normalized, client };
+  } catch (_) {
+    return null;
+  }
+}
+
+async function studioPasswordSendResetEmail(env, to, resetUrl) {
+  const apiKey = String(env.RESEND_KEY || '').trim();
+  if (!apiKey) throw new Error('RESEND_KEY non configurée.');
+  const from = String(env.RESEND_FROM || 'NyXia <noreply@nyxia.top>').trim();
+  const portalTitle = 'Studio Prompt · Univers NyXia';
+  const html = '<!doctype html><html><body style="font-family:Arial,sans-serif;background:#0F1C3F;color:#eef0ff;padding:24px">' +
+    '<div style="max-width:560px;margin:auto;background:#1A2554;border:1px solid #4c3ea8;border-radius:18px;padding:28px">' +
+    '<h2 style="margin-top:0;color:#c4b5fd">Réinitialiser ton mot de passe</h2>' +
+    '<p>Une demande de réinitialisation a été faite pour <strong>' + portalTitle + '</strong>.</p>' +
+    '<p>Ce lien est valide pendant 20 minutes et ne peut être utilisé qu’une seule fois.</p>' +
+    '<p style="margin:28px 0"><a href="' + resetUrl + '" style="display:inline-block;padding:13px 18px;border-radius:999px;background:#7B5CFF;color:white;text-decoration:none;font-weight:700">Créer un nouveau mot de passe</a></p>' +
+    '<p style="font-size:12px;color:#aab1d0">Si tu n’as pas demandé ce changement, tu peux simplement ignorer ce message.</p>' +
+    '</div></body></html>';
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject: 'Réinitialisation de ton mot de passe · ' + portalTitle,
+      html
+    })
+  });
+  if (!response.ok) throw new Error('Envoi du courriel impossible (' + response.status + ').');
+}
+
+async function handleStudioPasswordForgot(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const email = String(body.email || '').toLowerCase().trim();
+  if (!email) return json({ error: 'Courriel requis.' }, 400);
+  if (!env.RESEND_KEY) return json({ error: 'Le service de récupération par courriel n’est pas encore configuré.' }, 503);
+
+  const emailHash = await studioPasswordTokenHash(email);
+  const rateKey = 'password-reset-rate:studio-prompt:' + emailHash;
+  const generic = 'Si un compte existe pour ce courriel, un lien de réinitialisation a été envoyé.';
+  if (await env.CASHFLOW_KV.get(rateKey)) return json({ ok: true, message: generic });
+  await env.CASHFLOW_KV.put(rateKey, '1', { expirationTtl: 60 });
+
+  const account = await studioPasswordFindAccount(env, email);
+  if (account) {
+    const token = studioPasswordSecureToken();
+    const hash = await studioPasswordTokenHash(token);
+    const key = 'password-reset:studio-prompt:' + hash;
+    const record = { email: account.email, createdAt: new Date().toISOString() };
+    await env.CASHFLOW_KV.put(key, JSON.stringify(record), { expirationTtl: 60 * 20 });
+
+    const resetUrl = new URL('/reinitialiser-mot-de-passe.html', request.url);
+    resetUrl.searchParams.set('token', token);
+    try {
+      await studioPasswordSendResetEmail(env, account.email, resetUrl.toString());
+    } catch (e) {
+      await env.CASHFLOW_KV.delete(key);
+      console.error('studio prompt password reset email', e);
+      return json({ error: 'Le courriel de récupération n’a pas pu être envoyé pour le moment.' }, 502);
+    }
+  }
+  return json({ ok: true, message: generic });
+}
+
+async function handleStudioPasswordReset(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const token = String(body.token || '').trim();
+  const password = String(body.password || '');
+  const confirm = String(body.confirm || '');
+  if (!token) return json({ error: 'Lien de réinitialisation invalide.' }, 400);
+  if (password !== confirm) return json({ error: 'Les deux mots de passe ne correspondent pas.' }, 400);
+  if (!studioPasswordOk(password)) return json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caractères.' }, 400);
+
+  const hash = await studioPasswordTokenHash(token);
+  const key = 'password-reset:studio-prompt:' + hash;
+  const raw = await env.CASHFLOW_KV.get(key);
+  if (!raw) return json({ error: 'Ce lien est invalide ou expiré. Demande un nouveau lien.' }, 410);
+
+  let record = null;
+  try { record = JSON.parse(raw); } catch (_) {}
+  if (!record || !record.email) return json({ error: 'Lien de réinitialisation invalide.' }, 400);
+
+  const email = String(record.email).toLowerCase().trim();
+  const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
+  if (!clientRaw) return json({ error: 'Compte introuvable.' }, 404);
+  let client;
+  try { client = JSON.parse(clientRaw); } catch (_) { return json({ error: 'Compte introuvable.' }, 404); }
+
+  const salt = randomSalt();
+  client.salt = salt;
+  client.passwordHash = await hashPassword(password, salt);
+  if (Object.prototype.hasOwnProperty.call(client, 'password')) client.password = password;
+  await env.CASHFLOW_KV.put(`client:${email}`, JSON.stringify(client));
+
+  await env.CASHFLOW_KV.delete(key);
+  await studioPasswordRevokeSessionsForEmail(env, email);
+  return json({ ok: true, message: 'Mot de passe modifié. Tu peux maintenant te reconnecter.' });
+}
+
+async function handleStudioPasswordChange(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const token = String(body.token || '').trim();
+  if (!token) return json({ error: 'Session expirée.' }, 401);
+
+  const sessionRaw = await env.CASHFLOW_KV.get(`session:${token}`);
+  if (!sessionRaw) return json({ error: 'Session expirée.' }, 401);
+  let session;
+  try { session = JSON.parse(sessionRaw); } catch (_) { return json({ error: 'Session invalide.' }, 401); }
+
+  const currentPassword = String(body.currentPassword || '');
+  const password = String(body.password || '');
+  const confirm = String(body.confirm || '');
+  if (!currentPassword) return json({ error: 'Mot de passe actuel requis.' }, 400);
+  if (password !== confirm) return json({ error: 'Les deux nouveaux mots de passe ne correspondent pas.' }, 400);
+  if (!studioPasswordOk(password)) return json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caractères.' }, 400);
+
+  const email = String(session.email || '').toLowerCase().trim();
+  if (!email) return json({ error: 'Compte introuvable.' }, 404);
+  const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
+  if (!clientRaw) return json({ error: 'Compte introuvable.' }, 404);
+  let client;
+  try { client = JSON.parse(clientRaw); } catch (_) { return json({ error: 'Compte introuvable.' }, 404); }
+
+  const valid = await verifyPassword(currentPassword, client.salt, client.passwordHash);
+  if (!valid) return json({ error: 'Mot de passe actuel incorrect.' }, 401);
+
+  const salt = randomSalt();
+  client.salt = salt;
+  client.passwordHash = await hashPassword(password, salt);
+  if (Object.prototype.hasOwnProperty.call(client, 'password')) client.password = password;
+  await env.CASHFLOW_KV.put(`client:${email}`, JSON.stringify(client));
+
+  await studioPasswordRevokeSessionsForEmail(env, email);
+  return json({ ok: true, message: 'Mot de passe modifié. Reconnecte-toi avec ton nouveau mot de passe.' });
 }
 
 // ───────────── CHAT (NyXia + Alphas) ─────────────
