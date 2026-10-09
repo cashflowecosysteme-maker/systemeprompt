@@ -643,7 +643,7 @@ async function handleStudioFirstAccess(request,env) {
   const email=String(body.email||'').trim().toLowerCase();
   const generic='Si une dégustation est active pour ce courriel, tu recevras un lien pour définir ton mot de passe.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({error:'Adresse courriel invalide.'},400);
-  if (!env.RESEND_KEY) return json({error:'Le service d’envoi de courriels (RESEND_KEY) n’est pas configuré.'},503);
+  if (!env.SYSTEME_API_KEY || !env.SYSTEME_ACTIVATION_FIELD || !env.SYSTEME_ACTIVATION_TAG_ID) return json({error:'Intégration Systeme.io à configurer dans Cloudflare.'},503);
   const rate='studio:first-access:rate:'+await studioPasswordTokenHash(email);
   if (await env.CASHFLOW_KV.get(rate)) return json({ok:true,message:generic});
   await env.CASHFLOW_KV.put(rate,'1',{expirationTtl:60});
@@ -810,38 +810,36 @@ async function studioPasswordFindAccount(env, email) {
   }
 }
 
+// Courriel d'activation livré exclusivement par Systeme.io : champ contact + tag automation.
+// Configuration Cloudflare : SYSTEME_API_KEY, SYSTEME_ACTIVATION_FIELD, SYSTEME_ACTIVATION_TAG_ID.
 async function studioPasswordSendResetEmail(env, to, resetUrl) {
-  const apiKey = String(env.RESEND_KEY || '').trim();
-  if (!apiKey) throw new Error('RESEND_KEY non configurée.');
-  const from = String(env.RESEND_FROM || 'NyXia <noreply@nyxia.top>').trim();
-  const portalTitle = 'Studio Prompt · Univers NyXia';
-  const html = '<!doctype html><html><body style="font-family:Arial,sans-serif;background:#0F1C3F;color:#eef0ff;padding:24px">' +
-    '<div style="max-width:560px;margin:auto;background:#1A2554;border:1px solid #4c3ea8;border-radius:18px;padding:28px">' +
-    '<h2 style="margin-top:0;color:#c4b5fd">Réinitialiser ton mot de passe</h2>' +
-    '<p>Une demande de réinitialisation a été faite pour <strong>' + portalTitle + '</strong>.</p>' +
-    '<p>Ce lien est valide pendant 20 minutes et ne peut être utilisé qu’une seule fois.</p>' +
-    '<p style="margin:28px 0"><a href="' + resetUrl + '" style="display:inline-block;padding:13px 18px;border-radius:999px;background:#7B5CFF;color:white;text-decoration:none;font-weight:700">Créer un nouveau mot de passe</a></p>' +
-    '<p style="font-size:12px;color:#aab1d0">Si tu n’as pas demandé ce changement, tu peux simplement ignorer ce message.</p>' +
-    '</div></body></html>';
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject: 'Réinitialisation de ton mot de passe · ' + portalTitle,
-      html
-    })
-  });
-  if (!response.ok) throw new Error('Envoi du courriel impossible (' + response.status + ').');
+  const apiKey = String(env.SYSTEME_API_KEY || '').trim();
+  const field = String(env.SYSTEME_ACTIVATION_FIELD || '').trim();
+  const tagId = Number(env.SYSTEME_ACTIVATION_TAG_ID);
+  if (!apiKey || !/^[a-zA-Z0-9_-]+$/.test(field) || !Number.isSafeInteger(tagId) || tagId < 1) {
+    throw new Error('Intégration Systeme.io non configurée (clé API, champ de lien et tag).');
+  }
+  const root = 'https://api.systeme.io/api';
+  const headers = {'X-API-Key':apiKey,'Accept':'application/json'};
+  // Recherche du contact exact — jamais de création automatique pour une adresse inconnue.
+  const lookup=await fetch(root+'/contacts?email='+encodeURIComponent(to),{headers});
+  if(!lookup.ok) throw new Error('Recherche Systeme.io impossible : HTTP '+lookup.status);
+  const payload=await lookup.json();
+  const entries=Array.isArray(payload)?payload:(Array.isArray(payload['hydra:member'])?payload['hydra:member']:(Array.isArray(payload.items)?payload.items:(Array.isArray(payload.contacts)?payload.contacts:[])));
+  const contact=entries.find(c=>String(c.email||'').toLowerCase().trim()===to.toLowerCase());
+  if(!contact || !contact.id) throw new Error('Contact introuvable dans Systeme.io.');
+  const id=encodeURIComponent(String(contact.id));
+  const save=await fetch(root+'/contacts/'+id,{method:'PATCH',headers:{...headers,'Content-Type':'application/merge-patch+json'},body:JSON.stringify({fields:[{slug:field,value:resetUrl}]})});
+  if(!save.ok) throw new Error('Mise à jour du champ Systeme.io impossible : HTTP '+save.status);
+  const assign=await fetch(root+'/contacts/'+id+'/tags',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({tagId})});
+  if(!assign.ok) throw new Error('Déclenchement de l’automatisation Systeme.io impossible : HTTP '+assign.status);
 }
 
 async function handleStudioPasswordForgot(request, env) {
   const body = await request.json().catch(() => ({}));
   const email = String(body.email || '').toLowerCase().trim();
   if (!email) return json({ error: 'Courriel requis.' }, 400);
-  if (!env.RESEND_KEY) return json({ error: 'Le service de récupération par courriel n’est pas encore configuré.' }, 503);
+  if (!env.SYSTEME_API_KEY || !env.SYSTEME_ACTIVATION_FIELD || !env.SYSTEME_ACTIVATION_TAG_ID) return json({ error: 'Intégration Systeme.io à configurer dans Cloudflare.' }, 503);
 
   const emailHash = await studioPasswordTokenHash(email);
   const rateKey = 'password-reset-rate:studio-prompt:' + emailHash;
