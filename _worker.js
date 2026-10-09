@@ -509,6 +509,7 @@ export default {
     }
 
     try {
+      if (path === '/api/degustation/premier-acces' && request.method === 'POST') return await handleStudioFirstAccess(request, env);
       if (path === '/api/login' && request.method === 'POST') return await handleLogin(request, env);
       if (path === '/api/check-auth' && request.method === 'POST') return await handleCheckAuth(request, env);
       if (path === '/api/univers/access' && request.method === 'POST') return await handleUniversAccess(request, env);
@@ -601,6 +602,63 @@ export default {
   }
 };
 
+// ───────────── DÉGUSTATION STUDIO PROMPT : AJOUT UNIQUEMENT ─────────────
+const STUDIO_TRIAL_PORTAL_IDS = new Set(['systemeprompt', 'studio', 'studio-prompt']);
+async function studioTrialGrant(env, email) {
+  const prefix = 'univers:access:grant:' + encodeURIComponent(String(email||'').toLowerCase().trim()) + ':';
+  let cursor; let best = null;
+  let campaigns=[];try {campaigns=JSON.parse(await env.CASHFLOW_KV.get('univers:degustations')||'[]')}catch(_){}
+  do {
+    const page = await env.CASHFLOW_KV.list({prefix, cursor});
+    for (const item of page.keys || []) {
+      let g; try { g = JSON.parse(await env.CASHFLOW_KV.get(item.name) || 'null'); } catch (_) { continue; }
+      if (!g || !STUDIO_TRIAL_PORTAL_IDS.has(String(g.portalId||'').toLowerCase())) continue;
+      // Une dégustation en attente ne déclenche jamais d'accès illimité.
+      const campaign=campaigns.find(c=>c.id===g.campaignId);
+      const hardEnd=campaign&&campaign.fixedEndAt?Date.parse(campaign.fixedEndAt):Infinity;
+      const end=Math.min(Date.parse(g.expiresAt||''),hardEnd);
+      if (Number.isFinite(end) && end > Date.now() && (!best || end < Date.parse(best.expiresAt))) best = {...g,expiresAt:new Date(end).toISOString()};
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  return best;
+}
+async function studioTrialAccess(env, email) {
+  email = String(email||'').trim().toLowerCase();
+  const grant = await studioTrialGrant(env,email);
+  if (grant) return {allowed:true, grant};
+  const raw = await env.CASHFLOW_KV.get('univers:access:permanent');
+  try { if (JSON.parse(raw||'[]').some(x=>String(x.email||'').toLowerCase()===email && (x.allPortals || (x.portalIds||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))))) return {allowed:true, permanent:true}; } catch (_) {}
+  const clientRaw = await env.CASHFLOW_KV.get('client:'+email);
+  try { const c=JSON.parse(clientRaw||'{}'); if (c.active!==false && (c.products||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))) return {allowed:true,purchased:true}; }catch(_){}
+  return {allowed:false};
+}
+async function studioTrialSessionAllowed(env, session) {
+  if (!session || !session.email) return false;
+  if (!session.studioTrialOnly) return true; // Ne change pas les comptes existants.
+  return (await studioTrialAccess(env,session.email)).allowed;
+}
+async function handleStudioFirstAccess(request,env) {
+  const body=await request.json().catch(()=>({}));
+  const email=String(body.email||'').trim().toLowerCase();
+  const generic='Si une dégustation est active pour ce courriel, tu recevras un lien pour définir ton mot de passe.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({error:'Adresse courriel invalide.'},400);
+  if (!env.RESEND_KEY) return json({error:'Le service d’envoi de courriels (RESEND_KEY) n’est pas configuré.'},503);
+  const rate='studio:first-access:rate:'+await studioPasswordTokenHash(email);
+  if (await env.CASHFLOW_KV.get(rate)) return json({ok:true,message:generic});
+  await env.CASHFLOW_KV.put(rate,'1',{expirationTtl:60});
+  const access=await studioTrialAccess(env,email);
+  const existing=await studioPasswordFindAccount(env,email);
+  if (!access.allowed || existing) return json({ok:true,message:generic});
+  const token=studioPasswordSecureToken();
+  const key='password-reset:studio-prompt:'+await studioPasswordTokenHash(token);
+  await env.CASHFLOW_KV.put(key,JSON.stringify({email,studioFirstAccess:true,createdAt:new Date().toISOString()}),{expirationTtl:1200});
+  const url=new URL('/reinitialiser-mot-de-passe.html',request.url);url.searchParams.set('token',token);
+  try { await studioPasswordSendResetEmail(env,email,url.toString()); }
+  catch (e) { await env.CASHFLOW_KV.delete(key); console.error('studio first access email',e); return json({error:'Impossible d’envoyer le courriel de première connexion.'},502); }
+  return json({ok:true,message:generic});
+}
+
 // ───────────── AUTH CLIENTE (Gardiennes) ─────────────
 
 async function handleLogin(request, env) {
@@ -614,10 +672,12 @@ async function handleLogin(request, env) {
   const valid = await verifyPassword(password, client.salt, client.passwordHash);
   if (!valid) return json({ error: 'Identifiants incorrects.' }, 401);
 
+  const trialOnly = !!client.studioTrialOnly;
+  if (trialOnly && !(await studioTrialAccess(env,email)).allowed) return json({ error: 'Ta dégustation est terminée.' },403);
   const token = randomToken();
   await env.CASHFLOW_KV.put(
     `session:${token}`,
-    JSON.stringify({ email: client.email, firstname: client.firstName || client.name || '' }),
+    JSON.stringify({ email: client.email, firstname: client.firstName || client.name || '', studioTrialOnly: trialOnly }),
     { expirationTtl: SESSION_TTL }
   );
 
@@ -630,6 +690,7 @@ async function handleCheckAuth(request, env) {
   const raw = await env.CASHFLOW_KV.get(`session:${token}`);
   if (!raw) return json({ valid: false });
   const session = JSON.parse(raw);
+  if (!(await studioTrialSessionAllowed(env,session))) return json({valid:false,expired:true});
   return json({ valid: true, email: session.email, firstname: session.firstname });
 }
 
@@ -653,6 +714,7 @@ async function handleUniversAccess(request, env) {
   try { session = JSON.parse(sessionRaw); }
   catch (_) { return json({ error: 'Session invalide.' }, 401); }
 
+  if (!(await studioTrialSessionAllowed(env,session))) return json({error:'Dégustation terminée.',expired:true},403);
   const email = String(session.email || '').toLowerCase().trim();
   if (!email) return json({ error: 'Courriel de session introuvable.' }, 401);
 
@@ -828,14 +890,17 @@ async function handleStudioPasswordReset(request, env) {
 
   const email = String(record.email).toLowerCase().trim();
   const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
-  if (!clientRaw) return json({ error: 'Compte introuvable.' }, 404);
+  if (!clientRaw && !record.studioFirstAccess) return json({ error: 'Compte introuvable.' }, 404);
+  if (record.studioFirstAccess && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cette dégustation n’est plus active.'},403);
+  if (record.studioFirstAccess && clientRaw) return json({error:'Ce compte existe déjà. Utilise Mot de passe oublié.'},409);
   let client;
-  try { client = JSON.parse(clientRaw); } catch (_) { return json({ error: 'Compte introuvable.' }, 404); }
+  try { client = clientRaw ? JSON.parse(clientRaw) : {email,firstName:'',products:[],active:true,studioTrialOnly:true,createdAt:new Date().toISOString()}; } catch (_) { return json({ error: 'Compte introuvable.' }, 404); }
 
   const salt = randomSalt();
   client.salt = salt;
   client.passwordHash = await hashPassword(password, salt);
-  if (Object.prototype.hasOwnProperty.call(client, 'password')) client.password = password;
+  // Ne jamais sauvegarder un nouveau mot de passe en clair.
+  if (Object.prototype.hasOwnProperty.call(client, 'password')) delete client.password;
   await env.CASHFLOW_KV.put(`client:${email}`, JSON.stringify(client));
 
   await env.CASHFLOW_KV.delete(key);
@@ -852,6 +917,7 @@ async function handleStudioPasswordChange(request, env) {
   if (!sessionRaw) return json({ error: 'Session expirée.' }, 401);
   let session;
   try { session = JSON.parse(sessionRaw); } catch (_) { return json({ error: 'Session invalide.' }, 401); }
+  if (!(await studioTrialSessionAllowed(env,session))) return json({error:'Dégustation terminée.'},403);
 
   const currentPassword = String(body.currentPassword || '');
   const password = String(body.password || '');
@@ -891,6 +957,7 @@ async function handleChat(request, env) {
   if (!sessionRaw) return json({ error: 'Session expirée. Reconnecte-toi.' }, 401);
   let session;
   try { session = JSON.parse(sessionRaw); } catch (_) { return json({ error: 'Session invalide.' }, 401); }
+  if (!(await studioTrialSessionAllowed(env,session))) return json({error:'Dégustation terminée.'},403);
 
   try {
     const controlled = await runFormationControlTurn(env, session, agent, message || '');
@@ -1143,6 +1210,8 @@ async function handleStudioChat(request, env) {
   if (!token) return json({ error: 'Session manquante.', content: 'Session manquante — reconnecte-toi.' }, 401);
   const sessionRaw = await env.CASHFLOW_KV.get(`session:${token}`);
   if (!sessionRaw) return json({ error: 'Session expirée.', content: 'Session expirée — reconnecte-toi.' }, 401);
+  let studioSession;try{studioSession=JSON.parse(sessionRaw)}catch(_){return json({error:'Session invalide.'},401)}
+  if (!(await studioTrialSessionAllowed(env,studioSession))) return json({error:'Dégustation terminée.'},403);
 
   if (!message || !String(message).trim()) {
     return json({ error: 'Message vide.', content: 'Message vide.' }, 400);
@@ -1365,7 +1434,8 @@ async function getSessionOrNull(token, env) {
   if (!token) return null;
   const raw = await env.CASHFLOW_KV.get(`session:${token}`);
   if (!raw) return null;
-  return JSON.parse(raw);
+  const session=JSON.parse(raw);
+  return (await studioTrialSessionAllowed(env,session)) ? session : null;
 }
 
 // Destinataires messagerie client : Super Admin (UI) + staff/adjoint UNIQUEMENT.
@@ -2641,7 +2711,8 @@ async function getSessionFromToken(env, token) {
   try {
     const raw = await env.CASHFLOW_KV.get(`session:${token}`);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const session=JSON.parse(raw);
+    return (await studioTrialSessionAllowed(env,session)) ? session : null;
   } catch (_) { return null; }
 }
 
