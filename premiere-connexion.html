@@ -38,7 +38,7 @@
   <script>
   (function(){
     var params=new URLSearchParams(location.search);
-    var token=params.get('token')||'';
+    var token=params.get('token')||params.get('sc')||'';
     var form=document.getElementById('first-setup-form');
     var button=document.getElementById('setup-btn');
     var msg=document.getElementById('setup-msg');
@@ -54,9 +54,10 @@
       try{
         var response=await fetch('/api/password/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,password:password,confirm:confirm})});
         var data=await response.json();
-        if(!response.ok)throw Error(data.error||'Création impossible.');
+        if(!response.ok || data.ok!==true)throw Error(data.error||'Création impossible.');
         show('Ton mot de passe est créé ! Tu peux maintenant te connecter.',true);
         form.reset();
+        sessionStorage.removeItem('nyxia_token');
         token='';
         setTimeout(function(){location.href='/login.html';},1500);
       }catch(e){show(e.message||'Création impossible.',false);button.disabled=false;}
@@ -65,3 +66,4 @@
   </script>
 </body>
 </html>
+

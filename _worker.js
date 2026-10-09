@@ -604,20 +604,29 @@ export default {
 
 // ───────────── DÉGUSTATION STUDIO PROMPT : AJOUT UNIQUEMENT ─────────────
 const STUDIO_TRIAL_PORTAL_IDS = new Set(['systemeprompt', 'studio', 'studio-prompt']);
-async function studioTrialGrant(env, email) {
+async function studioTrialGrant(env, email, includePending = false) {
   const prefix = 'univers:access:grant:' + encodeURIComponent(String(email||'').toLowerCase().trim()) + ':';
   let cursor; let best = null;
-  let campaigns=[];try {campaigns=JSON.parse(await env.CASHFLOW_KV.get('univers:degustations')||'[]')}catch(_){}
+  const campaigns=JSON.parse(await env.CASHFLOW_KV.get('univers:degustations')||'[]');
   do {
     const page = await env.CASHFLOW_KV.list({prefix, cursor});
     for (const item of page.keys || []) {
       let g; try { g = JSON.parse(await env.CASHFLOW_KV.get(item.name) || 'null'); } catch (_) { continue; }
       if (!g || !STUDIO_TRIAL_PORTAL_IDS.has(String(g.portalId||'').toLowerCase())) continue;
-      // Une dégustation en attente ne déclenche jamais d'accès illimité.
       const campaign=campaigns.find(c=>c.id===g.campaignId);
-      const hardEnd=campaign&&campaign.fixedEndAt?Date.parse(campaign.fixedEndAt):Infinity;
+      if (!campaign || campaign.status==='ended' || !(campaign.portalIds||[]).includes(g.portalId)) continue;
+      const startsAt=campaign.fixedStartAt||'';
+      const hardEnd=campaign.fixedEndAt?Date.parse(campaign.fixedEndAt):Infinity;
+      if (g.pending && includePending && hardEnd>Date.now()) {
+        if (!best) best={...g,startsAt};
+        continue;
+      }
       const end=Math.min(Date.parse(g.expiresAt||''),hardEnd);
-      if (Number.isFinite(end) && end > Date.now() && (!best || end < Date.parse(best.expiresAt))) best = {...g,startsAt:campaign?.fixedStartAt||'',expiresAt:new Date(end).toISOString()};
+      if (!Number.isFinite(end) || end<=Date.now()) continue;
+      const candidate={...g,startsAt,expiresAt:new Date(end).toISOString()};
+      const active=!startsAt || Date.parse(startsAt)<=Date.now();
+      const bestActive=best && !best.pending && (!best.startsAt || Date.parse(best.startsAt)<=Date.now());
+      if (!best || (active && !bestActive) || (active===!!bestActive && end>Date.parse(best.expiresAt||''))) best=candidate;
     }
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
@@ -625,13 +634,34 @@ async function studioTrialGrant(env, email) {
 }
 async function studioTrialAccess(env, email) {
   email = String(email||'').trim().toLowerCase();
+  const raw = await env.CASHFLOW_KV.get('univers:access:permanent');
+  if (JSON.parse(raw||'[]').some(x=>String(x.email||'').toLowerCase()===email && (x.allPortals || (x.portalIds||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))))) return {allowed:true, permanent:true};
+  const clientRaw = await env.CASHFLOW_KV.get('client:'+email);
+  const c=JSON.parse(clientRaw||'{}');
+  if (c.active!==false && (c.products||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))) return {allowed:true,purchased:true};
   const grant = await studioTrialGrant(env,email);
   if (grant) return {allowed:!grant.startsAt || Date.parse(grant.startsAt)<=Date.now(), grant};
-  const raw = await env.CASHFLOW_KV.get('univers:access:permanent');
-  try { if (JSON.parse(raw||'[]').some(x=>String(x.email||'').toLowerCase()===email && (x.allPortals || (x.portalIds||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))))) return {allowed:true, permanent:true}; } catch (_) {}
-  const clientRaw = await env.CASHFLOW_KV.get('client:'+email);
-  try { const c=JSON.parse(clientRaw||'{}'); if (c.active!==false && (c.products||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))) return {allowed:true,purchased:true}; }catch(_){}
   return {allowed:false};
+}
+// Le compteur « première connexion » démarre après vérification du mot de passe.
+async function studioTrialStartPending(env,email) {
+  if ((await studioTrialAccess(env,email)).allowed) return;
+  const g=await studioTrialGrant(env,email,true);
+  if (!g?.pending || (g.startsAt && Date.parse(g.startsAt)>Date.now())) return;
+  const campaigns=JSON.parse(await env.CASHFLOW_KV.get('univers:degustations')||'[]');
+  const campaign=campaigns.find(c=>c.id===g.campaignId);
+  const key='univers:access:activation:'+encodeURIComponent(email)+':'+g.campaignId;
+  const activation=JSON.parse(await env.CASHFLOW_KV.get(key)||'null');
+  if (!campaign || !activation || !activation.pending) return;
+  const startedAt=new Date().toISOString();
+  const expiresAt=campaign.fixedEndAt||new Date(Date.parse(startedAt)+Number(campaign.durationHours||72)*3600000).toISOString();
+  const update={pending:false,startedAt,expiresAt,updatedAt:startedAt};
+  await env.CASHFLOW_KV.put(key,JSON.stringify({...activation,...update}));
+  for (const portalId of campaign.portalIds||[]) {
+    const grantKey='univers:access:grant:'+encodeURIComponent(email)+':'+campaign.id+':'+portalId;
+    const grant=JSON.parse(await env.CASHFLOW_KV.get(grantKey)||'null');
+    if (grant) await env.CASHFLOW_KV.put(grantKey,JSON.stringify({...grant,...update}));
+  }
 }
 async function studioTrialSessionAllowed(env, session) {
   if (!session || !session.email) return false;
@@ -662,7 +692,9 @@ async function handleStudioFirstAccess(request,env) {
 // ───────────── AUTH CLIENTE (Gardiennes) ─────────────
 
 async function handleLogin(request, env) {
-  const { email, password } = await request.json();
+  const body = await request.json();
+  const email = String(body.email||'').toLowerCase().trim();
+  const password = body.password;
   if (!email || !password) return json({ error: 'Email et mot de passe requis.' }, 400);
 
   const raw = await env.CASHFLOW_KV.get(`client:${email.toLowerCase().trim()}`);
@@ -673,11 +705,15 @@ async function handleLogin(request, env) {
   if (!valid) return json({ error: 'Identifiants incorrects.' }, 401);
 
   const trialOnly = !!client.studioTrialOnly;
-  if (trialOnly && !(await studioTrialAccess(env,email)).allowed) return json({ error: 'Ta dégustation est terminée.' },403);
+  if (trialOnly) {
+    await studioTrialStartPending(env,email);
+    const access=await studioTrialAccess(env,email);
+    if (!access.allowed) return json({error:access.grant?.startsAt && Date.parse(access.grant.startsAt)>Date.now() ? 'Ta dégustation n’a pas encore commencé.' : 'Ta dégustation est terminée ou ton accès a été retiré.'},403);
+  }
   const token = randomToken();
   await env.CASHFLOW_KV.put(
     `session:${token}`,
-    JSON.stringify({ email: client.email, firstname: client.firstName || client.name || '', studioTrialOnly: trialOnly }),
+    JSON.stringify({ email: client.email, firstname: String(body.firstname||client.firstName||client.name||'').trim().slice(0,100), studioTrialOnly: trialOnly }),
     { expirationTtl: SESSION_TTL }
   );
 
@@ -889,11 +925,18 @@ async function handleStudioPasswordReset(request, env) {
   const email = String(record.email).toLowerCase().trim();
   const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
   if (!clientRaw && !record.studioFirstAccess) return json({ error: 'Compte introuvable.' }, 404);
-  if (record.studioFirstAccess && !(await studioTrialGrant(env,email)) && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cette dégustation n’est plus active.'},403);
-  if (record.studioFirstAccess && clientRaw) return json({error:'Ce compte existe déjà. Utilise Mot de passe oublié.'},409);
+  if (record.studioFirstAccess && !(await studioTrialGrant(env,email,true)) && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cette dégustation n’est plus active.'},403);
+  if (record.studioFirstAccess && clientRaw) {
+    const existing=JSON.parse(clientRaw);
+    if (existing.passwordHash || existing.password) return json({error:'Ce compte possède déjà un mot de passe. Utilise Mot de passe oublié.'},409);
+  }
   let client;
   try { client = clientRaw ? JSON.parse(clientRaw) : {email,firstName:'',products:[],active:true,studioTrialOnly:true,createdAt:new Date().toISOString()}; } catch (_) { return json({ error: 'Compte introuvable.' }, 404); }
 
+  if (record.studioFirstAccess) {
+    client.email=email;
+    if (!(await studioTrialAccess(env,email)).permanent && !(await studioTrialAccess(env,email)).purchased) client.studioTrialOnly=true;
+  }
   const salt = randomSalt();
   client.salt = salt;
   client.passwordHash = await hashPassword(password, salt);
@@ -3889,3 +3932,4 @@ async function handleStudioImageFile(request, env, url) {
   headers.set('Content-Disposition', 'inline; filename="studio-prompt-image-' + id + '.' + ext + '"');
   return new Response(object.body, { headers });
 }
+

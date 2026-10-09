@@ -329,13 +329,13 @@
     function doLogin() {
       var firstname = document.getElementById('firstname').value.trim()
       var email    = document.getElementById('email').value.trim()
-      var password = document.getElementById('password').value.trim()
+      var password = document.getElementById('password').value
       var btn      = document.getElementById('btn-login')
       var spinner  = document.getElementById('spinner')
       var btnText  = document.getElementById('btn-text')
       var msgBox   = document.getElementById('msg-box')
 
-      if (!email || !password) {
+      if (!firstname || !email || !password) {
         showMsg('Remplis tous les champs.', 'error')
         return
       }
@@ -348,7 +348,7 @@
       fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, password: password })
+        body: JSON.stringify({ email: email, password: password, firstname: firstname })
       })
       .then(function(r) {
         return r.json().then(function(data) {
@@ -408,3 +408,4 @@
 
 </body>
 </html>
+
