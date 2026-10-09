@@ -18,4 +18,6 @@ binding = "VECTORIZE_INDEX"
 index_name = "univers-livres"
 
 [vars]
+SITE_URL = "https://univers.nyxia.top"
+SYSTEME_ACTIVATION_FIELD = "lien_activation_nyxia"
 SYSTEME_ACTIVATION_TAG_ID = "2221814"
