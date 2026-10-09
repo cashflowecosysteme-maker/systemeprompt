@@ -617,7 +617,7 @@ async function studioTrialGrant(env, email) {
       const campaign=campaigns.find(c=>c.id===g.campaignId);
       const hardEnd=campaign&&campaign.fixedEndAt?Date.parse(campaign.fixedEndAt):Infinity;
       const end=Math.min(Date.parse(g.expiresAt||''),hardEnd);
-      if (Number.isFinite(end) && end > Date.now() && (!best || end < Date.parse(best.expiresAt))) best = {...g,expiresAt:new Date(end).toISOString()};
+      if (Number.isFinite(end) && end > Date.now() && (!best || end < Date.parse(best.expiresAt))) best = {...g,startsAt:campaign?.fixedStartAt||'',expiresAt:new Date(end).toISOString()};
     }
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
@@ -626,7 +626,7 @@ async function studioTrialGrant(env, email) {
 async function studioTrialAccess(env, email) {
   email = String(email||'').trim().toLowerCase();
   const grant = await studioTrialGrant(env,email);
-  if (grant) return {allowed:true, grant};
+  if (grant) return {allowed:!grant.startsAt || Date.parse(grant.startsAt)<=Date.now(), grant};
   const raw = await env.CASHFLOW_KV.get('univers:access:permanent');
   try { if (JSON.parse(raw||'[]').some(x=>String(x.email||'').toLowerCase()===email && (x.allPortals || (x.portalIds||[]).some(id=>STUDIO_TRIAL_PORTAL_IDS.has(String(id).toLowerCase()))))) return {allowed:true, permanent:true}; } catch (_) {}
   const clientRaw = await env.CASHFLOW_KV.get('client:'+email);
@@ -889,7 +889,7 @@ async function handleStudioPasswordReset(request, env) {
   const email = String(record.email).toLowerCase().trim();
   const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
   if (!clientRaw && !record.studioFirstAccess) return json({ error: 'Compte introuvable.' }, 404);
-  if (record.studioFirstAccess && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cette dégustation n’est plus active.'},403);
+  if (record.studioFirstAccess && !(await studioTrialGrant(env,email)) && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cette dégustation n’est plus active.'},403);
   if (record.studioFirstAccess && clientRaw) return json({error:'Ce compte existe déjà. Utilise Mot de passe oublié.'},409);
   let client;
   try { client = clientRaw ? JSON.parse(clientRaw) : {email,firstName:'',products:[],active:true,studioTrialOnly:true,createdAt:new Date().toISOString()}; } catch (_) { return json({ error: 'Compte introuvable.' }, 404); }
