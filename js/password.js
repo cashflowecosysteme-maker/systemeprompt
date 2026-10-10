@@ -8,7 +8,7 @@
   var forgot=$('forgot-form');
   if(forgot)forgot.addEventListener('submit',function(e){
     e.preventDefault();disabled('forgot-btn',true);
-    fetch('/api/password/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('forgot-email').value.trim()})})
+    fetch('https://univers.nyxia.top/api/access/password-forgot-universal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('forgot-email').value.trim(),portalHost:location.hostname})})
       .then(response).then(function(x){if(!x.ok)throw Error(x.data.error||'Envoi impossible.');message('forgot-msg',x.data.message||'Si un compte existe pour ce courriel, un lien a été envoyé.',true)})
       .catch(function(err){message('forgot-msg',err.message||'Envoi impossible.',false)})
       .finally(function(){disabled('forgot-btn',false)});
@@ -47,3 +47,4 @@
     });
   }
 })();
+
