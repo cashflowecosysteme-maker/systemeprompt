@@ -671,7 +671,7 @@ async function studioTrialSessionAllowed(env, session) {
 async function handleStudioFirstAccess(request,env) {
   const body=await request.json().catch(()=>({}));
   const email=String(body.email||'').trim().toLowerCase();
-  const generic='Si une dégustation est active pour ce courriel, tu recevras un lien pour définir ton mot de passe.';
+  const generic='Si un Accès Gratuit au portail est actif pour ce courriel, tu recevras un lien pour définir ton mot de passe.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({error:'Adresse courriel invalide.'},400);
   if (!env.SYSTEME_API_KEY || !env.SYSTEME_ACTIVATION_FIELD || !env.SYSTEME_ACTIVATION_TAG_ID) return json({error:'Intégration Systeme.io à configurer dans Cloudflare.'},503);
   const rate='studio:first-access:rate:'+await studioPasswordTokenHash(email);
@@ -708,7 +708,7 @@ async function handleLogin(request, env) {
   if (trialOnly) {
     await studioTrialStartPending(env,email);
     const access=await studioTrialAccess(env,email);
-    if (!access.allowed) return json({error:access.grant?.startsAt && Date.parse(access.grant.startsAt)>Date.now() ? 'Ta dégustation n’a pas encore commencé.' : 'Ta dégustation est terminée ou ton accès a été retiré.'},403);
+    if (!access.allowed) return json({error:access.grant?.startsAt && Date.parse(access.grant.startsAt)>Date.now() ? 'Ton Accès Gratuit au portail n’a pas encore commencé.' : 'Ton Accès Gratuit au portail est terminé ou a été retiré.'},403);
   }
   const token = randomToken();
   await env.CASHFLOW_KV.put(
@@ -925,7 +925,7 @@ async function handleStudioPasswordReset(request, env) {
   const email = String(record.email).toLowerCase().trim();
   const clientRaw = await env.CASHFLOW_KV.get(`client:${email}`);
   if (!clientRaw && !record.studioFirstAccess) return json({ error: 'Compte introuvable.' }, 404);
-  if (record.studioFirstAccess && !(await studioTrialGrant(env,email,true)) && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cette dégustation n’est plus active.'},403);
+  if (record.studioFirstAccess && !(await studioTrialGrant(env,email,true)) && !(await studioTrialAccess(env,email)).allowed) return json({error:'Cet Accès Gratuit au portail n’est plus actif.'},403);
   if (record.studioFirstAccess && clientRaw) {
     const existing=JSON.parse(clientRaw);
     if (existing.passwordHash || existing.password) return json({error:'Ce compte possède déjà un mot de passe. Utilise Mot de passe oublié.'},409);
