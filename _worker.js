@@ -499,10 +499,21 @@ async function buildBoutiqueChatContext(env, agent, message) {
 
 // ───────────── ROUTAGE PRINCIPAL ─────────────
 
+
+// Catalogue public existant du Cercle NyXia.
+async function nyxiaDashboardCercle(){
+ try{
+  const response=await fetch('https://repertoire.nyxia.top/api/repertoire',{headers:{Accept:'application/json'}});
+  if(!response.ok)return json({error:'Répertoire du Cercle indisponible.'},502);
+  const data=await response.json();return json({products:Array.isArray(data.products)?data.products:[]});
+ }catch(_){return json({error:'Connexion au Répertoire du Cercle impossible.'},502)}
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
+    if(path==='/api/nyxia-universe/repertoire'&&request.method==='GET')return await nyxiaDashboardCercle();
 
     if (path === '/') {
       return Response.redirect(url.origin + '/login.html', 302);
@@ -3932,4 +3943,5 @@ async function handleStudioImageFile(request, env, url) {
   headers.set('Content-Disposition', 'inline; filename="studio-prompt-image-' + id + '.' + ext + '"');
   return new Response(object.body, { headers });
 }
+
 

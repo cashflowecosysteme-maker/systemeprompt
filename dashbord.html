@@ -338,6 +338,7 @@
         </div>
       </div>
       
+      <div class="sidebar-section"><div class="nav-item" id="nav-cercle" onclick="openNyxiaCercle()"><span class="nav-icon">💜</span> Cercle d’entraide <span class="nav-arrow">›</span></div></div>
       <div class="sidebar-bottom">
         <div class="user-card">
           <div class="user-avatar" id="sidebar-avatar">D</div>
@@ -350,6 +351,7 @@
     </aside>
 
     <div class="main-content">
+      <div class="panel" id="panel-cercle" style="flex-direction:column"><iframe id="cercle-iframe" src="about:blank" style="width:100%;height:100%;border:none;display:block" title="Cercle d’entraide"></iframe></div>
       <!-- Panel Chat — charge la page individuelle du personnage en iframe -->
       <div class="panel active" id="panel-chat" style="flex-direction:column">
         <iframe id="agent-iframe" src="/chat-diane.html" style="width:100%;height:100%;border:none;display:block" title="Conversation"></iframe>
@@ -1407,5 +1409,14 @@
     }
     function escHtml(str) { var d = document.createElement('div'); d.textContent = str; return d.innerHTML }
   </script>
+
+<script>
+function openNyxiaCercle(){
+ showPanel('cercle');
+ var frame=document.getElementById('cercle-iframe');
+ if(frame&&!frame.getAttribute('data-loaded')){frame.src='/cercle-entraide.html';frame.setAttribute('data-loaded','1')}
+}
+</script>
 </body>
 </html>
+
