@@ -509,7 +509,7 @@ async function nyxiaDashboardCercle(){
  }catch(_){return json({error:'Connexion au Répertoire du Cercle impossible.'},502)}
 }
 
-export default {
+const nxOriginalWorker = {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -1023,6 +1023,8 @@ async function handleChat(request, env) {
 
   let systemPrompt = (SYSTEM_PROMPTS[agent] || SYSTEM_PROMPTS.nyxia)
     .replace(/\{first_name\}/g, userName || session.firstname || session.firstName || 'toi');
+  const premiumProfile=await nxPremiumRead(env,agent);
+  systemPrompt=await nxPremiumPrompt(env,agent,systemPrompt);
 
   systemPrompt += IMAGE_GENERATION_INSTRUCTIONS;
   systemPrompt += TERMINOLOGIE_OFFICIELLE;
@@ -1143,11 +1145,11 @@ ${bankRaw}`;
   }
 
   // Modèle principal deepseek-v3.2, repli automatique sur mistral-small.
-  let resp = await callModel(OPENROUTER_MODEL);
-  let usedModel = OPENROUTER_MODEL;
+  let resp = await callModel(premiumProfile?.modelPrimary||OPENROUTER_MODEL);
+  let usedModel = premiumProfile?.modelPrimary||OPENROUTER_MODEL;
   if (!resp.ok) {
-    resp = await callModel(OPENROUTER_FALLBACK_MODEL);
-    usedModel = OPENROUTER_FALLBACK_MODEL;
+    resp = await callModel(premiumProfile?.modelFallback||OPENROUTER_FALLBACK_MODEL);
+    usedModel = premiumProfile?.modelFallback||OPENROUTER_FALLBACK_MODEL;
   }
 
   if (!resp.ok) {
@@ -2140,10 +2142,13 @@ async function handleTTSNyxia(request, env) {
 
   // ── Voie 0 : ElevenLabs (priorité absolue si configuré — normalement NyXia) ──
   const elevenLabsVoiceIdKey = AGENT_ELEVENLABS_VOICE_ID_KEYS[agent];
-  const elevenLabsVoiceId = (elevenLabsVoiceIdKey ? env[elevenLabsVoiceIdKey] : null) || ELEVENLABS_VOICE_ID_DEFAULTS[agent] || null;
+  const premiumVoiceProfile=await nxPremiumRead(env,agent);
+  const premiumVoice=String(premiumVoiceProfile?.voiceId||'').trim();
+  const premiumOpenAI=NYXIA_OPENAI_VOICES.has(premiumVoice.toLowerCase().replace(/^openai[:/]/,''))?premiumVoice.toLowerCase().replace(/^openai[:/]/,''):'';
+  const elevenLabsVoiceId = premiumOpenAI?null:(premiumVoice||(elevenLabsVoiceIdKey ? env[elevenLabsVoiceIdKey] : null) || ELEVENLABS_VOICE_ID_DEFAULTS[agent] || null);
 
   if (elevenLabsVoiceId) {
-    const cacheKey = 'tts_cache_elevenlabs:' + agent + ':' + (await sha256Hex(cleanText));
+    const cacheKey = 'tts_cache_elevenlabs:' + agent + ':' + elevenLabsVoiceId + ':' + (await sha256Hex(cleanText));
     const cachedBuf = await env.CASHFLOW_KV.get(cacheKey, 'arrayBuffer');
     if (cachedBuf) {
       return json({
@@ -2180,7 +2185,7 @@ async function handleTTSNyxia(request, env) {
   }
 
   const voiceIdKey = AGENT_VOICE_ID_KEYS[agent];
-  const heygenVoiceId = voiceIdKey ? env[voiceIdKey] : null;
+  const heygenVoiceId = premiumOpenAI?null:(voiceIdKey ? env[voiceIdKey] : null);
 
   // ── Voie 1 : HeyGen (en réserve — seulement si ElevenLabs n'est pas configuré) ──
   if (heygenVoiceId) {
@@ -2212,7 +2217,7 @@ async function handleTTSNyxia(request, env) {
   }
 
   // ── Voie 2 : OpenAI (voix distinctes, moins chères, sans clonage) ──
-  const openaiVoice = OPENAI_VOICE_MAP[agent];
+  const openaiVoice = premiumOpenAI||OPENAI_VOICE_MAP[agent];
   if (openaiVoice) {
     const openaiKey = env.OpenAI_KEY || env.OpenAi_KEY || env.OPENAI_API_KEY || '';
     if (!openaiKey) {
@@ -3945,3 +3950,80 @@ async function handleStudioImageFile(request, env, url) {
 }
 
 
+
+
+const NYXIA_OPENAI_VOICES=new Set(['alloy','ash','ballad','coral','echo','fable','nova','onyx','sage','shimmer','verse','marin','cedar']);
+const NYXIA_LEGACY_OPENAI_VOICES={eric:'echo',kael:'onyx',lena:'nova',selena:'shimmer',alex:'ash'};
+
+async function nxPremiumRead(env,key){
+  if(!env.CASHFLOW_KV)return null;
+  try{const raw=await env.CASHFLOW_KV.get('nyxia:personnage-profil:'+String(key).toLowerCase());return raw?JSON.parse(raw):null}catch(_){return null}
+}
+const NX_PREMIUM_FIELDS=['name','visibleRole','sub','shortDescription','biography','mission','prompt','systemPrompt','personality','values','tone','languageStyle','favoriteExpressions','avoidExpressions','expertise','skills','methods','teachingStyle','ethics','limits','canDo','cannotDo','welcomeMessage','greeting','suggestions','image','welcomeVideo','voiceName','voiceId','modelPrimary','modelFallback','vectorNamespace','resources'];
+function nxPremiumMerge(base,profile){
+  const a={...base};if(!profile)return a;
+  for(const k of NX_PREMIUM_FIELDS)if(Object.prototype.hasOwnProperty.call(profile,k)){
+    if(k==='voiceId'&&!String(profile[k]||'').trim())continue;
+    a[k]=profile[k];
+  }
+  if(Object.prototype.hasOwnProperty.call(profile,'visibleRole'))a.sub=profile.visibleRole;
+  if(Object.prototype.hasOwnProperty.call(profile,'welcomeMessage'))a.greeting=profile.welcomeMessage;
+  if(Object.prototype.hasOwnProperty.call(profile,'mission'))a.prompt=profile.mission;
+  return a;
+}
+async function nxPremiumAgent(env,key,base){return nxPremiumMerge(base,await nxPremiumRead(env,key))}
+function nxPremiumInstructions(p){
+  if(!p)return '';
+  const labels={name:'Nom',visibleRole:'Rôle',biography:'Biographie',mission:'Mission',systemPrompt:'Instructions du personnage',personality:'Personnalité',values:'Valeurs',tone:'Ton',languageStyle:'Langage',favoriteExpressions:'Expressions favorites',avoidExpressions:'Expressions à éviter',expertise:'Expertise',skills:'Compétences',methods:'Méthodes',teachingStyle:'Pédagogie',ethics:'Éthique',limits:'Limites',canDo:'Peut faire',cannotDo:'Ne doit pas faire'};
+  return Object.entries(labels).filter(([k])=>typeof p[k]==='string'&&p[k].trim()).map(([k,label])=>label+' : '+p[k]).join('\n');
+}
+async function nxPremiumPrompt(env,key,base){
+  const p=await nxPremiumRead(env,key);if(!p)return base;
+  return base+'\n\nFICHE PREMIUM ACTUELLE : les éléments suivants remplacent les anciennes descriptions de ce personnage. Conserve les règles techniques du portail.\n'+nxPremiumInstructions(p);
+}
+
+const NX_PREMIUM_KEYS=()=>Object.keys(SYSTEM_PROMPTS);
+const NX_PREMIUM_HYDRATE="if(data&&data.valid&&data.premiumProfiles){\n  Object.keys(data.premiumProfiles).forEach(function(key){\n    var p=data.premiumProfiles[key];\n    if(typeof ALPHA_INFO!=='undefined'&&ALPHA_INFO&&ALPHA_INFO[key])Object.assign(ALPHA_INFO[key],p);\n    if(typeof AGENT_IMAGES!=='undefined'&&AGENT_IMAGES&&Object.prototype.hasOwnProperty.call(p,'image'))AGENT_IMAGES[key]=p.image;\n    if(typeof AGENT_WELCOME_VIDEO!=='undefined'&&AGENT_WELCOME_VIDEO&&Object.prototype.hasOwnProperty.call(p,'welcomeVideo'))AGENT_WELCOME_VIDEO[key]=p.welcomeVideo;\n    if(typeof AGENT_SUGGESTIONS!=='undefined'&&AGENT_SUGGESTIONS&&Array.isArray(p.suggestions))AGENT_SUGGESTIONS[key]=p.suggestions;\n    if(typeof PORTAL_AGENT_META!=='undefined'&&PORTAL_AGENT_META&&PORTAL_AGENT_META[key])Object.assign(PORTAL_AGENT_META[key],p);\n    if(typeof PORTAL_AGENT!=='undefined'&&PORTAL_AGENT&&typeof _currentAgent!=='undefined'&&_currentAgent===key)Object.assign(PORTAL_AGENT,p);\n  });\n}\n";
+async function nxPremiumPresentation(env,keys){
+  const result={};
+  await Promise.all(keys.map(async key=>{
+    const p=await nxPremiumRead(env,key);if(!p)return;
+    const pub={};
+    for(const k of ['name','sub','image','welcomeVideo','greeting','suggestions'])if(Object.prototype.hasOwnProperty.call(p,k))pub[k]=p[k];
+    if(Object.prototype.hasOwnProperty.call(p,'visibleRole'))pub.sub=p.visibleRole;
+    if(Object.prototype.hasOwnProperty.call(p,'welcomeMessage'))pub.greeting=p.welcomeMessage;
+    result[key]=pub;
+  }));
+  return result;
+}
+function nxPremiumHydrateSource(text){
+  if(!text.includes('/api/check-auth')||text.includes('data.premiumProfiles'))return text;
+  const injection=NX_PREMIUM_HYDRATE;
+  return text.replace(/\.then\(\s*function\s*\(\s*data\s*\)\s*\{/g,match=>match+'\n'+injection+'\n')
+    .replace(/\.then\(\s*data\s*=>\s*\{/g,match=>match+'\n'+injection+'\n');
+}
+export default {
+  async fetch(request,env,ctx){
+    const response=await nxOriginalWorker.fetch(request,env,ctx);
+    const path=new URL(request.url).pathname;
+    if(path==='/api/check-auth'&&response.ok){
+      let data;try{data=await response.clone().json()}catch(_){return response}
+      if(data.valid){
+        data.premiumProfiles=await nxPremiumPresentation(env,NX_PREMIUM_KEYS());
+        const headers=new Headers(response.headers);headers.delete('Content-Length');headers.delete('ETag');headers.set('Cache-Control','no-store');
+        return new Response(JSON.stringify(data),{status:response.status,headers});
+      }
+      return response;
+    }
+    const type=response.headers.get('Content-Type')||'';
+    if(response.ok&&request.method==='GET'&&(type.includes('text/html')||type.includes('javascript'))&&
+      !/\/(login|index|premiere-connexion|mot-de-passe)/.test(path)){
+      const original=await response.clone().text(),updated=nxPremiumHydrateSource(original);
+      if(updated!==original){
+        const headers=new Headers(response.headers);headers.delete('Content-Length');headers.delete('ETag');headers.set('Cache-Control','no-store');
+        return new Response(updated,{status:response.status,headers});
+      }
+    }
+    return response;
+  }
+};
