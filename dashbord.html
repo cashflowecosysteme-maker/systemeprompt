@@ -422,33 +422,8 @@
           </div>
         </div>
       </div>
-      <!-- Panel Répertoire des Médias Magiques -->
-      <div class="panel" id="panel-medias" style="flex-direction:column;padding:24px;overflow-y:auto">
-        <div style="max-width:900px;margin:0 auto;width:100%">
-          <h2 style="font-family:'Space Grotesk',sans-serif;font-size:22px;margin-bottom:4px">✨ Répertoire des Médias Magiques</h2>
-          <p style="color:var(--t3);font-size:13px;margin-bottom:20px">Puise des images, vidéos et sons directement dans le Cercle pour habiller tes créations.</p>
-
-          <div style="display:flex;gap:8px;margin-bottom:20px">
-            <button id="media-tab-visual" onclick="switchMediaTab('visual')" style="padding:8px 18px;border-radius:50px;border:1px solid rgba(123,92,255,0.3);background:rgba(123,92,255,0.15);color:#fff;font-weight:600;font-size:13px;cursor:pointer">🎨 Images & Vidéos</button>
-            <button id="media-tab-sound" onclick="switchMediaTab('sound')" style="padding:8px 18px;border-radius:50px;border:1px solid rgba(123,92,255,0.15);background:transparent;color:var(--t3);font-weight:600;font-size:13px;cursor:pointer">🎵 Sons</button>
-          </div>
-
-          <div style="display:flex;gap:8px;margin-bottom:14px" id="media-format-row">
-            <span style="font-size:11px;color:var(--t3);align-self:center;margin-right:4px">Format :</span>
-            <button class="media-format-btn" data-format="" onclick="setMediaFormat('')" style="padding:5px 12px;border-radius:50px;border:1px solid rgba(123,92,255,0.25);background:rgba(123,92,255,0.15);color:#fff;font-size:11px;cursor:pointer">Tous</button>
-            <button class="media-format-btn" data-format="square" onclick="setMediaFormat('square')" style="padding:5px 12px;border-radius:50px;border:1px solid rgba(123,92,255,0.15);background:transparent;color:var(--t3);font-size:11px;cursor:pointer">◻ 1:1</button>
-            <button class="media-format-btn" data-format="portrait" onclick="setMediaFormat('portrait')" style="padding:5px 12px;border-radius:50px;border:1px solid rgba(123,92,255,0.15);background:transparent;color:var(--t3);font-size:11px;cursor:pointer">▯ 9:16</button>
-            <button class="media-format-btn" data-format="landscape" onclick="setMediaFormat('landscape')" style="padding:5px 12px;border-radius:50px;border:1px solid rgba(123,92,255,0.15);background:transparent;color:var(--t3);font-size:11px;cursor:pointer">▭ 16:9</button>
-          </div>
-
-          <div style="display:flex;gap:8px;margin-bottom:20px">
-            <input type="text" id="media-query" placeholder="Que cherches-tu aujourd'hui ? (ex: coucher de soleil, pluie douce...)" style="flex:1;padding:12px 16px;border-radius:12px;border:1px solid rgba(123,92,255,0.2);background:rgba(15,28,63,0.5);color:#fff;font-family:'Outfit',sans-serif;font-size:13px">
-            <button onclick="searchMedias()" style="padding:12px 24px;border-radius:12px;border:none;background:linear-gradient(135deg,#7B5CFF,#5A6CFF);color:#fff;font-weight:600;font-size:13px;cursor:pointer">Chercher ✦</button>
-          </div>
-
-          <div id="media-results" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px"></div>
-        </div>
-      </div>
+      <!-- Page Média -->
+      <div class="panel" id="panel-medias" style="flex-direction:column"><iframe id="medias-iframe" src="about:blank" style="width:100%;height:100%;border:none;display:block" title="Média"></iframe></div>
 
       <!-- Panel Livres Audio / Mini-formation TikTok -->
       <div class="panel" id="panel-audiobooks" style="flex-direction:column">
@@ -655,79 +630,6 @@
       var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML
     }
 
-    /* ═══════ RÉPERTOIRE DES MÉDIAS MAGIQUES ═══════ */
-    var _mediaTab = 'visual'
-    var _mediaFormat = ''
-
-    function switchMediaTab(tab) {
-      _mediaTab = tab
-      document.getElementById('media-tab-visual').style.background = tab === 'visual' ? 'rgba(123,92,255,0.15)' : 'transparent'
-      document.getElementById('media-tab-visual').style.color = tab === 'visual' ? '#fff' : 'var(--t3)'
-      document.getElementById('media-tab-sound').style.background = tab === 'sound' ? 'rgba(123,92,255,0.15)' : 'transparent'
-      document.getElementById('media-tab-sound').style.color = tab === 'sound' ? '#fff' : 'var(--t3)'
-      document.getElementById('media-format-row').style.display = tab === 'visual' ? 'flex' : 'none'
-      document.getElementById('media-query').placeholder = tab === 'visual'
-        ? "Que cherches-tu aujourd'hui ? (ex: coucher de soleil, pluie douce...)"
-        : "Quel son cherches-tu ? (ex: pluie, feu de camp, clochette...)"
-      document.getElementById('media-results').innerHTML = ''
-    }
-
-    function setMediaFormat(format) {
-      _mediaFormat = format
-      document.querySelectorAll('.media-format-btn').forEach(function(btn) {
-        var active = btn.getAttribute('data-format') === format
-        btn.style.background = active ? 'rgba(123,92,255,0.15)' : 'transparent'
-        btn.style.color = active ? '#fff' : 'var(--t3)'
-      })
-    }
-
-    function searchMedias() {
-      var query = document.getElementById('media-query').value.trim()
-      var resultsEl = document.getElementById('media-results')
-      if (!query) return
-      resultsEl.innerHTML = '<div style="grid-column:1/-1;color:var(--t3);font-size:13px">La recherche prend vie...</div>'
-
-      var endpoint = _mediaTab === 'visual' ? '/api/media/images' : '/api/media/sounds'
-      var payload = { token: sessionToken, query: query }
-      if (_mediaTab === 'visual') payload.format = _mediaFormat
-
-      fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      .then(r => r.json())
-      .then(data => {
-        var results = data.results || []
-        if (results.length === 0) {
-          resultsEl.innerHTML = '<div style="grid-column:1/-1;color:var(--t3);font-size:13px">Rien trouvé pour l\'instant, essaie un autre mot ou un autre format. 🔮</div>'
-          return
-        }
-        if (_mediaTab === 'visual') {
-          resultsEl.innerHTML = results.map(function(m) {
-            var media = m.type === 'video'
-              ? '<video src="' + m.videoUrl + '" poster="' + m.previewUrl + '" controls preload="metadata" style="width:100%;height:140px;object-fit:cover;border-radius:10px 10px 0 0;background:#000"></video>'
-              : '<img src="' + m.previewUrl + '" style="width:100%;height:140px;object-fit:cover;border-radius:10px 10px 0 0" alt="">'
-            var badge = m.type === 'video' ? '<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;pointer-events:none">▶ vidéo</span>' : ''
-            return '<div style="background:rgba(123,92,255,0.05);border:1px solid rgba(123,92,255,0.12);border-radius:10px;overflow:hidden;position:relative">' +
-              badge + media +
-              '<div style="padding:8px"><a href="' + m.downloadUrl + '" style="display:block;text-align:center;width:100%;padding:6px;border-radius:8px;background:rgba(123,92,255,0.15);color:#fff;font-size:11px;text-decoration:none">⬇ Télécharger</a></div>' +
-            '</div>'
-          }).join('')
-        } else {
-          resultsEl.innerHTML = '<div style="grid-column:1/-1;display:flex;flex-direction:column;gap:10px">' + results.map(function(m) {
-            return '<div style="background:rgba(123,92,255,0.05);border:1px solid rgba(123,92,255,0.12);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px">' +
-              '<div style="flex:1"><div style="font-size:13px;font-weight:600;margin-bottom:6px">' + escapeHtmlMsg(m.name) + ' <span style="color:var(--t3);font-weight:400">(' + m.duration + 's)</span></div>' +
-              '<audio controls src="' + m.audioUrl + '" style="height:32px;width:100%"></audio></div>' +
-              '<a href="' + m.downloadUrl + '" style="padding:8px 12px;border-radius:8px;background:rgba(123,92,255,0.15);color:#fff;font-size:11px;white-space:nowrap;text-decoration:none">⬇ Télécharger</a>' +
-            '</div>'
-          }).join('') + '</div>'
-        }
-      })
-      .catch(() => { resultsEl.innerHTML = '<div style="grid-column:1/-1;color:var(--t3);font-size:13px">Petite interruption... réessaie.</div>' })
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      var mq = document.getElementById('media-query')
-      if (mq) mq.addEventListener('keydown', function(e) { if (e.key === 'Enter') searchMedias() })
-    })
-
     /* ═══════ NAVIGATION ═══════ */
     function refreshStudioFrame() {
       var iframe = document.getElementById('studio-iframe')
@@ -742,6 +644,10 @@
       }
     }
     function showPanel(name) {
+      if (name === 'medias') {
+        var mediaFrame = document.getElementById('medias-iframe');
+        if (mediaFrame && mediaFrame.getAttribute('src') === 'about:blank') mediaFrame.src = '/media.html';
+      }
       if (name === 'studio') { try { refreshStudioFrame() } catch (e) {} }
       if (name === 'formations') {
         try {
