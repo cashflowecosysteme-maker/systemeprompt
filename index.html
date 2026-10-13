@@ -557,7 +557,7 @@
                 <div class="check"><span>Plusieurs familles de modèles IA comme CHATGPT, GEMINI, GROK, CLAUDE dans un seul environnement, et un seul paiement</span></div>
                 <div class="check"><span>Klarna, Afterpay ou Affirm disponibles selon admissibilité via le paiement Stripe.</span></div>
               </div>
-              <a id="cta-annual" class="btn btn-primary" href="#" data-checkout="annual">⭐ Choisir 497 $ / 12 mois</a>
+              <a id="cta-annual" class="btn btn-primary" href="https://www.universnyxia.top/abonnement/immersionstudioprompts" data-checkout="annual">⭐ Choisir 497 $ / 12 mois</a>
               <div class="payment-note">Paiement unique pour 12 mois — offre de lancement à durée limitée.</div>
             </article>
 
@@ -572,7 +572,7 @@
                 <div class="check"><span>Abonnement mensuel automatique après l’essai.</span></div>
                 <div class="check"><span>Annulation disponible à tout moment.</span></div>
               </div>
-              <a id="cta-monthly" class="btn btn-ghost" href="#" data-checkout="monthly">💜 Essayer gratuitement 3 jours</a>
+              <a id="cta-monthly" class="btn btn-ghost" href="https://www.universnyxia.top/abonnement/immersionstudioprompts" data-checkout="monthly">💜 Essayer gratuitement 3 jours</a>
               <div class="payment-note">Carte requise à l’inscription. Conditions affichées au paiement.</div>
             </article>
           </div>
@@ -619,27 +619,14 @@
 
   <script src="/starry-bg.js" defer></script>
   <script>
-    /* ==============================================================
-       LIENS DE PAIEMENT — À REMPLACER AVANT MISE EN LIGNE
-       annual  : facture / lien Stripe 497 $ avec Klarna/Afterpay/Affirm
-       monthly : tunnel Systeme.io avec 3 jours gratuits puis 69 $/mois
-       ============================================================== */
+    // Page de paiement Studio Prompt : choix de l’offre au paiement.
     const CHECKOUT_URLS = {
-      annual: '',
-      monthly: ''
+      annual: 'https://www.universnyxia.top/abonnement/immersionstudioprompts',
+      monthly: 'https://www.universnyxia.top/abonnement/immersionstudioprompts'
     };
 
     document.querySelectorAll('[data-checkout]').forEach(function(btn){
-      btn.addEventListener('click', function(e){
-        const key = btn.getAttribute('data-checkout');
-        const url = CHECKOUT_URLS[key];
-        if (!url) {
-          e.preventDefault();
-          alert('Le lien de paiement « ' + key + ' » doit encore être ajouté dans CHECKOUT_URLS à la fin de index.html.');
-        } else {
-          btn.href = url;
-        }
-      });
+      btn.href = CHECKOUT_URLS[btn.getAttribute('data-checkout')];
     });
   </script>
 </body>
