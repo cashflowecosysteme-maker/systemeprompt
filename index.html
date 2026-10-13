@@ -625,8 +625,12 @@
       monthly: 'https://www.universnyxia.top/abonnement/immersionstudioprompts'
     };
 
+    const incomingRef = (new URLSearchParams(location.search).get('ref') || '').trim().toUpperCase();
+    const referral = /^[A-Z0-9_-]{1,64}$/.test(incomingRef) ? incomingRef : '';
     document.querySelectorAll('[data-checkout]').forEach(function(btn){
-      btn.href = CHECKOUT_URLS[btn.getAttribute('data-checkout')];
+      const paymentUrl = new URL(CHECKOUT_URLS[btn.getAttribute('data-checkout')]);
+      if (referral) paymentUrl.searchParams.set('ref', referral);
+      btn.href = paymentUrl.toString();
     });
   </script>
 </body>
