@@ -515,8 +515,13 @@ const nxOriginalWorker = {
     const path = url.pathname;
     if(path==='/api/nyxia-universe/repertoire'&&request.method==='GET')return await nyxiaDashboardCercle();
 
-    if (path === '/') {
-      return Response.redirect(url.origin + '/login.html', 302);
+    // Page de vente publique : servir l’index à la racine sans redirection vers la connexion.
+    // La racine du binding Assets évite la redirection canonique index.html → /.
+    if (['/', '/index', '/index.html'].includes(path.replace(/\/+$/, '') || '/') &&
+        ['GET', 'HEAD'].includes(request.method)) {
+      const publicPage = new URL(request.url);
+      publicPage.pathname = '/';
+      return env.ASSETS.fetch(new Request(publicPage.href, request));
     }
 
     try {
