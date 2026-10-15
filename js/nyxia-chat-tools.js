@@ -45,8 +45,14 @@
     return d.innerHTML;
   }
 
+  function nxPersonalizeText(value) {
+    var first = typeof clientName === 'string' ? clientName.trim() : ''
+    return String(value == null ? '' : value).replace(/\{prenom\}/gi, function() { return first || 'toi' })
+  }
+
   function cleanMarkdown(value) {
     return String(value == null ? '' : value)
+      .replace(/\{prenom\}/gi, function() { return escHtml(typeof clientName === 'string' && clientName.trim() ? clientName.trim() : 'toi') })
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="nx-inline-link">$1</a>')
       .replace(/(^|[^"'>=])(https?:\/\/[^\s<]+)/g, function (_, pre, url) {
         var tail = '';
@@ -54,8 +60,14 @@
         if (mt) { tail = mt[0]; url = url.slice(0, url.length - tail.length); }
         return pre + '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="nx-inline-link">' + url + '</a>' + tail;
       })
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/&lt;(\/?)(strong|em|b|i)&gt;/gi, function(_, close, tag) { return '<' + close + (/^(strong|b)$/i.test(tag) ? 'strong' : 'em') + '>' })
+      .replace(/&lt;br\s*\/?&gt;/gi, '\n')
+      .replace(/&lt;\/?p&gt;/gi, '\n')
+      .replace(/\*\*\*([^\n]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+      .replace(/\*\*([^\n]+?)\*\*(?!\*)/g, '<strong>$1</strong>')
+      .replace(/__([^\n]+?)__/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
+      .replace(/(^|[^\w])_([^_\n]+?)_(?!\w)/g, '$1<em>$2</em>')
       .replace(/^---+$/gm, '')
       .replace(/^#{1,6}\s+/gm, '')
       .replace(/^[-*]\s+/gm, '')
@@ -65,7 +77,9 @@
   }
 
   function cleanForSpeech(value) {
-    return String(value == null ? '' : value)
+    return nxPersonalizeText(value)
+      .replace(/__([^\n]+?)__/g, '$1')
+      .replace(/(^|[^\w])_([^_\n]+?)_(?!\w)/g, '$1$2')
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g, '$1')
       .replace(/---+/g, '')
