@@ -1898,7 +1898,7 @@ async function retrieveBrain(env, agent, query, topK = 5) {
     const results = await env.VECTORIZE_INDEX.query(embeddings.data[0], {
       topK: topK,
       returnMetadata: 'all',
-      namespace: agent
+      namespace: ((await nxPremiumRead(env,agent))?.vectorNamespace||agent)
     });
 
     if (!results.matches || results.matches.length === 0) return '';
@@ -2593,7 +2593,7 @@ function renderFormationBlocForChat(bloc, ctx) {
 }
 
 // Cœur du pilotage. Retourne { content } à renvoyer directement, ou null si ce n'est pas un tour de pilotage.
-async function runFormationControlTurn(env, session, agent, message) {
+async function runFormationControlTurn(env, session, agent, message, requestedId='') {
   const ctrl = parseFormationControl(message);
   if (!ctrl.action) return null;
 
@@ -2602,7 +2602,8 @@ async function runFormationControlTurn(env, session, agent, message) {
   const progressAll = await getFormationProgress(env, session.email);
 
   // Choix de la formation concernée.
-  let formation = resolveActiveFormation(formations, message);
+  let formation = requestedId ? formations.find(f=>f.id===requestedId) : resolveActiveFormation(formations, message);
+  if(requestedId&&!formation)return null;
   if (!formation && (ctrl.action === 'resume' || ctrl.action === 'advance')) {
     formation = pickLatestProgressFormation(formations, progressAll);
   }
@@ -3944,6 +3945,7 @@ function nxPremiumHydrateSource(text){
 }
 const nyxBookingOriginalWorker = {
   async fetch(request,env,ctx){
+    const live=await nxLiveApi(request,env,ctx);if(live)return live;
     const response=await nxOriginalWorker.fetch(request,env,ctx);
     const path=new URL(request.url).pathname;
     if(path==='/api/check-auth'&&response.ok){
@@ -3989,3 +3991,30 @@ export default {
     return new Response(html,{status:response.status,headers});
   }
 };
+
+const NX_LIVE_PORTAL=env=>portalSlug(env);
+async function NX_LIVE_OPEN(env,s,agent,id){const fs=await listFormations(env,agent);if(!fs.some(f=>f.id===id))return null;return runFormationControlTurn(env,s,agent,'reprendre ma formation',id)}
+async function nxLiveApi(request,env,ctx){
+ const u=new URL(request.url);if(!['/api/personnage/live','/api/personnage/formation/open'].includes(u.pathname))return null;
+ const b=request.method==='POST'?await request.clone().json().catch(()=>({})):{};
+ const token=String(b.token||u.searchParams.get('token')||''),agent=String(b.agent||u.searchParams.get('agent')||'').toLowerCase();
+ if(!NX_PREMIUM_KEYS().includes(agent))return json({error:'Personnage non disponible.'},403);
+ const check=await nxOriginalWorker.fetch(new Request(new URL('/api/check-auth',request.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})}),env,ctx);
+ let auth;try{auth=await check.json()}catch(_){return json({error:'Session expirée.'},401)}
+ if(!auth.valid)return json({error:'Session expirée.'},401);
+ if(typeof requireEricAccess==='function'&&agent==='eric'){const blocked=await requireEricAccess(env,auth);if(blocked)return blocked;}
+ const raw=await nxPremiumRead(env,agent),p=raw||{};
+ const portal=NX_LIVE_PORTAL(env);
+ const allowed=(p.formationTriggers||[]).filter(t=>t.active!==false&&String(t.key||'').startsWith('formation:'+portal+':'+agent+':'));
+ if(u.pathname==='/api/personnage/live'){
+   const pub={};for(const k of ['name','sub','image','welcomeVideo','greeting','suggestions','resources'])if(Object.prototype.hasOwnProperty.call(p,k))pub[k]=p[k];
+   if(Object.prototype.hasOwnProperty.call(p,'visibleRole'))pub.sub=p.visibleRole;
+   if(Object.prototype.hasOwnProperty.call(p,'welcomeMessage'))pub.greeting=p.welcomeMessage;
+   pub.formationTriggers=allowed;
+   return new Response(JSON.stringify({profile:pub}),{headers:{'Content-Type':'application/json','Cache-Control':'private, no-store'}});
+ }
+ const t=allowed.find(t=>t.key===b.key);if(!t)return json({error:'Formation non disponible pour ce personnage.'},403);
+ const id=t.key.split(':').slice(3).join(':'),s={email:auth.email,firstname:auth.firstname||auth.first_name||auth.userName||''};
+ const result=await NX_LIVE_OPEN(env,s,agent,id);
+ return result?json(result):json({error:'Formation introuvable.'},404);
+}
