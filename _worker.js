@@ -2664,7 +2664,7 @@ async function runFormationControlTurn(env, session, agent, message, requestedId
             blocIndex: Math.max(0, modules[moduleIdx].blocs.length - 1),
             completedModuleId: markCompletedModuleId
           });
-          return { content: `Bravo 🎉 Tu as parcouru toute la formation « ${formation.titre} » !\n\nOn peut maintenant reprendre n'importe quel module ensemble, ou appliquer ce que tu viens d’apprendre à ta situation ou à ton projet. Dis-moi « module X » quand tu veux revoir une étape.` };
+          return { formationDone:true, content: `Bravo 🎉 Tu as parcouru toute la formation « ${formation.titre} » !\n\nOn peut maintenant reprendre n'importe quel module ensemble, ou appliquer ce que tu viens d’apprendre à ta situation ou à ton projet. Dis-moi « module X » quand tu veux revoir une étape.` };
         }
       }
     }
@@ -3945,7 +3945,7 @@ function nxPremiumHydrateSource(text){
 }
 const nyxBookingOriginalWorker = {
   async fetch(request,env,ctx){
-    const live=await nxLiveApi(request,env,ctx);if(live)return live;
+    const flow=await nxFormationFlowApi(request,env,ctx);if(flow)return flow;const live=await nxLiveApi(request,env,ctx);if(live)return live;
     const response=await nxOriginalWorker.fetch(request,env,ctx);
     const path=new URL(request.url).pathname;
     if(path==='/api/check-auth'&&response.ok){
@@ -4017,4 +4017,25 @@ async function nxLiveApi(request,env,ctx){
  const id=t.key.split(':').slice(3).join(':'),s={email:auth.email,firstname:auth.firstname||auth.first_name||auth.userName||''};
  const result=await NX_LIVE_OPEN(env,s,agent,id);
  return result?json(result):json({error:'Formation introuvable.'},404);
+}
+
+async function NX_FLOW_LIST(env,s,agent){const fs=await listFormations(env,agent),all=await getFormationProgress(env,s.email);return fs.map(f=>{const p=all[f.id],mods=normalizeFormationModules(f);return{id:f.id,titre:f.titre,hasProgress:!!p,status:p&&mods.length&&mods.every(m=>(p.completed||[]).includes(m.id))?'completed':'active'}})}
+async function NX_FLOW_TURN(env,s,agent,id,advance,mode){let target=env;if(mode==='review'){const kv=env.CASHFLOW_KV,key=formationProgressKey(s.email),review=key+':review:'+agent;target={...env,CASHFLOW_KV:{get:(k,...args)=>kv.get(k===key?review:k,...args),put:(k,...args)=>kv.put(k===key?review:k,...args),list:(...args)=>kv.list(...args)}}}const result=await runFormationControlTurn(target,s,agent,advance?'suite':'reprendre ma formation',id);if(result&&mode==='review'){result.review=true;if(result.formationDone){delete result.formationDone;result.reviewDone=true}}return result}
+async function nxFormationFlowApi(request,env,ctx){
+ const u=new URL(request.url);if(u.pathname!=='/api/personnage/formation')return null;
+ const b=await request.clone().json().catch(()=>({})),agent=String(b.agent||'').toLowerCase();
+ if(!NX_PREMIUM_KEYS().includes(agent))return json({error:'Personnage non disponible.'},403);
+ const check=await nxOriginalWorker.fetch(new Request(new URL('/api/check-auth',request.url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:b.token||''})}),env,ctx);
+ const auth=await check.json().catch(()=>({}));if(!auth.valid)return json({error:'Session expirée.'},401);
+ if(typeof requireEricAccess==='function'&&agent==='eric'){const blocked=await requireEricAccess(env,auth);if(blocked)return blocked}
+ const s={...auth,firstname:auth.firstname||auth.first_name||''};
+ const list=await NX_FLOW_LIST(env,s,agent);
+ if(b.action==='list')return json({formations:list});
+ const selected=list.find(f=>f.id===b.formationId)||(!b.formationId?list.find(f=>f.status!=='locked'&&f.status!=='completed'):null);
+ if(!selected)return json({error:'Formation introuvable.'},404);
+ if(selected.status==='locked')return json({error:'Cette formation n’est pas encore débloquée.'},403);
+ const result=await NX_FLOW_TURN(env,s,agent,selected.id,b.action==='advance',selected.status==='completed'?'review':b.mode||'');
+ if(!result)return json({error:'Formation introuvable.'},404);
+ result.content=String(result.content||'').replace(/\n\n— [^\n]*(?:[«“]suite[»”]|dis [«“]suite[»”])[^\n]*\s*$/i,'');
+ return json({...result,formationId:result.formationId||selected.id});
 }
