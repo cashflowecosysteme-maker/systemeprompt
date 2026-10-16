@@ -4021,6 +4021,7 @@ async function nxLiveApi(request,env,ctx){
 
 async function NX_FLOW_LIST(env,s,agent){const fs=await listFormations(env,agent),all=await getFormationProgress(env,s.email);return fs.map(f=>{const p=all[f.id],mods=normalizeFormationModules(f);return{id:f.id,titre:f.titre,hasProgress:!!p,status:p&&mods.length&&mods.every(m=>(p.completed||[]).includes(m.id))?'completed':'active'}})}
 async function NX_FLOW_TURN(env,s,agent,id,advance,mode){let target=env;if(mode==='review'){const kv=env.CASHFLOW_KV,key=formationProgressKey(s.email),review=key+':review:'+agent;target={...env,CASHFLOW_KV:{get:(k,...args)=>kv.get(k===key?review:k,...args),put:(k,...args)=>kv.put(k===key?review:k,...args),list:(...args)=>kv.list(...args)}}}const result=await runFormationControlTurn(target,s,agent,advance?'suite':'reprendre ma formation',id);if(result&&mode==='review'){result.review=true;if(result.formationDone){delete result.formationDone;result.reviewDone=true}}return result}
+async function nxResetFormationReview(env,s,agent,id){const key=formationProgressKey(s.email)+':review:'+agent;let all={};try{all=JSON.parse(await env.CASHFLOW_KV.get(key)||'{}')}catch(_){}delete all[id];await env.CASHFLOW_KV.put(key,JSON.stringify(all))}
 async function nxFormationFlowApi(request,env,ctx){
  const u=new URL(request.url);if(u.pathname!=='/api/personnage/formation')return null;
  const b=await request.clone().json().catch(()=>({})),agent=String(b.agent||'').toLowerCase();
@@ -4034,7 +4035,8 @@ async function nxFormationFlowApi(request,env,ctx){
  const selected=list.find(f=>f.id===b.formationId)||(!b.formationId?list.find(f=>f.status!=='locked'&&f.status!=='completed'):null);
  if(!selected)return json({error:'Formation introuvable.'},404);
  if(selected.status==='locked')return json({error:'Cette formation n’est pas encore débloquée.'},403);
- const result=await NX_FLOW_TURN(env,s,agent,selected.id,b.action==='advance',selected.status==='completed'?'review':b.mode||'');
+ if(b.action==='restart')await nxResetFormationReview(env,s,agent,selected.id);
+ const result=await NX_FLOW_TURN(env,s,agent,selected.id,b.action==='advance',b.action==='restart'||selected.status==='completed'?'review':b.mode||'');
  if(!result)return json({error:'Formation introuvable.'},404);
  result.content=String(result.content||'').replace(/\n\n— [^\n]*(?:[«“]suite[»”]|dis [«“]suite[»”])[^\n]*\s*$/i,'');
  return json({...result,formationId:result.formationId||selected.id});
