@@ -510,11 +510,23 @@ async function nyxiaDashboardCercle(){
  }catch(_){return json({error:'Connexion au Répertoire du Cercle impossible.'},502)}
 }
 
+
+// Catalogue dynamique de la Boutique : aucun produit ajouté en dur.
+async function nxStudioBoutiqueFeed(){
+ try{
+  const responses=await Promise.all(['catalog','config'].map(path=>fetch('https://boutique.nyxia.top/api/'+path,{headers:{Accept:'application/json'},cache:'no-store'})));
+  if(responses.some(r=>!r.ok))return json({error:'Le catalogue de la boutique n’a pas pu être chargé.'},502);
+  const [catalog,config]=await Promise.all(responses.map(r=>r.json()));
+  return json({products:Array.isArray(catalog.products)?catalog.products:[],settings:config.settings||{}});
+ }catch(_){return json({error:'Le catalogue de la boutique n’a pas pu être chargé.'},502)}
+}
+
 const nxOriginalWorker = {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
     if(path==='/api/nyxia-universe/repertoire'&&request.method==='GET')return await nyxiaDashboardCercle();
+    if(path==='/api/nyxia-universe/boutique'&&request.method==='GET')return await nxStudioBoutiqueFeed();
 
     // Page de vente publique : servir l’index à la racine sans redirection vers la connexion.
     // La racine du binding Assets évite la redirection canonique index.html → /.
