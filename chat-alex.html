@@ -568,16 +568,12 @@
         if(typeof ALPHA_INFO!=='undefined'&&ALPHA_INFO[_currentAgent])Object.assign(ALPHA_INFO[_currentAgent],p)
         if(typeof AGENT_IMAGES!=='undefined'&&Object.prototype.hasOwnProperty.call(p,'image'))AGENT_IMAGES[_currentAgent]=p.image
         if(typeof AGENT_WELCOME_VIDEO!=='undefined'&&Object.prototype.hasOwnProperty.call(p,'welcomeVideo'))AGENT_WELCOME_VIDEO[_currentAgent]=p.welcomeVideo
-        if(typeof AGENT_SUGGESTIONS!=='undefined'&&Array.isArray(p.suggestions))AGENT_SUGGESTIONS[_currentAgent]=p.suggestions
         if(typeof PORTAL_AGENT!=='undefined')PORTAL_AGENT=Object.assign({},PORTAL_AGENT||{},p)
         var name=document.getElementById('chat-header-name'),sub=document.getElementById('chat-header-sub')
         if(name&&Object.prototype.hasOwnProperty.call(p,'name'))name.textContent=p.name
         if(sub&&Object.prototype.hasOwnProperty.call(p,'sub'))sub.textContent=p.sub
         if(typeof updateHeaderAvatar==='function')updateHeaderAvatar(_currentAgent)
-        if(typeof renderAgentSuggestions==='function')renderAgentSuggestions()
-        else if(Array.isArray(p.suggestions)){
-          NyxiaSuggestions.render(p.suggestions,p.resources)
-        }
+        // Les boutons de Studio Prompt restent ceux de cette page.
 
         var greeting=document.querySelector('[data-welcome-text="1"] .msg-bubble')
         if(greeting&&Object.prototype.hasOwnProperty.call(p,'greeting'))greeting.innerHTML=cleanMarkdown(escHtml(typeof nxPersonalizeText==='function'?nxPersonalizeText(p.greeting):p.greeting)).replace(/\n/g,'<br>')
