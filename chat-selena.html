@@ -130,6 +130,7 @@
   </div>
 
   <script src="/starry-bg.js" defer></script>
+  <script src="/js/nyxia-suggestions.js"></script>
   <script>
   /* ═══════════════════════════════════════════════════════════════════
      PAGE DIANE AUTONOME — isolée du Dashboard, verrouillée sur l'agent « diane ».
@@ -383,7 +384,7 @@
       addBotMessage(_body)
       return
     }
-    var text = (btn.textContent || '').trim()
+    var text = (btn.getAttribute('data-message') || btn.textContent || '').trim()
     if (!text) return
     var input = document.getElementById('chat-input')
     if (input) { input.value = text; input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px' }
@@ -576,8 +577,7 @@
         if(typeof updateHeaderAvatar==='function')updateHeaderAvatar(_currentAgent)
         if(typeof renderAgentSuggestions==='function')renderAgentSuggestions()
         else if(Array.isArray(p.suggestions)){
-          var suggestions=document.getElementById('suggestions')
-          if(suggestions){suggestions.innerHTML='';p.suggestions.slice(0,4).forEach(function(item){var button=document.createElement('button');button.type='button';button.className='sug-chip';button.textContent=typeof item==='string'?item:String(item.label||item.message||'');button.onclick=function(){if(typeof useSuggestion==='function')useSuggestion(button);else sendMessageText(typeof item==='string'?item:(item.message||item.label||''),false,{})};suggestions.appendChild(button)})}
+          NyxiaSuggestions.render(p.suggestions,p.resources)
         }
 
         var greeting=document.querySelector('[data-welcome-text="1"] .msg-bubble')
