@@ -148,6 +148,8 @@
   var AGENT_IMAGES = { selena: '/Selena.png' }
   var AGENT_WELCOME_AUDIO = { selena: null }   // ← mets ton fichier audio ici si tu en as un
   var AGENT_WELCOME_VIDEO = { selena: 'https://d1yei2z3i6k35z.cloudfront.net/1872133/6a85eb5282c1b8.91907705_Selena_Bienvenue_SP.mp4' }
+  // La vidéo d’accueil Studio Prompt reste propre à ce portail.
+  var STUDIO_WELCOME_VIDEO_URL = AGENT_WELCOME_VIDEO[_currentAgent]
 
   /* ═══════ AUTH ═══════ */
   var sessionToken = sessionStorage.getItem('nyxia_token') || ''
@@ -196,7 +198,7 @@
     if (msgs) msgs.innerHTML = ''
     var sug = document.getElementById('suggestions')
     if (sug) sug.style.display = 'flex'
-    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    var videoUrl = STUDIO_WELCOME_VIDEO_URL
     if (videoUrl) {
       addVideoMessage(videoUrl, _currentAgent, { autoplay: true })
       markVideoAutoplayed(_currentAgent)
@@ -219,7 +221,7 @@
     var msgs = document.getElementById('chat-messages-' + _currentAgent)
     if (!msgs) return
     if (msgs.querySelector('.msg')) return
-    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    var videoUrl = STUDIO_WELCOME_VIDEO_URL
     if (videoUrl) addVideoMessage(videoUrl, _currentAgent, { autoplay: false })
     list.forEach(function(item) {
       if (!item || !item.content) return
@@ -254,7 +256,7 @@
     document.title = 'Séléna — NyXia'
 
     renderStoredMessages()
-    var videoUrl = AGENT_WELCOME_VIDEO.selena
+    var videoUrl = STUDIO_WELCOME_VIDEO_URL
     if (videoUrl) {
       var alreadyPlayed = hasVideoAutoplayed('selena')
       // Autoplay SEULEMENT la première fois qu'on ouvre ce personnage dans la session
@@ -314,7 +316,7 @@
   }
 
   function rejouerVideoAccueil() {
-    var videoUrl = AGENT_WELCOME_VIDEO && AGENT_WELCOME_VIDEO[_currentAgent]
+    var videoUrl = STUDIO_WELCOME_VIDEO_URL
     if (!videoUrl) return
     var msgs = document.getElementById('chat-messages-' + _currentAgent)
     if (msgs) {
@@ -568,7 +570,6 @@
       .then(function(data){var p=data.profile;if(!p)return null;nxLiveProfile=p
         if(typeof ALPHA_INFO!=='undefined'&&ALPHA_INFO[_currentAgent])Object.assign(ALPHA_INFO[_currentAgent],p)
         if(typeof AGENT_IMAGES!=='undefined'&&Object.prototype.hasOwnProperty.call(p,'image'))AGENT_IMAGES[_currentAgent]=p.image
-        if(typeof AGENT_WELCOME_VIDEO!=='undefined'&&Object.prototype.hasOwnProperty.call(p,'welcomeVideo'))AGENT_WELCOME_VIDEO[_currentAgent]=p.welcomeVideo
         if(typeof PORTAL_AGENT!=='undefined')PORTAL_AGENT=Object.assign({},PORTAL_AGENT||{},p)
         var name=document.getElementById('chat-header-name'),sub=document.getElementById('chat-header-sub')
         if(name&&Object.prototype.hasOwnProperty.call(p,'name'))name.textContent=p.name
