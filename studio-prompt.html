@@ -171,6 +171,13 @@
     .nyxia-remove { color:#ffcad0;background:none;border:0;cursor:pointer;font-size:17px }
     #nyxia-tool-status { color:#d4c5ed;font-size:11px;flex:1;min-width:120px }
     @media(max-width:580px) { .nyxia-tools{padding:8px;gap:5px}.nyxia-tool{font-size:18px;padding:7px 10px;min-height:38px}.nyxia-tool span{display:none}#nyxia-tool-status{font-size:10px} }
+  
+    /* NyXia : accès rapide compact, en complément des grands boutons existants. */
+    .nyxia-compact-tool{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:38px;border:1px solid rgba(201,162,74,.35);border-radius:10px;background:rgba(12,21,45,.9);color:#f4e5bf;font-size:18px;cursor:pointer}
+    .nyxia-compact-tool:hover,.nyxia-compact-tool:focus-visible{background:rgba(123,92,255,.30);outline:2px solid rgba(201,162,74,.5);outline-offset:1px}
+    .nyxia-compact-tool[aria-pressed="true"]{background:#5b3cca}
+    .input-wrap .chat-input{min-width:0;flex:1 1 auto}
+    @media(max-width:480px){.nyxia-compact-tool{min-width:32px;height:36px;font-size:17px}}
   </style>
 </head>
 <body>
@@ -247,6 +254,8 @@
     <span id="nyxia-tool-status" role="status" aria-live="polite"></span>
   </div>
   <div class="input-wrap">
+    <button type="button" id="nyxia-attach-compact" class="nyxia-compact-tool" title="Joindre une image" aria-label="Joindre une image">📎</button>
+    <button type="button" id="nyxia-mic-compact" class="nyxia-compact-tool" title="Dicter un message" aria-label="Dicter un message">🎤</button>
     <textarea class="chat-input" id="chat-input" placeholder="Écris ou colle ton prompt ici…" rows="1"></textarea>
     <button class="btn-send" id="btn-send" onclick="sendMessage()">➤</button>
   </div>
@@ -706,7 +715,10 @@
     var field=document.getElementById('chat-input');
     window.nyxiaAttachedImage=null;
     window.nyxiaClearImage=function(){window.nyxiaAttachedImage=null;file.value='';preview.hidden=true;thumb.removeAttribute('src');status.textContent='Image retirée.'};
+    var compactAttach=document.getElementById('nyxia-attach-compact');
+    var compactMic=document.getElementById('nyxia-mic-compact');
     attach.addEventListener('click',function(){file.click()});
+    if(compactAttach)compactAttach.addEventListener('click',function(){file.click()});
     file.addEventListener('change',function(){
       var f=file.files&&file.files[0];if(!f)return;
       if(!['image/png','image/jpeg','image/webp'].includes(f.type)){status.textContent='Format accepté : JPG, PNG ou WebP.';file.value='';return}
@@ -726,12 +738,14 @@
       status.textContent='Analyse prête : clique sur Envoyer.';
     });
     var SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SpeechRecognition){mic.addEventListener('click',function(){status.textContent='Dictée indisponible dans ce navigateur. Essaie Chrome.'});return}
+    if(!SpeechRecognition){mic.addEventListener('click',function(){status.textContent='Dictée indisponible dans ce navigateur. Essaie Chrome.'});if(compactMic)compactMic.addEventListener('click',function(){status.textContent='Dictée indisponible dans ce navigateur. Essaie Chrome.'});return}
     var recognition=new SpeechRecognition();recognition.lang='fr-CA';recognition.continuous=false;recognition.interimResults=false;
     var active=false;
-    mic.addEventListener('click',function(){try{if(active)recognition.stop();else recognition.start()}catch(e){status.textContent='Microphone indisponible : '+e.message}});
-    recognition.onstart=function(){active=true;mic.setAttribute('aria-pressed','true');status.textContent='🎙️ Écoute en cours… Clique de nouveau pour arrêter.'};
-    recognition.onend=function(){active=false;mic.setAttribute('aria-pressed','false');if(status.textContent.indexOf('Écoute en cours')>=0)status.textContent='Dictée terminée. Vérifie le texte puis envoie.'};
+    function toggleDictation(){try{if(active)recognition.stop();else recognition.start()}catch(e){status.textContent='Microphone indisponible : '+e.message}}
+    mic.addEventListener('click',toggleDictation);
+    if(compactMic)compactMic.addEventListener('click',toggleDictation);
+    recognition.onstart=function(){active=true;mic.setAttribute('aria-pressed','true');if(compactMic)compactMic.setAttribute('aria-pressed','true');status.textContent='🎙️ Écoute en cours… Clique de nouveau pour arrêter.'};
+    recognition.onend=function(){active=false;mic.setAttribute('aria-pressed','false');if(compactMic)compactMic.setAttribute('aria-pressed','false');if(status.textContent.indexOf('Écoute en cours')>=0)status.textContent='Dictée terminée. Vérifie le texte puis envoie.'};
     recognition.onresult=function(e){var t=Array.from(e.results).map(function(r){return r[0].transcript}).join(' ').trim();if(t){field.value+=(field.value.trim()?' ':'')+t;field.dispatchEvent(new Event('input',{bubbles:true}));field.focus()}status.textContent='Dictée ajoutée. Tu peux modifier avant d’envoyer.'};
     recognition.onerror=function(e){status.textContent='Microphone : '+(e.error||'erreur')};
   })();
