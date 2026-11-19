@@ -115,6 +115,14 @@ textarea.f:focus,input.f:focus,select.f:focus{border-color:rgba(167,139,250,.7);
     <div class="grid">
       <section class="card">
         <h2>🎨 Création</h2>
+        <div class="field" id="nyxia-image-model-field" style="margin-top:15px">
+          <label class="f" for="nyxiaImageModel">Modèle de génération d’image</label>
+          <select class="f" id="nyxiaImageModel" aria-label="Choisir le modèle de génération d’image">
+            <option value="gpt">GPT Image — modèle actuel</option>
+            <option value="nano-banana-pro">Nano Banana Pro — Google Gemini</option>
+          </select>
+          <small id="nyxiaModelHelp" style="display:block;margin-top:7px;color:#d4c2e9;font-size:11px">Le moteur GPT Image actuel reste sélectionné par défaut.</small>
+        </div>
 
         <div class="field">
           <label class="f" for="actionMode">Ce que tu veux faire</label>
@@ -410,6 +418,7 @@ async function buildPayload(){
   var ref=document.getElementById('referenceFile').files[0]
   var payload={
     mode:document.getElementById('actionMode').value,
+    imageModel:document.getElementById('nyxiaImageModel').value,
     prompt:document.getElementById('prompt').value.trim(),
     format:document.getElementById('format').value,
     visualStyle:document.getElementById('visualStyle').value,
@@ -466,6 +475,17 @@ document.addEventListener('DOMContentLoaded',async function(){
   document.body.classList.add('auth-loading')
   var ok = await ensureStudioPromptAuth()
   if(!ok) return
+  var modelSelect=document.getElementById('nyxiaImageModel')
+  var transparency=document.getElementById('transparent')
+  var modelHelp=document.getElementById('nyxiaModelHelp')
+  function syncModel(){
+    var nano=modelSelect.value==='nano-banana-pro'
+    transparency.disabled=nano
+    if(nano)transparency.checked=false
+    modelHelp.textContent=nano?'Nano Banana Pro : création et modification d’images. Fond transparent non disponible.':'GPT Image : moteur actuel, options habituelles conservées.'
+  }
+  modelSelect.addEventListener('change',syncModel)
+  syncModel()
   var ref=document.getElementById('referenceFile')
   ref.addEventListener('change',function(){window._referenceDataUrl='';showReference(ref.files[0]||null)})
   renderHistory()

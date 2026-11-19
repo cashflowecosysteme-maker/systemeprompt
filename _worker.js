@@ -1247,6 +1247,10 @@ async function handleStudioChat(request, env) {
     return json({ error: 'JSON invalide.', content: 'JSON invalide.' }, 400);
   }
   const { message, history, model, token } = body || {};
+  const attachedImage = body && body.image ? String(body.image) : '';
+  if (attachedImage && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/i.test(attachedImage) || attachedImage.length > 7 * 1024 * 1024)) {
+    return json({error:'Image invalide ou trop volumineuse (JPG, PNG, WebP ; 5 Mo maximum).'},400);
+  }
 
   if (!token) return json({ error: 'Session manquante.', content: 'Session manquante — reconnecte-toi.' }, 401);
   const sessionRaw = await env.CASHFLOW_KV.get(`session:${token}`);
@@ -1268,7 +1272,12 @@ async function handleStudioChat(request, env) {
 
   // Modèles demandés + TOUJOURS un repli = même modèle que les personnages (prouvé chez toi)
   const requested = STUDIO_MODELS[model] || model || OPENROUTER_MODEL;
-  const chain = [requested, OPENROUTER_MODEL, OPENROUTER_FALLBACK_MODEL]
+  // Pour une image : utiliser uniquement le modèle sélectionné, sans repli silencieux.
+  const imageVisionModel = /^(google\/gemini-|anthropic\/claude-|openai\/gpt-|x-ai\/grok-)/.test(requested);
+  if (attachedImage && !imageVisionModel) {
+    return json({error:'Pour analyser une image, sélectionne Gemini, Claude, GPT ou Grok compatible vision.'},400);
+  }
+  const chain = (attachedImage ? [requested] : [requested, OPENROUTER_MODEL, OPENROUTER_FALLBACK_MODEL])
     .filter((v, i, a) => v && a.indexOf(v) === i);
 
   const systemPrompt = `Tu es un assistant polyvalent et précis dans le Studio Prompt de NyXia.
@@ -1278,7 +1287,10 @@ Réponds en français (sauf demande contraire). Sois clair, structuré et utile.
   const messages = [
     { role: 'system', content: systemPrompt },
     ...(Array.isArray(history) ? history.slice(-16) : []),
-    { role: 'user', content: String(message).trim() }
+    { role: 'user', content: attachedImage ? [
+      { type:'text', text:String(message).trim() || 'Décris précisément cette image.' },
+      { type:'image_url', image_url:{url:attachedImage} }
+    ] : String(message).trim() }
   ];
 
   let lastErr = '';
@@ -3704,8 +3716,18 @@ async function handleStudioImageGenerate(request, env) {
     return json({ error: 'Clé OpenRouter absente du Worker.' }, 500);
   }
 
-  const model = studioImageModel(env);
-  const quality = studioImageQuality(env);
+  // Le choix de modèle est explicite ; GPT conserve son fonctionnement historique.
+  const imageChoice = String(body.imageModel || 'gpt');
+  if (!['gpt','nano-banana-pro'].includes(imageChoice)) {
+    await studioImageRefundReservedUsage(env, session.email, 'Modèle image inconnu');
+    return json({error:'Modèle image non reconnu.'},400);
+  }
+  if (imageChoice === 'nano-banana-pro' && body.transparent) {
+    await studioImageRefundReservedUsage(env, session.email, 'Transparence indisponible');
+    return json({error:'Nano Banana Pro ne garantit pas un fond transparent. Décoche cette option.'},400);
+  }
+  const model = imageChoice === 'nano-banana-pro' ? 'google/gemini-3-pro-image' : studioImageModel(env);
+  const quality = imageChoice === 'gpt' ? studioImageQuality(env) : '';
   const aspectRatio = studioImageAspectRatio(body.format);
   const finalPrompt = studioImagePrompt({ ...body, mode });
 
